@@ -84,12 +84,15 @@ REQUIRED_KEYS = {
     "self_hosted_runner_denied",
     "admin_scope",
     "nonce_owner",
+    "nonce_issue_once",
+    "nonce_consume_once",
+    "nonce_reuse_rejected",
     "receipt_domain",
     "receipt_contract_stage",
     "admin_separation_evidence",
 }
 
-EVIDENCE_REQUIRED_KEYS = {"evidence_type", "uri", "sha256"}
+EVIDENCE_REQUIRED_KEYS = {"evidence_type", "subject", "uri", "sha256"}
 
 
 class ExternalAdminAdmissionError(ValueError):
@@ -200,6 +203,10 @@ def _validate_evidence(value: Any, errors: list[str]) -> None:
         else:
             seen_types.add(evidence_type)
 
+        subject = item.get("subject")
+        if not isinstance(subject, str) or OPAQUE_RE.fullmatch(subject) is None:
+            errors.append(f"{prefix}.subject: bounded identity required")
+
         uri = item.get("uri")
         if not isinstance(uri, str) or HTTPS_RE.fullmatch(uri) is None:
             errors.append(f"{prefix}.uri: HTTPS URI required")
@@ -285,6 +292,17 @@ def validate_descriptor(value: Any) -> list[str]:
         if not isinstance(raw, str) or OPAQUE_RE.fullmatch(raw) is None:
             errors.append(f"{field}: bounded identifier required")
 
+    nonce_owner = value.get("nonce_owner")
+    if isinstance(nonce_owner, str):
+        forbidden_nonce_owners = {PLANGATE_REPO.casefold()}
+        attestation_repo_for_nonce = value.get("attestation_repo")
+        if isinstance(attestation_repo_for_nonce, str):
+            forbidden_nonce_owners.add(attestation_repo_for_nonce.casefold())
+        if nonce_owner.casefold() in forbidden_nonce_owners:
+            errors.append(
+                "nonce_owner: PlanGate/attestation repository cannot own the independent one-time nonce ledger"
+            )
+
     if value.get("boundary_type") != "github_repository":
         errors.append(
             "boundary_type: github_repository required for this GitHub-attestation contract"
@@ -322,6 +340,38 @@ def validate_descriptor(value: Any) -> list[str]:
     if value.get("self_hosted_runner_denied") is not True:
         errors.append("self_hosted_runner_denied: true required")
 
+    for field in ("nonce_issue_once", "nonce_consume_once", "nonce_reuse_rejected"):
+        if value.get(field) is not True:
+            errors.append(f"{field}: true one-time nonce contract required")
+
+    immutable_workflow_ref = None
+    if (
+        isinstance(value.get("signer_workflow"), str)
+        and isinstance(value.get("signer_digest"), str)
+        and re.fullmatch(r"[0-9a-f]{40}", value["signer_digest"]) is not None
+    ):
+        immutable_workflow_ref = (
+            value["signer_workflow"] + "@" + value["signer_digest"]
+        )
+
+    expected_subjects = {
+        "administrator-separation-attestation": value.get("boundary_id"),
+        "signer-identity-attestation": immutable_workflow_ref,
+        "nonce-lifecycle-policy": value.get("nonce_owner"),
+    }
+    evidence = value.get("admin_separation_evidence")
+    if isinstance(evidence, list):
+        for index, item in enumerate(evidence):
+            if not isinstance(item, dict):
+                continue
+            evidence_type = item.get("evidence_type")
+            if evidence_type in expected_subjects and (
+                item.get("subject") != expected_subjects[evidence_type]
+            ):
+                errors.append(
+                    f"admin_separation_evidence[{index}].subject: exact boundary subject binding required"
+                )
+
     if value.get("receipt_domain") != receipt.RECEIPT_DOMAIN:
         errors.append("receipt_domain: exact #1471 receipt domain required")
     if value.get("receipt_contract_stage") != receipt.RECEIPT_STAGE:
@@ -353,6 +403,7 @@ def evaluate_descriptor(
         (
             {
                 "evidence_type": item["evidence_type"],
+                "subject": item["subject"],
                 "sha256": item["sha256"],
             }
             for item in value["admin_separation_evidence"]
@@ -377,6 +428,9 @@ def evaluate_descriptor(
         "oidc_issuer": value["oidc_issuer"],
         "admin_scope": value["admin_scope"],
         "nonce_owner": value["nonce_owner"],
+        "immutable_signer_workflow_ref": (
+            value["signer_workflow"] + "@" + value["signer_digest"]
+        ),
         "receipt_domain": value["receipt_domain"],
         "receipt_contract_stage": value["receipt_contract_stage"],
         "admin_evidence_count": len(value["admin_separation_evidence"]),
@@ -390,8 +444,11 @@ def evaluate_descriptor(
         "admin_evidence_refs_content_addressed_candidate": True,
         "admin_evidence_set_content_hash_candidate": True,
         "nonce_owner_declared_candidate": True,
+        "immutable_signer_workflow_identity_bound_candidate": True,
+        "nonce_one_time_contract_candidate": True,
         "receipt_contract_compatible_candidate": True,
         "admin_evidence_independently_verified": False,
+        "nonce_one_time_consumption_verified": False,
         "independent_admin_boundary_verified": False,
         "independent_verifier_execution_attested": False,
         "gh_attestation_cli_execution_verified": False,
@@ -407,9 +464,10 @@ def evaluate_descriptor(
         "dispatch_allowed": False,
         "verification_limit": (
             "the external boundary descriptor is structurally admissible and its "
-            "administrator-separation Evidence references are content-addressed, "
-            "but PlanGate has not independently verified those Evidence objects or "
-            "the administrator boundary itself; no strong promotion is allowed"
+            "administrator-separation Evidence references are subject-bound and "
+            "content-addressed, and a one-time nonce lifecycle is declared, but "
+            "PlanGate has not independently verified those Evidence objects, nonce "
+            "consumption, or the administrator boundary itself; no strong promotion is allowed"
         ),
         "authority": {key: False for key in sorted(AUTHORITY_KEYS)},
     }
