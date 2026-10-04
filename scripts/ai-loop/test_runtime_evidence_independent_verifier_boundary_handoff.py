@@ -204,6 +204,22 @@ class BoundaryHandoffTests(unittest.TestCase):
                 boundary_manifest_raw=_bytes(_rehash(value))
             )
 
+    def test_plangate_repository_cannot_be_admin_evidence_source(self):
+        for uri in (
+            "https://github.com/s977043/PlanGate/blob/main/evidence.json",
+            "https://api.github.com/repos/s977043/PlanGate/issues/1473",
+            "https://raw.githubusercontent.com/s977043/PlanGate/main/evidence.json",
+        ):
+            value = _manifest()
+            value["admin_evidence_refs"][0]["uri"] = uri
+            with self.subTest(uri=uri):
+                with self.assertRaises(
+                    boundary.IndependentVerifierBoundaryHandoffError
+                ):
+                    boundary.verify_boundary_handoff_bytes(
+                        boundary_manifest_raw=_bytes(_rehash(value))
+                    )
+
     def test_admin_evidence_requires_https_and_digest(self):
         value = _manifest()
         value["admin_evidence_refs"][0]["uri"] = "file:///tmp/fake.json"
