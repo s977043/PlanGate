@@ -78,6 +78,14 @@
     "challenge_binding_rejects_cross_run_replay_but_not_double_use_of_same_challenge": true,
     "same_challenge_one_time_consumption_requires_external_ledger": true,
     "independent_admin_proof_requires_external_trust_root": true,
-    "statement_or_runtime_text_is_not_authority": true
+    "statement_or_runtime_text_is_not_authority": true,
+    "downstream_must_bind_to_verifier_receipt_hash_not_receipt_id": true
+  },
+  "result_projection": {
+    "includes_exact_verifier_receipt_hash": true,
+    "includes_command_candidate_result_hash": true,
+    "includes_attestation_and_signer_policy": true,
+    "includes_observed_at": true,
+    "strong_authority_promotion": false
   }
 }
