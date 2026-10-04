@@ -1,0 +1,76 @@
+{
+  "description": "PROPOSAL/CONTRACT — #1468 external verifier receipt consumer candidate. A repository consumer may validate closed schema, exact command-candidate binding, one-time challenge, bounded freshness, and caller-supplied replay absence, but may not treat receipt claims as strong authority until receipt signature/origin and independent verifier execution are separately authenticated.",
+  "contract_stage": "r1-external-verifier-receipt-candidate-v1",
+  "external_receipt_domain": "plangate.independent-runtime-verifier-receipt/v1",
+  "binding": {
+    "exact_command_candidate_hash": true,
+    "exact_request_hash": true,
+    "exact_config_sha": true,
+    "exact_provider": true,
+    "exact_platform": true,
+    "exact_capture_id": true,
+    "exact_capture_manifest_file_sha256": true,
+    "exact_attestation_repo": true,
+    "exact_signer_repo": true,
+    "exact_signer_workflow": true,
+    "exact_source_digest": true,
+    "exact_signer_digest": true,
+    "exact_source_ref": true
+  },
+  "anti_replay": {
+    "one_time_challenge_hash_required": true,
+    "max_ttl_seconds": 900,
+    "observed_at_must_be_inside_window": true,
+    "consumed_receipt_hash_set_rejects_reuse": true,
+    "persistent_replay_ledger_owned_by_repository": false
+  },
+  "privacy": {
+    "raw_runtime_payload_allowed": false,
+    "raw_hook_or_exec_trace_allowed": false,
+    "bounded_identifiers_and_hashes_only": true
+  },
+  "candidate_evidence": [
+    "exact_command_candidate_binding_verified_candidate",
+    "external_receipt_self_hash_verified_candidate",
+    "external_claim_set_complete_candidate",
+    "challenge_binding_verified_candidate",
+    "freshness_window_verified_candidate",
+    "replay_absence_verified_candidate"
+  ],
+  "promotion": {
+    "receipt_presence_is_not_authority": true,
+    "external_claims_are_not_authority": true,
+    "must_remain_false_until_signature_origin_and_execution_provenance_are_independently_verified": [
+      "external_receipt_signature_verified",
+      "external_receipt_origin_verified",
+      "gh_attestation_cli_execution_verified",
+      "artifact_digest_cryptographically_verified",
+      "attestation_signature_cryptographically_verified",
+      "signer_certificate_identity_verified",
+      "verified_timestamp_cryptographically_verified",
+      "signer_workflow_policy_verified",
+      "source_digest_policy_verified",
+      "self_hosted_runner_denial_verified",
+      "capture_manifest_artifact_attestation_verified",
+      "independent_admin_boundary_verified",
+      "independent_verifier_execution_attested",
+      "managed_hook_root_attested",
+      "same_run_identity_verified",
+      "codex_jsonl_runtime_correlation_verified",
+      "hard_read_only_enforced",
+      "runtime_probe_attestation_verified",
+      "human_rollout_decision_verified",
+      "dispatch_ready",
+      "dispatch_allowed"
+    ]
+  },
+  "non_goals": [
+    "self-signing repository receipts",
+    "persistent replay-ledger ownership",
+    "Human rollout decision",
+    "Agent dispatch",
+    "code/PBI/Issue writes",
+    "merge/deploy authority",
+    "plugin rollout"
+  ]
+}
