@@ -11,7 +11,7 @@
     "oidc_issuer": "https://token.actions.githubusercontent.com",
     "self_hosted_runner_denied": true,
     "receipt_contract": "must match the #1471 external verifier receipt domain/stage",
-    "admin_separation_evidence": "three required external HTTPS Evidence classes, each with distinct SHA-256 and exact subject binding: boundary_id / immutable signer workflow@digest / nonce_owner; PlanGate repository references, credentials, query strings, fragments, and percent-encoding are rejected",
+    "admin_separation_evidence": "three required external HTTPS Evidence classes, each with distinct SHA-256 and exact subject binding: signer_repo / immutable signer workflow@digest / nonce_owner; PlanGate repository references, credentials, query strings, fragments, and percent-encoding are rejected",
     "one_time_nonce_lifecycle": "nonce_issue_once=true, nonce_consume_once=true, nonce_reuse_rejected=true; declaration only until external ledger Evidence is independently verified",
     "nonce_owner": "must be a bounded external identity and must not equal PlanGate or the attestation repository"
   },
@@ -58,7 +58,7 @@
     "raw runtime payload key",
     "descriptor attempts self-promotion",
     "descriptor stored inside PlanGate repository",
-    "admin Evidence subject does not match boundary_id / immutable signer workflow@digest / nonce_owner",
+    "admin Evidence subject does not match signer_repo / immutable signer workflow@digest / nonce_owner",
     "one-time nonce issue/consume/reuse contract missing",
     "nonce owner is PlanGate or attestation repository"
   ],
