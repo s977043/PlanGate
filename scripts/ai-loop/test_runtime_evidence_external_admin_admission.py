@@ -58,7 +58,7 @@ def _descriptor():
         "admin_separation_evidence": [
             {
                 "evidence_type": "administrator-separation-attestation",
-                "subject": "runtime-verifier-prod",
+                "subject": SIGNER_REPO,
                 "uri": "https://example.invalid/evidence/admin-separation.json",
                 "sha256": "sha256:" + "a" * 64,
             },
