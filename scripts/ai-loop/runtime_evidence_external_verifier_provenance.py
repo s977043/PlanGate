@@ -27,6 +27,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import pathlib
 import re
 import stat
@@ -177,6 +178,8 @@ def _strict_json_loads(raw: bytes, field: str) -> Any:
 def _require_external_regular_file(path, *, repo_root, field) -> bytes:
     root = pathlib.Path(repo_root).resolve()
     source = pathlib.Path(path)
+    if not root.is_dir():
+        raise ExternalVerifierProvenanceError(["repo_root: existing directory required"])
     if not source.is_absolute():
         raise ExternalVerifierProvenanceError([f"{field}: absolute path required"])
     if not source.parent.is_dir() or source.parent.resolve() != source.parent:
@@ -200,7 +203,26 @@ def _require_external_regular_file(path, *, repo_root, field) -> bytes:
         raise ExternalVerifierProvenanceError(
             [f"{field}: verifier provenance artifact must stay outside repository"]
         )
-    raw = source.read_bytes()
+
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(source, flags)
+    except OSError as exc:
+        raise ExternalVerifierProvenanceError(
+            [f"{field}: cannot open source safely: {exc}"]
+        ) from exc
+    try:
+        current_mode = os.fstat(fd).st_mode
+        if not stat.S_ISREG(current_mode):
+            raise ExternalVerifierProvenanceError(
+                [f"{field}: regular file required after open"]
+            )
+        with os.fdopen(fd, "rb", closefd=True) as handle:
+            fd = -1
+            raw = handle.read(MAX_JSON_BYTES + 1)
+    finally:
+        if fd >= 0:
+            os.close(fd)
     if len(raw) > MAX_JSON_BYTES:
         raise ExternalVerifierProvenanceError([f"{field}: exceeds JSON byte limit"])
     return raw
