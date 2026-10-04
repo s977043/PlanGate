@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+import json
+import pathlib
+import sys
+import tempfile
+import unittest
+
+HERE = pathlib.Path(__file__).resolve().parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+
+import runtime_evidence_external_admin_admission as admission  # noqa: E402
+import runtime_evidence_external_verifier_receipt as receipt  # noqa: E402
+import runtime_evidence_independent_attestation_verifier as command_candidate  # noqa: E402
+
+
+ATTESTATION_REPO = "s977043/PlanGate"
+SIGNER_REPO = "trusted-runtime/runtime-verifier"
+WORKFLOW = SIGNER_REPO + "/.github/workflows/verify-runtime-attestation.yml"
+SOURCE = "0123456789abcdef0123456789abcdef01234567"
+SIGNER = "89abcdef0123456789abcdef0123456789abcdef"
+
+
+def _descriptor():
+    return {
+        "schema_version": "1",
+        "domain": admission.INPUT_DOMAIN,
+        "contract_stage": admission.INPUT_STAGE,
+        "boundary_id": "runtime-verifier-prod",
+        "boundary_type": "github_repository",
+        "attestation_repo": ATTESTATION_REPO,
+        "signer_repo": SIGNER_REPO,
+        "signer_workflow": WORKFLOW,
+        "signer_digest": SIGNER,
+        "source_digest": SOURCE,
+        "source_ref": "refs/heads/main",
+        "oidc_issuer": command_candidate.OIDC_ISSUER,
+        "self_hosted_runner_denied": True,
+        "admin_scope": "external-runtime-verifier-admins",
+        "nonce_owner": "external-runtime-verifier",
+        "receipt_domain": receipt.RECEIPT_DOMAIN,
+        "receipt_contract_stage": receipt.RECEIPT_STAGE,
+        "admin_separation_evidence": [
+            {
+                "evidence_type": "repository-admin-policy",
+                "uri": "https://example.invalid/evidence/admin-policy.json",
+                "sha256": "sha256:" + "a" * 64,
+            },
+            {
+                "evidence_type": "workflow-identity-attestation",
+                "uri": "https://example.invalid/evidence/workflow-identity.json",
+                "sha256": "sha256:" + "b" * 64,
+            },
+        ],
+    }
+
+
+def _json_bytes(value):
+    return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+
+
+class ExternalAdminAdmissionTests(unittest.TestCase):
+    def _run(self, *, mutate=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo_root = root / "repo"
+            external = root / "external"
+            repo_root.mkdir()
+            external.mkdir()
+
+            value = _descriptor()
+            if mutate is not None:
+                mutate(value)
+
+            path = external / "boundary.json"
+            path.write_bytes(_json_bytes(value))
+            return admission.evaluate_descriptor(
+                repo_root=repo_root,
+                descriptor_path=path,
+            )
+
+    def test_valid_descriptor_stays_candidate_only(self):
+        result = self._run()
+        for field in (
+            "descriptor_structure_verified",
+            "signer_repo_structurally_separate_candidate",
+            "immutable_signer_digest_bound_candidate",
+            "source_digest_policy_bound_candidate",
+            "oidc_issuer_bound_candidate",
+            "self_hosted_runner_denial_declared_candidate",
+            "admin_evidence_refs_content_addressed_candidate",
+            "nonce_owner_declared_candidate",
+            "receipt_contract_compatible_candidate",
+        ):
+            self.assertTrue(result[field])
+
+        for field in (
+            "admin_evidence_independently_verified",
+            "independent_admin_boundary_verified",
+            "independent_verifier_execution_attested",
+            "gh_attestation_cli_execution_verified",
+            "artifact_digest_cryptographically_verified",
+            "attestation_signature_cryptographically_verified",
+            "signer_certificate_identity_verified",
+            "source_digest_policy_verified",
+            "signer_workflow_policy_verified",
+            "self_hosted_runner_denial_verified",
+            "runtime_probe_attestation_verified",
+            "human_rollout_decision_verified",
+            "dispatch_ready",
+            "dispatch_allowed",
+        ):
+            self.assertFalse(result[field])
+        self.assertFalse(any(result["authority"].values()))
+
+    def test_signer_repo_must_be_separate_from_attestation_repo(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value.update(
+                    {
+                        "signer_repo": ATTESTATION_REPO,
+                        "signer_workflow": (
+                            ATTESTATION_REPO
+                            + "/.github/workflows/verify-runtime-attestation.yml"
+                        ),
+                    }
+                )
+            )
+
+    def test_plangate_repo_cannot_be_external_signer(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value.update(
+                    {
+                        "attestation_repo": "other/evidence",
+                        "signer_repo": "s977043/PlanGate",
+                        "signer_workflow": (
+                            "s977043/PlanGate/.github/workflows/verify.yml"
+                        ),
+                    }
+                )
+            )
+
+    def test_plangate_repository_evidence_uri_is_rejected(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value["admin_separation_evidence"][0].update(
+                    {
+                        "uri": (
+                            "https://github.com/s977043/PlanGate/blob/main/"
+                            "docs/evidence.json"
+                        )
+                    }
+                )
+            )
+
+    def test_duplicate_evidence_digest_is_rejected(self):
+        def mutate(value):
+            value["admin_separation_evidence"][1]["sha256"] = (
+                value["admin_separation_evidence"][0]["sha256"]
+            )
+
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(mutate=mutate)
+
+    def test_self_hosted_runner_denial_is_required(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value.__setitem__(
+                    "self_hosted_runner_denied", False
+                )
+            )
+
+    def test_receipt_contract_must_match_1471(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value.__setitem__(
+                    "receipt_contract_stage", "other-stage"
+                )
+            )
+
+    def test_raw_runtime_payload_key_is_rejected(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value.__setitem__(
+                    "stdout", "runtime output"
+                )
+            )
+
+    def test_self_promotion_field_is_rejected_as_unknown(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value.__setitem__(
+                    "independent_admin_boundary_verified", True
+                )
+            )
+
+    def test_descriptor_inside_repository_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo_root = root / "repo"
+            repo_root.mkdir()
+            path = repo_root / "boundary.json"
+            path.write_bytes(_json_bytes(_descriptor()))
+            with self.assertRaises(admission.ExternalAdminAdmissionError):
+                admission.evaluate_descriptor(
+                    repo_root=repo_root,
+                    descriptor_path=path,
+                )
+
+
+if __name__ == "__main__":
+    unittest.main()
