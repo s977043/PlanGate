@@ -46,7 +46,12 @@ INPUT_STAGE = "r1-external-admin-boundary-input-v1"
 PLANGATE_REPO = "s977043/PlanGate"
 
 MAX_JSON_BYTES = 512 * 1024
-MIN_EVIDENCE_ITEMS = 2
+REQUIRED_EVIDENCE_TYPES = frozenset({
+    "administrator-separation-attestation",
+    "signer-identity-attestation",
+    "nonce-lifecycle-policy",
+})
+MIN_EVIDENCE_ITEMS = len(REQUIRED_EVIDENCE_TYPES)
 MAX_EVIDENCE_ITEMS = 16
 HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 REPO_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$")
@@ -215,6 +220,13 @@ def _validate_evidence(value: Any, errors: list[str]) -> None:
             errors.append(f"{prefix}.sha256: duplicate Evidence digest")
         else:
             seen_hashes.add(digest)
+
+    missing_types = sorted(REQUIRED_EVIDENCE_TYPES - seen_types)
+    if missing_types:
+        errors.append(
+            "admin_separation_evidence: required Evidence types missing: "
+            + repr(missing_types)
+        )
 
 
 def validate_descriptor(value: Any) -> list[str]:
