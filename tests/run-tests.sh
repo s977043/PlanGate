@@ -154,6 +154,8 @@ else
   fail=$((fail + 1))
 fi
 
+# status phase inference reaches C-3 only after the earlier workflow artifacts exist.
+touch "$REPO_WORKING/pbi-input.md"
 _t03_status_rc=0
 _t03_status_out="$(sh "$PLANGATE_BIN" status "$GATE_TASK_ID" 2>&1)" || _t03_status_rc=$?
 if [ "$_t03_status_rc" -eq 0 ] \
