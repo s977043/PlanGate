@@ -16,6 +16,16 @@ runner_policy:
   self_hosted_runner_denied: true
   github_hosted_runner_required_candidate: true
 
+least_privilege:
+  plangate_repository_write_allowed: false
+  issue_write_allowed: false
+  pull_request_write_allowed: false
+  merge_allowed: false
+  deploy_allowed: false
+  raw_runtime_payload_persist_allowed: false
+  bounded_receipt_only: true
+  external_evidence_publication_only: true
+
 receipt_contract:
   domain: plangate.runtime-r1-external-verifier-receipt-input/v1
   stage: r1-external-verifier-receipt-input-v1
