@@ -470,6 +470,75 @@ def build_r1_investigation_request(
     return request
 
 
+def _cli_status_projection(request: dict[str, Any]) -> dict[str, Any]:
+    """Return the non-sensitive CLI receipt for a validated R1 request.
+
+    The full request can contain source-bound identifiers. Keep it in-memory and
+    expose only the reviewed activation/authority status needed by the shadow
+    executable contract. This prevents repository/runtime identifiers from
+    crossing the stdout boundary merely because the CLI validated them.
+    """
+    runtime_guard = request["runtime_guard"]
+    activation = request["pre_run_activation"]
+    authority = request["authority"]
+    untrusted = request["untrusted_evidence"]
+
+    return {
+        "schema_version": request["schema_version"],
+        "domain": request["domain"],
+        "mode": request["mode"],
+        "request_hash": request["request_hash"],
+        "output_contract": {
+            "full_request_emitted": False,
+            "source_ref_emitted": False,
+            "inline_runtime_content_emitted": False,
+        },
+        "runtime_guard": {
+            "installed": runtime_guard["installed"],
+            "read_only_declared": runtime_guard.get("read_only_declared", False),
+            "static_sandbox_candidate": runtime_guard.get(
+                "static_sandbox_candidate", False
+            ),
+            "hard_read_only_enforced": runtime_guard["hard_read_only_enforced"],
+        },
+        "pre_run_activation": {
+            "sandbox_eligible": activation["sandbox_eligible"],
+            "runtime_role_registered": activation["runtime_role_registered"],
+            "provider_connector_registered": activation[
+                "provider_connector_registered"
+            ],
+            "admission_binding_verified": activation["admission_binding_verified"],
+            "rollout_decision_recorded": activation["rollout_decision_recorded"],
+            "dispatch_ready": activation["dispatch_ready"],
+            "dispatch_allowed": activation["dispatch_allowed"],
+            "dispatched": activation["dispatched"],
+            "result_received": activation["result_received"],
+        },
+        "v2_run_activation": {
+            "applicable": request["v2_run_activation"]["applicable"],
+        },
+        "untrusted_evidence": {
+            "inline_content_allowed": untrusted["inline_content_allowed"],
+            "instruction_authority": untrusted["instruction_authority"],
+        },
+        "authority": {
+            "agent_invoke_allowed": authority["agent_invoke_allowed"],
+            "web_search_allowed": authority["web_search_allowed"],
+            "network_shell_allowed": authority["network_shell_allowed"],
+            "credential_read_allowed": authority["credential_read_allowed"],
+            "code_write_allowed": authority["code_write_allowed"],
+            "issue_write_allowed": authority["issue_write_allowed"],
+            "pbi_write_allowed": authority["pbi_write_allowed"],
+            "run_state_write_allowed": authority["run_state_write_allowed"],
+            "run_evidence_write_allowed": authority["run_evidence_write_allowed"],
+            "approval_allowed": authority["approval_allowed"],
+            "merge_allowed": authority["merge_allowed"],
+            "deploy_allowed": authority["deploy_allowed"],
+            "publish_allowed": authority["publish_allowed"],
+        },
+    }
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", required=True)
@@ -492,17 +561,9 @@ def main(argv=None) -> int:
             print(f"ERROR: {error}", file=sys.stderr)
         return 2
 
-    # stdout is the explicit artifact channel for this CLI, not a diagnostic log.
-    # The request has already passed the privacy contract and contains no inline
-    # runtime payload; emit exactly the validated projection.
-    #
-    # CodeQL follows the source-ref taint into stdout even though the emitted
-    # request intentionally contains only a repository-visible content-addressed
-    # ref/hash plus closed control metadata. The regression suite below verifies
-    # raw runtime statements/secrets are not present in this channel.
+    cli_status = _cli_status_projection(request)
     sys.stdout.write(
-        # codeql[py/clear-text-logging-sensitive-data]
-        json.dumps(request, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        json.dumps(cli_status, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     )
     return 0
 
