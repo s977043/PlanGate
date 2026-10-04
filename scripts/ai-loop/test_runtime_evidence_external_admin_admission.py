@@ -201,6 +201,33 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
                 )
             )
 
+    def test_plangate_repository_evidence_uri_dot_segment_bypass_is_rejected(self):
+        def mutate(value):
+            value["admin_separation_evidence"][0]["uri"] = (
+                "https://github.com/s977043/./PlanGate/evidence.json"
+            )
+
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(mutate=mutate)
+
+    def test_plangate_repository_evidence_uri_double_slash_bypass_is_rejected(self):
+        def mutate(value):
+            value["admin_separation_evidence"][0]["uri"] = (
+                "https://github.com/s977043//PlanGate/evidence.json"
+            )
+
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(mutate=mutate)
+
+    def test_noncanonical_external_evidence_uri_path_is_rejected(self):
+        def mutate(value):
+            value["admin_separation_evidence"][0]["uri"] = (
+                "https://example.invalid/evidence/../admin.json"
+            )
+
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(mutate=mutate)
+
     def test_external_service_type_is_not_admitted_by_github_contract(self):
         with self.assertRaises(admission.ExternalAdminAdmissionError):
             self._run(
