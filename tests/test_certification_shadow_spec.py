@@ -84,7 +84,9 @@ def compose_certification(
     if set(owner_artifact_verdicts) != set(required):
         raise ValueError("owner verdict keys must exactly match required_verifiers")
 
-    refs_by_verifier = supporting_verification_refs or {}
+    refs_by_verifier = (
+        {} if supporting_verification_refs is None else supporting_verification_refs
+    )
     if not isinstance(refs_by_verifier, dict):
         raise ValueError("supporting_verification_refs")
     if not set(refs_by_verifier).issubset(set(required)):
@@ -117,7 +119,7 @@ def compose_certification(
     )
     supplemental = [
         ref
-        for ref in _canonical_refs(supplemental_evidence_refs or ())
+        for ref in _canonical_refs(supplemental_evidence_refs)
         if ref not in required_support_refs
     ]
 
@@ -222,6 +224,25 @@ class CertificationShadowSpecTests(unittest.TestCase):
                 owner_target_ref="sha256:" + "a" * 64,
                 owner_loop_contract_ref="loop-contract:other",
             )
+
+    def test_falsy_wrong_types_do_not_collapse_to_empty_inputs(self):
+        wrong_support = ([], "", set(), frozenset())
+        for value in wrong_support:
+            with self.subTest(supporting_type=type(value).__name__):
+                with self.assertRaises(ValueError):
+                    self._compose(
+                        {self.D: "pass"},
+                        refs=value,
+                    )
+
+        wrong_supplemental = ("", {}, 0, False)
+        for value in wrong_supplemental:
+            with self.subTest(supplemental=repr(value)):
+                with self.assertRaises(ValueError):
+                    self._compose(
+                        {self.D: "pass"},
+                        supplemental=value,
+                    )
 
     def test_empty_required_set_is_rejected(self):
         with self.assertRaises(ValueError):
