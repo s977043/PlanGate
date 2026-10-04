@@ -324,6 +324,18 @@ def evaluate_descriptor(
         raise ExternalAdminAdmissionError(errors)
 
     assert isinstance(value, dict)
+    evidence_identity = sorted(
+        (
+            {
+                "evidence_type": item["evidence_type"],
+                "sha256": item["sha256"],
+            }
+            for item in value["admin_separation_evidence"]
+        ),
+        key=lambda item: (item["evidence_type"], item["sha256"]),
+    )
+    evidence_set_hash = ingress._canonical_hash(evidence_identity)
+
     result = {
         "schema_version": "1",
         "domain": DOMAIN,
@@ -343,6 +355,7 @@ def evaluate_descriptor(
         "receipt_domain": value["receipt_domain"],
         "receipt_contract_stage": value["receipt_contract_stage"],
         "admin_evidence_count": len(value["admin_separation_evidence"]),
+        "admin_evidence_set_hash": evidence_set_hash,
         "descriptor_structure_verified": True,
         "signer_repo_structurally_separate_candidate": True,
         "immutable_signer_digest_bound_candidate": True,
@@ -350,6 +363,7 @@ def evaluate_descriptor(
         "oidc_issuer_bound_candidate": True,
         "self_hosted_runner_denial_declared_candidate": True,
         "admin_evidence_refs_content_addressed_candidate": True,
+        "admin_evidence_set_content_hash_candidate": True,
         "nonce_owner_declared_candidate": True,
         "receipt_contract_compatible_candidate": True,
         "admin_evidence_independently_verified": False,
