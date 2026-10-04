@@ -27,6 +27,7 @@ import pathlib
 import re
 import stat
 import sys
+import urllib.parse
 from typing import Any
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -45,6 +46,7 @@ INPUT_STAGE = "r1-external-admin-boundary-input-v1"
 PLANGATE_REPO = "s977043/PlanGate"
 
 MAX_JSON_BYTES = 512 * 1024
+MIN_EVIDENCE_ITEMS = 2
 MAX_EVIDENCE_ITEMS = 16
 HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 REPO_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$")
@@ -164,8 +166,10 @@ def _require_external_regular_file(
 
 
 def _validate_evidence(value: Any, errors: list[str]) -> None:
-    if not isinstance(value, list) or not value:
-        errors.append("admin_separation_evidence: non-empty array required")
+    if not isinstance(value, list) or len(value) < MIN_EVIDENCE_ITEMS:
+        errors.append(
+            f"admin_separation_evidence: at least {MIN_EVIDENCE_ITEMS} items required"
+        )
         return
     if len(value) > MAX_EVIDENCE_ITEMS:
         errors.append(
@@ -174,6 +178,7 @@ def _validate_evidence(value: Any, errors: list[str]) -> None:
         return
 
     seen_hashes: set[str] = set()
+    seen_types: set[str] = set()
     for index, item in enumerate(value):
         prefix = f"admin_separation_evidence[{index}]"
         if not isinstance(item, dict) or set(item) != EVIDENCE_REQUIRED_KEYS:
@@ -183,14 +188,25 @@ def _validate_evidence(value: Any, errors: list[str]) -> None:
         evidence_type = item.get("evidence_type")
         if not isinstance(evidence_type, str) or OPAQUE_RE.fullmatch(evidence_type) is None:
             errors.append(f"{prefix}.evidence_type: bounded identifier required")
+        elif evidence_type in seen_types:
+            errors.append(f"{prefix}.evidence_type: duplicate Evidence type")
+        else:
+            seen_types.add(evidence_type)
 
         uri = item.get("uri")
         if not isinstance(uri, str) or HTTPS_RE.fullmatch(uri) is None:
             errors.append(f"{prefix}.uri: HTTPS URI required")
-        elif "github.com/s977043/PlanGate" in uri:
-            errors.append(
-                f"{prefix}.uri: PlanGate repository cannot be independent-admin Evidence"
-            )
+        else:
+            parsed = urllib.parse.urlsplit(uri)
+            decoded = urllib.parse.unquote(uri).casefold()
+            if parsed.scheme.casefold() != "https" or not parsed.hostname:
+                errors.append(f"{prefix}.uri: normalized HTTPS URI required")
+            if parsed.username is not None or parsed.password is not None:
+                errors.append(f"{prefix}.uri: embedded credentials are not allowed")
+            if "s977043/plangate" in decoded:
+                errors.append(
+                    f"{prefix}.uri: PlanGate repository cannot be independent-admin Evidence"
+                )
 
         digest = item.get("sha256")
         if not isinstance(digest, str) or HASH_RE.fullmatch(digest) is None:
@@ -228,9 +244,9 @@ def validate_descriptor(value: Any) -> list[str]:
         if not isinstance(raw, str) or OPAQUE_RE.fullmatch(raw) is None:
             errors.append(f"{field}: bounded identifier required")
 
-    if value.get("boundary_type") not in {"github_repository", "external_service"}:
+    if value.get("boundary_type") != "github_repository":
         errors.append(
-            "boundary_type: github_repository or external_service required"
+            "boundary_type: github_repository required for this GitHub-attestation contract"
         )
 
     attestation_repo = value.get("attestation_repo")
