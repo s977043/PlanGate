@@ -119,14 +119,14 @@ printf '\n=== TA-03: exec command gate enforcement ===\n'
 # Use a per-process task ID so this test never overwrites an existing working task.
 TMPDIR_TASK="$(dirname "$FIXTURES_DIR")/tmp-working-$$"
 mkdir -p "$TMPDIR_TASK"
-GATE_TASK_ID="TASK-GUIDANCE-$$"
-REPO_WORKING="$(CDPATH= cd -- "$(dirname "$FIXTURES_DIR")/.." && pwd)/docs/working/$GATE_TASK_ID"
-if [ -e "$REPO_WORKING" ]; then
-  printf '[FAIL] exec guidance fixture collision: %s already exists\n' "$REPO_WORKING"
-  fail=$((fail + 1))
-else
-  mkdir -p "$REPO_WORKING"
-fi
+GATE_TASK_ID="TASK-GUIDANCE-$"
+REPO_WORKING_ROOT="$(CDPATH= cd -- "$(dirname "$FIXTURES_DIR")/.." && pwd)/docs/working"
+REPO_WORKING="$REPO_WORKING_ROOT/$GATE_TASK_ID"
+while [ -e "$REPO_WORKING" ]; do
+  GATE_TASK_ID="${GATE_TASK_ID}-X"
+  REPO_WORKING="$REPO_WORKING_ROOT/$GATE_TASK_ID"
+done
+mkdir -p "$REPO_WORKING"
 touch "$REPO_WORKING/plan.md"
 
 _t03_run() {
