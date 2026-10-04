@@ -41,7 +41,12 @@ _REQUIRED_VERIFIER_FIELDS = frozenset(
 
 
 def _identity(value, label):
-    if not isinstance(value, str) or not value or value != value.strip():
+    if (
+        not isinstance(value, str)
+        or not value
+        or value != value.strip()
+        or not value.isprintable()
+    ):
         raise ValueError(label)
     return value
 
@@ -208,7 +213,15 @@ class CertificationShadowSpecTests(unittest.TestCase):
         )
 
     def test_identity_inputs_reject_blank_or_surrounding_whitespace(self):
-        bad_values = ("", " ", "  value", "value  ")
+        bad_values = (
+            "",
+            " ",
+            "  value",
+            "value  ",
+            "value\nother",
+            "value\tother",
+            "value\x00other",
+        )
         for bad in bad_values:
             with self.subTest(value=repr(bad)):
                 with self.assertRaises(ValueError):
