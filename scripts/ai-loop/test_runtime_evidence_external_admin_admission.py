@@ -164,9 +164,9 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
         baseline = self._run()
 
         def mutate(value):
-            value["boundary_id"] = "runtime-verifier-prod-v2"
-            value["admin_separation_evidence"][0]["subject"] = (
-                "runtime-verifier-prod-v2"
+            value["nonce_owner"] = "external-runtime-verifier-v2"
+            value["admin_separation_evidence"][2]["subject"] = (
+                "external-runtime-verifier-v2"
             )
 
         changed = self._run(mutate=mutate)
