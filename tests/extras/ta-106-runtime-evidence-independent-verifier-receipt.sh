@@ -71,6 +71,7 @@ else
 fi
 
 if grep -q '"external_receipt_content_addressed_candidate": True' "$_T106_IMPL" \
+  && grep -q '"verifier_receipt_hash": receipt\["receipt_hash"\]' "$_T106_IMPL" \
   && grep -q '"receipt_signature_verified": False' "$_T106_IMPL" \
   && grep -q '"independent_admin_boundary_verified": False' "$_T106_IMPL" \
   && grep -q '"independent_verifier_execution_attested": False' "$_T106_IMPL" \
@@ -96,7 +97,8 @@ fi
 if [ -f "$_T106_PROPOSAL" ] \
   && grep -q '"self_hash_is_content_addressing_not_signature": true' "$_T106_PROPOSAL" \
   && grep -q '"same_challenge_one_time_consumption_requires_external_ledger": true' "$_T106_PROPOSAL" \
-  && grep -q '"independent_admin_proof_requires_external_trust_root": true' "$_T106_PROPOSAL"; then
+  && grep -q '"independent_admin_proof_requires_external_trust_root": true' "$_T106_PROPOSAL" \
+  && grep -q '"downstream_must_bind_to_verifier_receipt_hash_not_receipt_id": true' "$_T106_PROPOSAL"; then
   printf '  [PASS] proposal: external ledger/trust-root gaps remain explicit\n'
   pass=$((pass + 1))
 else
