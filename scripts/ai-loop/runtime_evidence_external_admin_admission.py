@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """:"
 # --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
 echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
 echo "       Use: python3 $0 [args...]" >&2
 exit 2
@@ -27,7 +30,6 @@ import pathlib
 import re
 import stat
 import sys
-import urllib.parse
 from typing import Any
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -202,17 +204,21 @@ def _validate_evidence(value: Any, errors: list[str]) -> None:
         if not isinstance(uri, str) or HTTPS_RE.fullmatch(uri) is None:
             errors.append(f"{prefix}.uri: HTTPS URI required")
         else:
-            parsed = urllib.parse.urlsplit(uri)
-            decoded = urllib.parse.unquote(uri).casefold()
-            if parsed.scheme.casefold() != "https" or not parsed.hostname:
-                errors.append(f"{prefix}.uri: normalized HTTPS URI required")
-            if parsed.username is not None or parsed.password is not None:
+            normalized = uri.casefold()
+            authority = uri[len("https://"):].split("/", 1)[0]
+            if not authority:
+                errors.append(f"{prefix}.uri: HTTPS authority required")
+            if "@" in authority:
                 errors.append(f"{prefix}.uri: embedded credentials are not allowed")
-            if parsed.query or parsed.fragment:
+            if "?" in uri or "#" in uri:
                 errors.append(
                     f"{prefix}.uri: query/fragment are not allowed in Evidence URI"
                 )
-            if "s977043/plangate" in decoded:
+            if "%" in uri:
+                errors.append(
+                    f"{prefix}.uri: percent-encoding is not allowed in Evidence URI"
+                )
+            if "s977043/plangate" in normalized:
                 errors.append(
                     f"{prefix}.uri: PlanGate repository cannot be independent-admin Evidence"
                 )
