@@ -17,6 +17,27 @@ AUTHORITATIVE = False
 IMPLEMENTATION_MODE = "executable_spec"
 OWNER_API_CONNECTED = False
 _ALLOWED_VERDICTS = frozenset({"pass", "fail", "unavailable"})
+_TOP_LEVEL_PROJECTION_FIELDS = frozenset(
+    {
+        "authoritative",
+        "mode",
+        "owner_api_connected",
+        "verdict_source",
+        "target_ref",
+        "loop_contract_ref",
+        "required_verifiers",
+        "shared_required_evidence_refs",
+        "supplemental_evidence_refs",
+    }
+)
+_REQUIRED_VERIFIER_FIELDS = frozenset(
+    {
+        "verifier_id",
+        "kind",
+        "artifact_verdict",
+        "supporting_verification_refs",
+    }
+)
 
 
 def _identity(value, label):
@@ -367,6 +388,31 @@ class CertificationShadowSpecTests(unittest.TestCase):
         self.assertNotIn("verification_results", parameters)
         self.assertNotIn("contract_bound_seq", parameters)
         self.assertNotIn("run_state", parameters)
+
+    def test_projection_surface_is_closed_and_reviewable(self):
+        projection = self._compose(
+            {self.D: "pass", self.C: "unavailable"},
+            required=(self.D, self.C),
+        )
+        self.assertEqual(set(projection), _TOP_LEVEL_PROJECTION_FIELDS)
+        for item in projection["required_verifiers"]:
+            self.assertEqual(set(item), _REQUIRED_VERIFIER_FIELDS)
+
+        prohibited_parallel_semantics = {
+            "status",
+            "score",
+            "confidence",
+            "risk",
+            "policy_verdict",
+            "decision",
+            "outcome",
+            "state",
+            "stop_reason",
+            "promotion_decision",
+        }
+        self.assertTrue(
+            set(projection).isdisjoint(prohibited_parallel_semantics)
+        )
 
     def test_projection_cannot_be_self_promoted_by_caller(self):
         parameters = set(inspect.signature(compose_certification).parameters)
