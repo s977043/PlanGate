@@ -116,41 +116,112 @@ fi
 
 printf '\n=== TA-03: exec command gate enforcement ===\n'
 
-# Create a temporary task dir without approvals/c3.json to test gate enforcement
-TMPDIR_TASK="$(dirname "$FIXTURES_DIR")/tmp-working"
+# Use a per-process task ID so this test never overwrites an existing working task.
+TMPDIR_TASK="$(dirname "$FIXTURES_DIR")/tmp-working-$$"
 mkdir -p "$TMPDIR_TASK"
+GATE_TASK_ID="TASK-GUIDANCE-CI"
+REPO_WORKING_ROOT="$(CDPATH= cd -- "$(dirname "$FIXTURES_DIR")/.." && pwd)/docs/working"
+REPO_WORKING="$REPO_WORKING_ROOT/$GATE_TASK_ID"
+while [ -e "$REPO_WORKING" ]; do
+  GATE_TASK_ID="${GATE_TASK_ID}-X"
+  REPO_WORKING="$REPO_WORKING_ROOT/$GATE_TASK_ID"
+done
+mkdir -p "$REPO_WORKING"
+touch "$REPO_WORKING/plan.md"
 
-# Temporarily point plangate_working_dir at our tmp dir by creating TASK-GATETEST
-GATE_TASK_DIR="$TMPDIR_TASK/TASK-GATETEST"
-mkdir -p "$GATE_TASK_DIR"
-touch "$GATE_TASK_DIR/plan.md"
+_t03_run() {
+  _t03_name=$1
+  _t03_stdout="$TMPDIR_TASK/$_t03_name.stdout"
+  _t03_stderr="$TMPDIR_TASK/$_t03_name.stderr"
+  _t03_rc=0
+  sh "$PLANGATE_BIN" exec "$GATE_TASK_ID" >"$_t03_stdout" 2>"$_t03_stderr" || _t03_rc=$?
+  T03_RC=$_t03_rc
+  T03_STDOUT=$_t03_stdout
+  T03_STDERR=$_t03_stderr
+}
 
-# exec requires PLANGATE_WORKING_DIR override — we need to run it with modified path.
-# Since bin/plangate computes plangate_working_dir from its own location, we use a
-# wrapper that symlinks docs/working/TASK-GATETEST to our temp dir.
-REPO_WORKING="$(CDPATH= cd -- "$(dirname "$FIXTURES_DIR")/.." && pwd)/docs/working/TASK-GATETEST"
-if [ ! -e "$REPO_WORKING" ]; then
-  # Create a minimal task dir inside docs/working for this test
-  mkdir -p "$REPO_WORKING"
-  touch "$REPO_WORKING/plan.md"
-  created_gate_test=1
-else
-  created_gate_test=0
-fi
-
-if sh "$PLANGATE_BIN" exec TASK-GATETEST 2>&1 | grep -q 'C-3 gate not cleared'; then
-  printf '[PASS] exec: missing approvals/c3.json → C-3 gate not cleared\n'
+_t03_run missing
+if [ "$T03_RC" -ne 0 ] \
+  && [ ! -s "$T03_STDOUT" ] \
+  && grep -q 'C-3 gate not cleared' "$T03_STDERR" \
+  && grep -Fq "Next: plangate status $GATE_TASK_ID" "$T03_STDERR" \
+  && grep -q 'Human action:' "$T03_STDERR"; then
+  printf '[PASS] exec: missing approvals/c3.json → actionable stderr guidance + nonzero exit\n'
   pass=$((pass + 1))
 else
-  printf '[FAIL] exec: expected "C-3 gate not cleared" error\n'
+  printf '[FAIL] exec: missing C-3 recovery contract failed (rc=%s)\n' "$T03_RC"
+  cat "$T03_STDERR"
   fail=$((fail + 1))
 fi
 
-# Cleanup
-if [ "${created_gate_test:-0}" -eq 1 ]; then
-  rm -rf "$REPO_WORKING"
+# status phase inference reaches C-3 only after the earlier workflow artifacts exist.
+touch "$REPO_WORKING/pbi-input.md"
+_t03_status_rc=0
+_t03_status_out="$(sh "$PLANGATE_BIN" status "$GATE_TASK_ID" 2>&1)" || _t03_status_rc=$?
+if [ "$_t03_status_rc" -eq 0 ] \
+  && printf '%s' "$_t03_status_out" | grep -Fq "Next:    Human approver: review plan.md → plangate approve $GATE_TASK_ID" \
+  && ! printf '%s' "$_t03_status_out" | grep -q 'create approvals/c3.json'; then
+  printf '[PASS] status: pending C-3 → Human-owned approve command without artifact hand-edit guidance\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] status: pending C-3 recovery contract failed (rc=%s)\n' "$_t03_status_rc"
+  printf '%s\n' "$_t03_status_out"
+  fail=$((fail + 1))
 fi
-rm -rf "$TMPDIR_TASK"
+
+mkdir -p "$REPO_WORKING/approvals"
+cat > "$REPO_WORKING/approvals/c3.json" <<'JSON'
+{"c3_status":"REJECTED"}
+JSON
+_t03_run rejected
+if [ "$T03_RC" -ne 0 ] \
+  && [ ! -s "$T03_STDOUT" ] \
+  && grep -q 'C-3 gate not approved' "$T03_STDERR" \
+  && grep -Fq "Next: plangate validate $GATE_TASK_ID" "$T03_STDERR" \
+  && grep -q 'Human action:' "$T03_STDERR"; then
+  printf '[PASS] exec: non-approved C-3 → validate + Human-owned stderr guidance\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] exec: non-approved C-3 recovery contract failed (rc=%s)\n' "$T03_RC"
+  cat "$T03_STDERR"
+  fail=$((fail + 1))
+fi
+
+cat > "$REPO_WORKING/approvals/c3.json" <<'JSON'
+{"approval_kind":"c3-prime"}
+JSON
+_t03_run c3prime-invalid
+if [ "$T03_RC" -ne 0 ] \
+  && [ ! -s "$T03_STDOUT" ] \
+  && grep -q 'c3-prime verification failed' "$T03_STDERR" \
+  && grep -Fq "Next: plangate validate $GATE_TASK_ID" "$T03_STDERR"; then
+  printf '[PASS] exec: invalid c3-prime → validate guidance + nonzero exit\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] exec: c3-prime recovery contract failed (rc=%s)\n' "$T03_RC"
+  cat "$T03_STDERR"
+  fail=$((fail + 1))
+fi
+
+cat > "$REPO_WORKING/approvals/c3.json" <<'JSON'
+{"c3_status":"APPROVED","plan_hash":"sha256:0000000000000000000000000000000000000000000000000000000000000000"}
+JSON
+_t03_run hash-mismatch
+if [ "$T03_RC" -ne 0 ] \
+  && [ ! -s "$T03_STDOUT" ] \
+  && grep -q 'plan_hash mismatch' "$T03_STDERR" \
+  && grep -Fq "Next    : plangate validate $GATE_TASK_ID" "$T03_STDERR" \
+  && grep -q 'Human action:' "$T03_STDERR" \
+  && ! grep -q 'update c3.json plan_hash' "$T03_STDERR"; then
+  printf '[PASS] exec: plan_hash mismatch → safe validate + Human-owned re-decision guidance\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] exec: plan_hash mismatch recovery contract failed (rc=%s)\n' "$T03_RC"
+  cat "$T03_STDERR"
+  fail=$((fail + 1))
+fi
+
+rm -rf "$REPO_WORKING" "$TMPDIR_TASK"
 
 # ── extras 進行マーカー / 所要時間計測 / ウォッチドッグ（失敗の属性化）────
 # 目的: CI の job timeout で殺されても「どの ta-NN で止まったか」がログから
