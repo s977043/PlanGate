@@ -58,10 +58,36 @@ _t95_prod_refs() {
 }
 
 _t95_owner_seam_refs() {
-  git -C "$1" grep -nF 'artifact_verdicts' -- 'scripts/ai-loop-v2' 2>/dev/null || true
+  python3 - "$1" <<'PY'
+import ast
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+proc = subprocess.run(
+    ["git", "-C", str(root), "ls-files", "scripts/ai-loop-v2/*.py"],
+    check=False,
+    capture_output=True,
+    text=True,
+)
+if proc.returncode != 0:
+    raise SystemExit(proc.returncode)
+
+for rel in sorted(line for line in proc.stdout.splitlines() if line):
+    path = root / rel
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=rel)
+    except (OSError, SyntaxError):
+        continue
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "artifact_verdicts":
+            print(f"{rel}:{node.lineno}:def artifact_verdicts")
+PY
 }
 
 _T95_PROBE=$(mktemp -d)
+register_cleanup "$_T95_PROBE"
 mkdir -p "$_T95_PROBE/scripts" "$_T95_PROBE/bin" "$_T95_PROBE/plugin/plangate/skills/demo/scripts"
 git -C "$_T95_PROBE" init -q
 printf 'import test_certification_shadow_spec\n' >"$_T95_PROBE/scripts/leak.py"
@@ -69,6 +95,7 @@ printf 'import test_certification_shadow_spec\n' >"$_T95_PROBE/plugin/plangate/s
 printf 'print("ok")\n' >"$_T95_PROBE/scripts/ok.py"
 printf '#!/bin/sh\nexit 0\n' >"$_T95_PROBE/bin/ok"
 mkdir -p "$_T95_PROBE/scripts/ai-loop-v2"
+printf '# artifact_verdicts mention only; must not trigger\n' >"$_T95_PROBE/scripts/ai-loop-v2/comment_only.py"
 printf 'def artifact_verdicts():\n    return {}\n' >"$_T95_PROBE/scripts/ai-loop-v2/owner.py"
 git -C "$_T95_PROBE" add scripts bin plugin
 _T95_PROBE_GOT=$(_t95_prod_refs "$_T95_PROBE")
@@ -84,17 +111,22 @@ else
   fail=$((fail + 1))
 fi
 
-case "$_T95_SEAM_PROBE_GOT" in
-  *'scripts/ai-loop-v2/owner.py:1:def artifact_verdicts():'*)
-    printf '  [PASS] owner-seam tripwire positive control\n'
-    pass=$((pass + 1))
-    ;;
-  *)
-    printf '  [FAIL] owner-seam tripwire missed planted artifact_verdicts seam:\n%s\n' "$_T95_SEAM_PROBE_GOT" >&2
-    fail=$((fail + 1))
-    ;;
-esac
+if [ "$_T95_SEAM_PROBE_GOT" = "scripts/ai-loop-v2/owner.py:1:def artifact_verdicts" ]; then
+  printf '  [PASS] owner-seam AST tripwire positive/negative controls\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] owner-seam AST tripwire mismatch:\n%s\n' "$_T95_SEAM_PROBE_GOT" >&2
+  fail=$((fail + 1))
+fi
+
 rm -rf "$_T95_PROBE"
+if [ ! -e "$_T95_PROBE" ]; then
+  printf '  [PASS] positive-control repository cleaned up\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] positive-control repository cleanup failed: %s\n' "$_T95_PROBE" >&2
+  fail=$((fail + 1))
+fi
 
 _T95_GOT=$(_t95_prod_refs "$_T95_ROOT")
 if [ -n "$_T95_GOT" ]; then
