@@ -29,14 +29,15 @@ authority:
 
 1. Provision the external signer repository/service under separately controlled administration.
 2. Apply the workflow/policy equivalent to `verifier-workflow.proposed.yml`.
-3. Establish the nonce ledger described by `nonce-ledger-policy.proposed.json`.
-4. Freeze the real signer workflow digest and source policy.
-5. Produce the three Evidence objects outside PlanGate.
-6. Build the external boundary descriptor consumed by
+3. Accept the external-operator responsibilities in `operator-handoff.proposed.json`.
+4. Establish the nonce ledger described by `nonce-ledger-policy.proposed.json`.
+5. Freeze the real signer workflow digest and source policy.
+6. Produce the three Evidence objects outside PlanGate.
+7. Build the external boundary descriptor consumed by
    `runtime_evidence_external_admin_admission.py`.
-7. Run PlanGate admission. Treat PASS as structural admission only.
-8. Independently verify the Evidence objects.
-9. Only then open a separate promotion PR for evidenced strong fields.
+8. Run PlanGate admission. Treat PASS as structural admission only.
+9. Independently verify the Evidence objects.
+10. Only then open a separate promotion PR for evidenced strong fields.
 
 ## Stop conditions
 
