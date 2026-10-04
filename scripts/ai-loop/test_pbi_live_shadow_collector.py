@@ -421,6 +421,23 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertFalse(result["actual_decision_disclosed"])
         self.assertTrue(result["review_required"])
 
+    def test_review_packet_rejects_symlinked_capture_artifact(self):
+        self._collect_capture()
+        self._write_bound_run_evidence()
+        capture = self.root / self.capture_ref
+        relocated = capture.with_name("capture-relocated.json")
+        capture.replace(relocated)
+        capture.symlink_to(relocated.name)
+
+        with self.assertRaises(collector.CollectorError) as ctx:
+            collector.collect_review_packet(
+                repo_root=self.root,
+                capture_ref=self.capture_ref,
+                run_evidence_ref=self.run_evidence_ref,
+                packet_ref=self.packet_ref,
+            )
+        self.assertIn("symlink path component rejected", str(ctx.exception))
+
     def test_review_packet_rejects_unbound_capture(self):
         self._collect_capture()
         self._write_bound_run_evidence(include_capture=False)
@@ -552,6 +569,23 @@ class LiveShadowCollectorTests(unittest.TestCase):
                 case_artifact_ref=self.case_artifact_ref,
             )
         self.assertIn("maker actual must not be stored", str(ctx.exception))
+
+    def test_reviewed_case_rejects_symlinked_oracle_artifact(self):
+        self._collect_packet()
+        self._write_oracle()
+        oracle = self.root / self.oracle_ref
+        relocated = oracle.with_name("oracle-relocated.json")
+        oracle.replace(relocated)
+        oracle.symlink_to(relocated.name)
+
+        with self.assertRaises(collector.CollectorError) as ctx:
+            collector.collect_reviewed_admission_case(
+                repo_root=self.root,
+                packet_ref=self.packet_ref,
+                oracle_ref=self.oracle_ref,
+                case_artifact_ref=self.case_artifact_ref,
+            )
+        self.assertIn("symlink path component rejected", str(ctx.exception))
 
     def test_oracle_must_stay_in_task_live_shadow_namespace(self):
         self._collect_packet()
@@ -954,6 +988,25 @@ class LiveShadowCollectorTests(unittest.TestCase):
                 case_artifact_ref=self.materialization_case_ref,
             )
         self.assertIn("reviewed materialize match required", str(ctx.exception))
+
+    def test_materialization_case_rejects_symlinked_existing_work(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs()
+        existing = self.root / self.existing_work_ref
+        relocated = existing.with_name("existing-work-relocated.json")
+        existing.replace(relocated)
+        existing.symlink_to(relocated.name)
+
+        with self.assertRaises(collector.CollectorError) as ctx:
+            collector.collect_reviewed_materialization_case(
+                repo_root=self.root,
+                admission_case_ref=self.case_artifact_ref,
+                payload_ref=self.payload_ref,
+                existing_work_ref=self.existing_work_ref,
+                oracle_ref=self.materialization_oracle_ref,
+                case_artifact_ref=self.materialization_case_ref,
+            )
+        self.assertIn("symlink path component rejected", str(ctx.exception))
 
     def test_materialization_oracle_payload_hash_mismatch_fails_closed(self):
         self._prepare_materialize_admission_case()
