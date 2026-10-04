@@ -29,10 +29,11 @@ _T108_DIR="$_T108_ROOT/docs/working/_runtime-attestation/external-verifier-boots
 _T108_README="$_T108_DIR/README.md"
 _T108_WORKFLOW="$_T108_DIR/verifier-workflow.proposed.yml"
 _T108_NONCE="$_T108_DIR/nonce-ledger-policy.proposed.json"
+_T108_HANDOFF="$_T108_DIR/operator-handoff.proposed.json"
 
 printf 'TA-108: external verifier bootstrap remains proposal-only (#1473)\n'
 
-if [ -f "$_T108_README" ] && [ -f "$_T108_WORKFLOW" ] && [ -f "$_T108_NONCE" ]; then
+if [ -f "$_T108_README" ] && [ -f "$_T108_WORKFLOW" ] && [ -f "$_T108_NONCE" ] && [ -f "$_T108_HANDOFF" ]; then
   printf '  [PASS] package: bootstrap handoff files exist\n'; pass=$((pass + 1))
 else
   printf '  [FAIL] package: bootstrap handoff files missing\n' >&2; fail=$((fail + 1))
@@ -61,6 +62,14 @@ if grep -q 'administrator-separation-attestation, subject = signer_repo' "$_T108
   printf '  [PASS] evidence: exact external Evidence subjects documented\n'; pass=$((pass + 1))
 else
   printf '  [FAIL] evidence: subject binding contract incomplete\n' >&2; fail=$((fail + 1))
+fi
+
+if grep -q '"separate_administration_required": true' "$_T108_HANDOFF" \
+  && grep -q '"normal_plangate_repository_writer_as_sole_admin_allowed": false' "$_T108_HANDOFF" \
+  && grep -q '"plangate_self_certification_allowed": false' "$_T108_HANDOFF"; then
+  printf '  [PASS] ownership: bootstrap requires a genuinely external operator boundary\n'; pass=$((pass + 1))
+else
+  printf '  [FAIL] ownership: external operator separation contract missing\n' >&2; fail=$((fail + 1))
 fi
 
 if grep -q 'dispatch_ready=false' "$_T108_README" \
