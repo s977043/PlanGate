@@ -13,6 +13,20 @@ PlanGate は 5 モード × 10 hook × 23 agent × 多数 skill の組み合わ�
 **全部入りは前提ではない**。導入は「使うものだけを段階的に増やす」。各
 フェーズには **使わなくてよいもの（最小セットの否定形）** を明示する。
 
+### 0.1 初見 UI は plain language を優先する
+
+初回利用者に C-X / V-X / WF-XX / EH-X の暗記を要求しない。
+Quickstart・onboarding・CLI の表層では「Plan review」「Human approval」
+「Build」「Verify」のような平易な言葉を先に出し、内部コードは補助表記にする。
+
+**新しい「PlanGate Lite / 1-Gate mode」は作らない。**
+最小導入は既存の Phase 0〜2 と ultra-light / light mode を使う。
+導入レベル・mode・gate の概念をさらに増やさず、必要になった段階で詳細を開示する。
+
+外部連携を含む成長方針は
+[Adoption UX & Ecosystem Roadmap](./pages/explanation/product/adoption-and-ecosystem-roadmap.md)
+を参照。
+
 | フェーズ | いつ | モード | ゲート | 主目的 |
 |---------|------|--------|--------|--------|
 | Phase 0 | Day 1 | ultra-light | なし | 体験する |
