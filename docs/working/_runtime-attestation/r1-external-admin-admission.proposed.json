@@ -21,6 +21,7 @@
     "oidc_issuer_bound_candidate",
     "self_hosted_runner_denial_declared_candidate",
     "admin_evidence_refs_content_addressed_candidate",
+    "admin_evidence_set_content_hash_candidate",
     "nonce_owner_declared_candidate",
     "receipt_contract_compatible_candidate"
   ],
@@ -53,6 +54,7 @@
     "descriptor attempts self-promotion",
     "descriptor stored inside PlanGate repository"
   ],
+  "bounded_output": "exposes only Evidence count + canonical evidence_type/SHA-256 set hash; Evidence URIs remain outside result",
   "next_gate": {
     "issue": 1473,
     "requirement": "Create the external admin boundary and independently verify the referenced administrator-separation Evidence before promoting any strong machine-attestation field."
