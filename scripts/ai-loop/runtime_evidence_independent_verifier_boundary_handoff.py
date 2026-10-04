@@ -83,7 +83,7 @@ MANIFEST_KEYS = {
     "manifest_hash",
 }
 
-EVIDENCE_KEYS = {"kind", "uri", "sha256"}
+EVIDENCE_KEYS = {"kind", "subject", "uri", "sha256"}
 REQUIRED_EVIDENCE_KINDS = {
     "repository_admin_separation",
     "workflow_immutability",
@@ -257,15 +257,27 @@ def _validate_manifest(value: Any) -> list[str]:
                 errors.append(f"{prefix}: object required")
                 continue
             if set(item) != EVIDENCE_KEYS:
-                errors.append(f"{prefix}: exact kind/uri/sha256 keys required")
+                errors.append(
+                    f"{prefix}: exact kind/subject/uri/sha256 keys required"
+                )
                 continue
             kind = item.get("kind")
+            subject = item.get("subject")
             uri = item.get("uri")
             digest = item.get("sha256")
             if kind not in REQUIRED_EVIDENCE_KINDS:
                 errors.append(f"{prefix}.kind: unsupported evidence kind")
             else:
                 kinds.append(kind)
+                expected_subjects = {
+                    "repository_admin_separation": verifier_repo,
+                    "workflow_immutability": workflow_ref,
+                    "nonce_ledger_ownership": ledger_owner,
+                }
+                if subject != expected_subjects[kind]:
+                    errors.append(
+                        f"{prefix}.subject: exact boundary subject binding required"
+                    )
             if not isinstance(uri, str) or HTTPS_RE.fullmatch(uri) is None:
                 errors.append(f"{prefix}.uri: https URL required")
             else:
