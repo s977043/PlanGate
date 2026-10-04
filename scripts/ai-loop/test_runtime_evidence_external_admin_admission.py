@@ -160,6 +160,21 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
             second["admin_evidence_set_hash"],
         )
 
+    def test_evidence_set_hash_changes_when_bound_subject_changes(self):
+        baseline = self._run()
+
+        def mutate(value):
+            value["boundary_id"] = "runtime-verifier-prod-v2"
+            value["admin_separation_evidence"][0]["subject"] = (
+                "runtime-verifier-prod-v2"
+            )
+
+        changed = self._run(mutate=mutate)
+        self.assertNotEqual(
+            baseline["admin_evidence_set_hash"],
+            changed["admin_evidence_set_hash"],
+        )
+
     def test_signer_repo_must_be_separate_from_attestation_repo(self):
         with self.assertRaises(admission.ExternalAdminAdmissionError):
             self._run(
