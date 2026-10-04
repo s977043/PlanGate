@@ -107,11 +107,14 @@ def compose_certification(
             }
         )
 
-    required_support_refs = {
-        ref
-        for item in projected
-        for ref in item["supporting_verification_refs"]
-    }
+    ref_use_counts = {}
+    for item in projected:
+        for ref in item["supporting_verification_refs"]:
+            ref_use_counts[ref] = ref_use_counts.get(ref, 0) + 1
+    required_support_refs = set(ref_use_counts)
+    shared_required_refs = sorted(
+        ref for ref, count in ref_use_counts.items() if count > 1
+    )
     supplemental = [
         ref
         for ref in _canonical_refs(supplemental_evidence_refs or ())
@@ -126,6 +129,7 @@ def compose_certification(
         "target_ref": target_ref,
         "loop_contract_ref": loop_contract_ref,
         "required_verifiers": projected,
+        "shared_required_evidence_refs": shared_required_refs,
         "supplemental_evidence_refs": supplemental,
     }
 
@@ -250,6 +254,20 @@ class CertificationShadowSpecTests(unittest.TestCase):
             ["review:1", "review:2"],
         )
 
+    def test_shared_required_evidence_is_explicit_not_independent(self):
+        projection = self._compose(
+            {self.D: "pass", self.C: "pass"},
+            required=(self.D, self.C),
+            refs={
+                self.D: ["shared-ref", "d-only"],
+                self.C: ["shared-ref", "c-only"],
+            },
+        )
+        self.assertEqual(
+            projection["shared_required_evidence_refs"],
+            ["shared-ref"],
+        )
+
     def test_same_ref_is_not_counted_as_required_and_supplemental(self):
         projection = self._compose(
             {self.D: "pass"},
@@ -265,6 +283,7 @@ class CertificationShadowSpecTests(unittest.TestCase):
             projection["supplemental_evidence_refs"],
             ["supplemental-only"],
         )
+        self.assertEqual(projection["shared_required_evidence_refs"], [])
 
     def test_equivalent_set_inputs_have_canonical_projection_order(self):
         owner = {self.D: "pass", self.C: "unavailable"}
