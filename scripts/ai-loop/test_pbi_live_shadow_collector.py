@@ -812,6 +812,44 @@ class LiveShadowCollectorTests(unittest.TestCase):
             " ".join(inventory["invalid_case_artifacts"][0]["errors"]),
         )
 
+    def test_inventory_rejects_extra_admission_evidence_ref(self):
+        self._collect_packet()
+        self._write_oracle(expected="no_action")
+        collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+
+        extra_ref = (
+            "docs/working/TASK-9999/evidence/pbi-live-shadow/"
+            "run-01/unreviewed-extra.json"
+        )
+        extra = self.root / extra_ref
+        extra.write_text('{"extra":true}\n', encoding="utf-8")
+
+        case = json.loads(
+            (self.root / self.case_artifact_ref).read_text(encoding="utf-8")
+        )
+        case["evidence_refs"].append(extra_ref)
+        (self.root / self.case_artifact_ref).write_text(
+            json.dumps(case, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+
+        inventory = collector.inventory_live_shadow_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["evaluated_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 1)
+        self.assertIn(
+            "exact bound refs required",
+            " ".join(inventory["invalid_case_artifacts"][0]["errors"]),
+        )
+
     def test_inventory_keeps_invalid_case_visible(self):
         path = (
             self.root
