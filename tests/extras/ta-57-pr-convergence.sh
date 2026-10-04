@@ -707,7 +707,9 @@ test_runtime_evidence_ingress.py reason: 非配布 runtime_evidence_ingress.py �
 test_runtime_evidence_investigation.py reason: 非配布 runtime_evidence_investigation.py の上流検証用 test のため非配布 (#1448)
 test_runtime_evidence_request_bound_canary.py reason: 非配布 runtime_evidence_request_bound_canary.py の上流検証用 test のため非配布 (#1448)
 test_runtime_evidence_codex_probe_candidate.py reason: 非配布 runtime_evidence_codex_probe_candidate.py の上流検証用 test のため非配布 (#1448)
-test_runtime_evidence_codex_jsonl_correlation.py reason: 非配布 runtime_evidence_codex_jsonl_correlation.py の上流検証用 test のため非配布 (#1448)'
+test_runtime_evidence_codex_jsonl_correlation.py reason: 非配布 runtime_evidence_codex_jsonl_correlation.py の上流検証用 test のため非配布 (#1448)
+runtime_evidence_codex_managed_capture_manifest.py reason: Codex managed capture manifest はcandidate-onlyの上流検証専用で plugin rollout 未承認のため非配布 (#1448)
+test_runtime_evidence_codex_managed_capture_manifest.py reason: 非配布 runtime_evidence_codex_managed_capture_manifest.py の上流検証用 test のため非配布 (#1448)'
 
   _t57_audit="$_t57_tmp/allowlist_audit.py"
   cat > "$_t57_audit" <<'PY_T57_AUDIT'
