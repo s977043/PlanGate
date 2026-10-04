@@ -175,9 +175,12 @@ MCP client が PlanGate の canonical artifact / gate / evidence を読み取り
 ### Request surface 候補
 
 - request plan review
-- request Human approval
+- request Human approval **review / notification**
 - request verification
 - request PR convergence
+
+ここでいう request は workflow を開始・通知する要求であり、
+**approval artifact / approval decision 自体を MCP が発行することを意味しない**。
 
 ### 禁止
 
