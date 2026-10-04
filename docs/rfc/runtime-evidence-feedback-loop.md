@@ -3,7 +3,10 @@
 **Status**: R0/R1 candidate implemented on main; non-canonical
 **Created**: 2026-10-03
 **Scope**: ai-loop V2 design proposal (non-canonical)
-**Source case study**: Cloudflare "Detect and send production issues straight to your agent" (2026-09-30)\n**Implementation**: #1448 / PR #1466 (merged 2026-10-04)\n**Companion guide**: [`production-feedback-loop.md`](../ai/ai-loop-v2/production-feedback-loop.md)\n**Next promotion phase**: #1469
+**Source case study**: Cloudflare "Detect and send production issues straight to your agent" (2026-09-30)
+**Implementation**: #1448 / PR #1466 (merged 2026-10-04)
+**Companion guide**: [`production-feedback-loop.md`](../ai/ai-loop-v2/production-feedback-loop.md)
+**Next promotion phase**: #1469
 
 ## 1. Motivation
 
@@ -28,6 +31,39 @@ The reusable idea is not Cloudflare-specific automation. It is the boundary:
 > Runtime observations become evidence packages that can seed a new bounded development run without giving the runtime system authority to bypass PlanGate gates.
 
 This RFC proposes a provider-neutral Runtime Evidence Feedback Loop for ai-loop V2.
+
+### 1.0 Implementation snapshot — 2026-10-04
+
+The first R0/R1 candidate slice is implemented on `main` by PR #1466. It includes:
+
+- R0 external runtime ingress with sanitized, content-addressed repository Evidence;
+- R1 read-only investigation request construction;
+- pre-run dispatch-readiness evaluation;
+- external trust / owner-account decision candidate verification;
+- request-bound canary proposal and verifier;
+- Codex Explorer lifecycle observation and JSONL correlation candidates;
+- managed capture manifest candidate;
+- GitHub artifact attestation receipt candidate.
+
+This is a **candidate implementation**, not an authority promotion. The merged state intentionally preserves:
+
+```text
+hook_execution_root_attested = false
+codex_jsonl_runtime_correlation_verified = false
+managed_hook_root_attested = false
+gh_attestation_cli_execution_verified = false
+attestation_signature_cryptographically_verified = false
+independent_verifier_execution_attested = false
+hard_read_only_enforced = false
+runtime_probe_attestation_verified = false
+human_rollout_decision_verified = false
+dispatch_ready = false
+dispatch_allowed = false
+```
+
+Therefore the current implementation does not enable active R1 Agent dispatch, automatic Issue/PBI/code mutation, approval, merge, deploy, managed-hook installation, or active workflow installation.
+
+Promotion from candidate/shadow R1 to independently attested active runtime is a separate phase tracked by #1469. Repository-authored candidate Evidence must not self-promote into runtime authority.
 
 ### 1.1 Existing implementation baseline — do not duplicate the PBI materializer
 
