@@ -355,7 +355,7 @@ def validate_descriptor(value: Any) -> list[str]:
         )
 
     expected_subjects = {
-        "administrator-separation-attestation": value.get("boundary_id"),
+        "administrator-separation-attestation": value.get("signer_repo"),
         "signer-identity-attestation": immutable_workflow_ref,
         "nonce-lifecycle-policy": value.get("nonce_owner"),
     }
