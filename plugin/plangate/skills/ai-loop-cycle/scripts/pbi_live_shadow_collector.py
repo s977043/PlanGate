@@ -1145,11 +1145,6 @@ def _revalidate_materialization_case_chain(
     evidence_refs = case.get("evidence_refs", [])
     if not isinstance(evidence_refs, list):
         raise CollectorError("materialization_case.evidence_refs: array required")
-    for ref in (admission_case_ref, payload_ref, existing_work_ref):
-        if ref not in evidence_refs:
-            raise CollectorError(
-                f"materialization_case.evidence_refs: missing bound ref {ref}"
-            )
     if oracle_ref in evidence_refs:
         raise CollectorError(
             "materialization_case.evidence_refs: oracle must remain separate"
@@ -1163,6 +1158,19 @@ def _revalidate_materialization_case_chain(
         task_id=task_id,
         case=admission_case,
     )
+
+    admission_evidence_refs = admission_case.get("evidence_refs")
+    if not isinstance(admission_evidence_refs, list):
+        raise CollectorError("admission_case.evidence_refs: array required")
+    expected_evidence_refs = list(admission_evidence_refs) + [
+        admission_case_ref,
+        payload_ref,
+        existing_work_ref,
+    ]
+    if evidence_refs != expected_evidence_refs:
+        raise CollectorError(
+            "materialization_case.evidence_refs: exact bound refs required"
+        )
 
     admission_errors = pm._validate_admission_batch(
         [admission_case],
