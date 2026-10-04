@@ -315,6 +315,30 @@ def _validate_candidate(value: Any) -> list[str]:
         if not _valid_hash(value.get(field)):
             errors.append(f"command_candidate.{field}: valid SHA-256 required")
 
+    provider = value.get("provider")
+    if not isinstance(provider, str) or ingress.PROVIDER_RE.fullmatch(provider) is None:
+        errors.append("command_candidate.provider: bounded provider identifier required")
+    if value.get("platform") != "codex":
+        errors.append("command_candidate.platform: codex required")
+    capture_id = value.get("capture_id")
+    if not isinstance(capture_id, str) or OPAQUE_RE.fullmatch(capture_id) is None:
+        errors.append("command_candidate.capture_id: bounded identifier required")
+    if value.get("oidc_issuer") != command_candidate.OIDC_ISSUER:
+        errors.append("command_candidate.oidc_issuer: exact GitHub Actions issuer required")
+    if value.get("predicate_type") != "https://slsa.dev/provenance/v1":
+        errors.append("command_candidate.predicate_type: SLSA provenance v1 required")
+    try:
+        command_candidate._validate_policy(
+            attestation_repo=value.get("attestation_repo"),
+            signer_repo=value.get("signer_repo"),
+            signer_workflow=value.get("signer_workflow"),
+            source_digest=value.get("source_digest"),
+            signer_digest=value.get("signer_digest"),
+            source_ref=value.get("source_ref"),
+        )
+    except command_candidate.IndependentAttestationVerifierError as exc:
+        errors.extend(f"command_candidate.policy: {error}" for error in exc.errors)
+
     for field in CANDIDATE_TRUE_FIELDS:
         if value.get(field) is not True:
             errors.append(f"command_candidate.{field}: true required")
