@@ -243,6 +243,34 @@ class IndependentVerifierReceiptTests(unittest.TestCase):
                 ):
                     _verify(receipt=_rehash(receipt))
 
+    def test_wrong_artifact_and_signer_source_policy_fail_closed(self):
+        cases = (
+            ("capture_manifest_file_sha256", "sha256:" + "7" * 64),
+            (
+                "signer_workflow",
+                SIGNER_REPO + "/.github/workflows/other-signer.yml",
+            ),
+            ("source_digest", "1111111111111111111111111111111111111111"),
+            ("signer_digest", "2222222222222222222222222222222222222222"),
+            ("source_ref", "refs/heads/other"),
+        )
+        for field, value in cases:
+            receipt = _receipt()
+            receipt[field] = value
+            with self.subTest(field=field):
+                with self.assertRaises(
+                    receipt_verifier.IndependentVerifierReceiptError
+                ):
+                    _verify(receipt=_rehash(receipt))
+
+    def test_command_candidate_cannot_self_promote_strong_authority(self):
+        command = _command_result()
+        command["gh_attestation_cli_execution_verified"] = True
+        command = _rehash_command(command)
+        receipt = _receipt(command)
+        with self.assertRaises(receipt_verifier.IndependentVerifierReceiptError):
+            _verify(command=command, receipt=receipt)
+
     def test_cross_run_replay_challenge_fails_closed(self):
         with self.assertRaises(receipt_verifier.IndependentVerifierReceiptError):
             _verify(expected_challenge_id=OTHER_CHALLENGE)
