@@ -51,14 +51,19 @@ def _descriptor():
         "receipt_contract_stage": receipt.RECEIPT_STAGE,
         "admin_separation_evidence": [
             {
-                "evidence_type": "repository-admin-policy",
-                "uri": "https://example.invalid/evidence/admin-policy.json",
+                "evidence_type": "administrator-separation-attestation",
+                "uri": "https://example.invalid/evidence/admin-separation.json",
                 "sha256": "sha256:" + "a" * 64,
             },
             {
-                "evidence_type": "workflow-identity-attestation",
-                "uri": "https://example.invalid/evidence/workflow-identity.json",
+                "evidence_type": "signer-identity-attestation",
+                "uri": "https://example.invalid/evidence/signer-identity.json",
                 "sha256": "sha256:" + "b" * 64,
+            },
+            {
+                "evidence_type": "nonce-lifecycle-policy",
+                "uri": "https://example.invalid/evidence/nonce-lifecycle.json",
+                "sha256": "sha256:" + "c" * 64,
             },
         ],
     }
@@ -202,12 +207,12 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
         with self.assertRaises(admission.ExternalAdminAdmissionError):
             self._run(mutate=mutate)
 
-    def test_single_evidence_item_is_rejected(self):
+    def test_missing_required_evidence_class_is_rejected(self):
         with self.assertRaises(admission.ExternalAdminAdmissionError):
             self._run(
                 mutate=lambda value: value.__setitem__(
                     "admin_separation_evidence",
-                    value["admin_separation_evidence"][:1],
+                    value["admin_separation_evidence"][:2],
                 )
             )
 
