@@ -163,6 +163,27 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
                 )
             )
 
+    def test_plangate_repository_evidence_uri_case_and_encoding_bypass_is_rejected(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value["admin_separation_evidence"][0].update(
+                    {
+                        "uri": (
+                            "https://github.com/S977043%2FPlanGate/blob/main/"
+                            "docs/evidence.json"
+                        )
+                    }
+                )
+            )
+
+    def test_external_service_type_is_not_admitted_by_github_contract(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value.__setitem__(
+                    "boundary_type", "external_service"
+                )
+            )
+
     def test_duplicate_evidence_digest_is_rejected(self):
         def mutate(value):
             value["admin_separation_evidence"][1]["sha256"] = (
@@ -171,6 +192,24 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
 
         with self.assertRaises(admission.ExternalAdminAdmissionError):
             self._run(mutate=mutate)
+
+    def test_duplicate_evidence_type_is_rejected(self):
+        def mutate(value):
+            value["admin_separation_evidence"][1]["evidence_type"] = (
+                value["admin_separation_evidence"][0]["evidence_type"]
+            )
+
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(mutate=mutate)
+
+    def test_single_evidence_item_is_rejected(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value.__setitem__(
+                    "admin_separation_evidence",
+                    value["admin_separation_evidence"][:1],
+                )
+            )
 
     def test_self_hosted_runner_denial_is_required(self):
         with self.assertRaises(admission.ExternalAdminAdmissionError):
