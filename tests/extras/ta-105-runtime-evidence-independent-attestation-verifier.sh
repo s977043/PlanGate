@@ -99,6 +99,7 @@ if [ -f "$_T105_PROPOSAL" ] \
   && grep -q '"repository_local_gh_success_is_not_crypto_authority": true' "$_T105_PROPOSAL" \
   && grep -q '"attestation_repo_and_signer_repo_are_separate": true' "$_T105_PROPOSAL" \
   && grep -q '"reusable_signer_repository_may_differ_from_attestation_repository": true' "$_T105_PROPOSAL" \
+  && grep -q '"no_public_good_is_not_forced": true' "$_T105_PROPOSAL" \
   && grep -q '"statement_predicate_is_not_authority": true' "$_T105_PROPOSAL"; then
   printf '  [PASS] proposal: independent-admin and predicate trust boundaries declared\n'
   pass=$((pass + 1))
