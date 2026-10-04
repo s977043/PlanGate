@@ -70,6 +70,7 @@ else
 fi
 
 if grep -q 'exact boundary subject binding required' "$_T107_IMPL" \
+  && grep -q 'PlanGate repository cannot be its own independent admin evidence source' "$_T107_IMPL" \
   && grep -q '"admin_evidence_refs_content_addressed_candidate": True' "$_T107_IMPL" \
   && grep -q '"admin_evidence_authenticated": False' "$_T107_IMPL"; then
   printf '  [PASS] evidence: subject-bound refs stay unauthenticated candidate evidence\n'
