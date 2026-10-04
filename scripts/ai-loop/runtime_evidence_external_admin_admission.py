@@ -204,8 +204,8 @@ def _validate_evidence(value: Any, errors: list[str]) -> None:
         if not isinstance(uri, str) or HTTPS_RE.fullmatch(uri) is None:
             errors.append(f"{prefix}.uri: HTTPS URI required")
         else:
-            normalized = uri.casefold()
-            authority = uri[len("https://"):].split("/", 1)[0]
+            remainder = uri[len("https://"):]
+            authority, separator, raw_path = remainder.partition("/")
             if not authority:
                 errors.append(f"{prefix}.uri: HTTPS authority required")
             if "@" in authority:
@@ -218,7 +218,26 @@ def _validate_evidence(value: Any, errors: list[str]) -> None:
                 errors.append(
                     f"{prefix}.uri: percent-encoding is not allowed in Evidence URI"
                 )
-            if "s977043/plangate" in normalized:
+
+            canonical_segments = raw_path.split("/") if separator else []
+            if any(segment in ("", ".", "..") for segment in canonical_segments):
+                errors.append(
+                    f"{prefix}.uri: ambiguous/non-canonical path segments are not allowed"
+                )
+
+            normalized_segments = [
+                segment.casefold()
+                for segment in canonical_segments
+                if segment not in ("", ".", "..")
+            ]
+            plangate_path_reference = any(
+                left == "s977043" and right == "plangate"
+                for left, right in zip(
+                    normalized_segments,
+                    normalized_segments[1:],
+                )
+            )
+            if plangate_path_reference:
                 errors.append(
                     f"{prefix}.uri: PlanGate repository cannot be independent-admin Evidence"
                 )
