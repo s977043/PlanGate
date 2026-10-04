@@ -160,9 +160,9 @@ _t03_rejected_rc=0
 _t03_rejected_out="$(sh "$PLANGATE_BIN" exec TASK-GATETEST 2>&1)" || _t03_rejected_rc=$?
 if [ "$_t03_rejected_rc" -ne 0 ] \
   && printf '%s' "$_t03_rejected_out" | grep -q 'C-3 gate not approved' \
-  && printf '%s' "$_t03_rejected_out" | grep -q 'Next: plangate status TASK-GATETEST' \
+  && printf '%s' "$_t03_rejected_out" | grep -q 'Next: plangate validate TASK-GATETEST' \
   && printf '%s' "$_t03_rejected_out" | grep -q 'Human action:'; then
-  printf '[PASS] exec: non-approved C-3 → status + Human-owned recovery guidance\n'
+  printf '[PASS] exec: non-approved C-3 → validate + Human-owned recovery guidance\n'
   pass=$((pass + 1))
 else
   printf '[FAIL] exec: non-approved C-3 recovery guidance not found\n'
