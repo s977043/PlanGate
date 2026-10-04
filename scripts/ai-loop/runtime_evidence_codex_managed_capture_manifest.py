@@ -52,6 +52,32 @@ MANIFEST_KEYS = {
 }
 
 
+CORRELATION_KEYS = {
+    "schema_version", "domain", "contract_stage", "request_hash", "config_sha",
+    "provider", "platform", "runtime_role", "hook_session_id", "hook_turn_id",
+    "hook_agent_id", "exec_thread_id", "hook_jsonl_sha256", "exec_jsonl_sha256",
+    "trace_content_binding_verified", "exec_jsonl_structure_verified",
+    "identifier_value_match_verified", "hook_session_id_equals_exec_thread_id",
+    "session_thread_semantic_binding_verified", "parent_thread_correlation_candidate",
+    "parent_thread_correlation_verified", "thread_id_correlation_verified",
+    "single_turn_envelope_verified",
+    "explicit_forbidden_item_type_absence_verified",
+    "documented_item_schema_coverage_complete", "undocumented_item_type_count",
+    "command_execution_read_only_verified", "mcp_tool_read_only_verified",
+    "repository_postcondition_verified", "turn_id_exposed_in_exec_jsonl",
+    "turn_id_correlation_verified", "subagent_identity_exposed_in_exec_jsonl",
+    "subagent_identity_correlation_verified", "same_subagent_execution_correlated",
+    "hook_execution_root_attested", "codex_jsonl_thread_correlation_verified",
+    "codex_jsonl_runtime_correlation_verified", "hard_read_only_enforced",
+    "runtime_probe_attestation_verified", "human_rollout_decision_verified",
+    "dispatch_ready", "dispatch_allowed", "verification_limit", "event_summary",
+    "authority", "result_hash",
+}
+AUTHORITY_KEYS = {
+    "agent_invoke_allowed", "code_write_allowed", "approval_write_allowed",
+    "merge_allowed", "deploy_allowed",
+}
+
 class ManagedCaptureManifestError(ValueError):
     def __init__(self, errors: list[str]):
         self.errors = list(errors)
@@ -145,6 +171,12 @@ def _validate_correlation_result(value: Any) -> list[str]:
     if not isinstance(value, dict):
         return ["correlation_result: object required"]
     errors: list[str] = []
+    unknown = sorted(set(value) - CORRELATION_KEYS)
+    missing = sorted(CORRELATION_KEYS - set(value))
+    if unknown:
+        errors.append(f"correlation_result: unsupported keys: {unknown}")
+    if missing:
+        errors.append(f"correlation_result: missing keys: {missing}")
     if value.get("domain") != correlation.DOMAIN:
         errors.append("correlation_result.domain: exact #1461 domain required")
     if value.get("contract_stage") != correlation.CONTRACT_STAGE:
@@ -188,8 +220,15 @@ def _validate_correlation_result(value: Any) -> list[str]:
             errors.append(f"correlation_result.{field}: false required")
 
     authority = value.get("authority")
-    if not isinstance(authority, dict) or any(authority.values()):
-        errors.append("correlation_result.authority: all values must remain false")
+    if not isinstance(authority, dict):
+        errors.append("correlation_result.authority: object required")
+    else:
+        unknown_authority = sorted(set(authority) - AUTHORITY_KEYS)
+        missing_authority = sorted(AUTHORITY_KEYS - set(authority))
+        if unknown_authority or missing_authority:
+            errors.append("correlation_result.authority: exact key set required")
+        if any(authority.get(field) is not False for field in AUTHORITY_KEYS):
+            errors.append("correlation_result.authority: all values must remain false")
     return errors
 
 

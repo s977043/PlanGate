@@ -226,6 +226,31 @@ class ManagedCaptureManifestTests(unittest.TestCase):
                 capture_manifest=_manifest(result),
             )
 
+    def test_unknown_upstream_field_is_rejected(self):
+        result = _correlation_result()
+        result["future_promotion_flag"] = True
+        body = dict(result)
+        body.pop("result_hash")
+        result["result_hash"] = ingress._canonical_hash(body)
+        with self.assertRaises(managed.ManagedCaptureManifestError):
+            managed.verify_candidate(
+                correlation_result=result,
+                capture_manifest=_manifest(result),
+            )
+
+    def test_missing_upstream_authority_key_is_rejected(self):
+        result = _correlation_result()
+        result["authority"] = copy.deepcopy(result["authority"])
+        result["authority"].pop("deploy_allowed")
+        body = dict(result)
+        body.pop("result_hash")
+        result["result_hash"] = ingress._canonical_hash(body)
+        with self.assertRaises(managed.ManagedCaptureManifestError):
+            managed.verify_candidate(
+                correlation_result=result,
+                capture_manifest=_manifest(result),
+            )
+
     def test_nonzero_upstream_authority_is_rejected(self):
         result = _correlation_result()
         result["authority"] = copy.deepcopy(result["authority"])
