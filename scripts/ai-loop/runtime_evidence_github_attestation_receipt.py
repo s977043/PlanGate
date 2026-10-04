@@ -144,14 +144,27 @@ def _strict_json_loads(text: str, field: str) -> Any:
         raise GitHubAttestationReceiptError([f"{field}: invalid JSON"]) from exc
 
 
-def load_json_value(path, *, repo_root, field) -> tuple[Any, str]:
+def load_raw_bytes(path, *, repo_root, field, max_bytes) -> bytes:
     source = _require_external_regular_file(path, repo_root, field)
     try:
-        raw = source.read_bytes()
+        with source.open("rb") as handle:
+            raw = handle.read(max_bytes + 1)
     except OSError as exc:
         raise GitHubAttestationReceiptError([f"{field}: cannot read: {exc}"]) from exc
-    if len(raw) > MAX_JSON_BYTES:
-        raise GitHubAttestationReceiptError([f"{field}: file exceeds 2 MiB limit"])
+    if len(raw) > max_bytes:
+        raise GitHubAttestationReceiptError(
+            [f"{field}: file exceeds {max_bytes} byte limit"]
+        )
+    return raw
+
+
+def load_json_value(path, *, repo_root, field) -> tuple[Any, str]:
+    raw = load_raw_bytes(
+        path,
+        repo_root=repo_root,
+        field=field,
+        max_bytes=MAX_JSON_BYTES,
+    )
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
@@ -331,7 +344,7 @@ def _validate_gh_output(value: Any, artifact_sha256: str) -> tuple[list[str], di
     }
 
 
-def verify_candidate(
+def _verify_candidate(
     *,
     managed_capture_result: Any,
     capture_manifest: Any,
@@ -472,18 +485,24 @@ def main(argv=None) -> int:
     parser.add_argument("--gh-attestation-json", required=True)
     args = parser.parse_args(argv)
     try:
-        managed_path = _require_external_regular_file(
-            args.managed_capture_result, args.repo_root, "managed_capture_result"
+        managed_raw = load_raw_bytes(
+            args.managed_capture_result,
+            repo_root=args.repo_root,
+            field="managed_capture_result",
+            max_bytes=MAX_JSON_BYTES,
         )
-        manifest_path = _require_external_regular_file(
-            args.capture_manifest, args.repo_root, "capture_manifest"
+        manifest_raw = load_raw_bytes(
+            args.capture_manifest,
+            repo_root=args.repo_root,
+            field="capture_manifest",
+            max_bytes=managed.MAX_JSON_BYTES,
         )
-        gh_path = _require_external_regular_file(
-            args.gh_attestation_json, args.repo_root, "gh_attestation_output"
+        gh_raw = load_raw_bytes(
+            args.gh_attestation_json,
+            repo_root=args.repo_root,
+            field="gh_attestation_output",
+            max_bytes=MAX_JSON_BYTES,
         )
-        managed_raw = managed_path.read_bytes()
-        manifest_raw = manifest_path.read_bytes()
-        gh_raw = gh_path.read_bytes()
         result = verify_candidate_bytes(
             managed_capture_result_raw=managed_raw,
             capture_manifest_raw=manifest_raw,
