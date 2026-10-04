@@ -1,0 +1,75 @@
+{
+  "description": "PROPOSAL ONLY — define a same-run managed capture manifest candidate that binds the reviewed #1461 hook/exec trace hashes without claiming strong attestation.",
+  "contract_stage": "r1-codex-managed-capture-manifest-candidate-v1",
+  "official_codex_basis": {
+    "managed_hook_sources_include_requirements_toml": true,
+    "allow_managed_hooks_only_skips_non_managed_sources": true,
+    "features_hooks_can_be_pinned_true_in_requirements": true,
+    "managed_scripts_must_be_installed_out_of_band": true
+  },
+  "capture_manifest_claim": {
+    "source": "requirements.toml",
+    "required_bindings": [
+      "request_hash",
+      "config_sha",
+      "provider",
+      "hook_jsonl_sha256",
+      "exec_jsonl_sha256",
+      "correlation_result_hash",
+      "hook_session_id",
+      "exec_thread_id",
+      "managed_policy_sha256",
+      "managed_recorder_sha256"
+    ],
+    "required_policy_claims": [
+      "allow_managed_hooks_only_claimed=true",
+      "hooks_feature_pinned_claimed=true"
+    ],
+    "raw_runtime_text_forbidden": true,
+    "repository_storage_forbidden": true,
+    "production_manifest_builder_in_repository": false
+  },
+  "candidate_verification": {
+    "may_be_true": [
+      "capture_manifest_structure_verified",
+      "capture_manifest_content_binding_verified",
+      "capture_manifest_cross_binding_verified",
+      "managed_hooks_only_claim_candidate",
+      "hooks_feature_pinned_claim_candidate",
+      "same_run_binding_manifest_candidate"
+    ],
+    "must_remain_false": [
+      "managed_hook_source_runtime_verified",
+      "managed_policy_live_verified",
+      "managed_recorder_binary_verified",
+      "manifest_signature_verified",
+      "independent_verifier_execution_attested",
+      "managed_hook_root_attested",
+      "same_run_identity_verified",
+      "codex_jsonl_runtime_correlation_verified",
+      "hard_read_only_enforced",
+      "runtime_probe_attestation_verified",
+      "human_rollout_decision_verified",
+      "dispatch_ready",
+      "dispatch_allowed"
+    ]
+  },
+  "trust_notes": [
+    "A repository validator may prove that a manifest is internally consistent with the reviewed #1461 correlation artifact, but it cannot prove that requirements.toml was the live effective managed layer.",
+    "A SHA-256 claim for managed policy or recorder bytes is a content-binding claim only until an independent administrator-controlled verifier proves the live bytes/source.",
+    "allow_managed_hooks_only_claimed=true is not equivalent to allow_managed_hooks_only being enforced at runtime.",
+    "No repository command creates the managed capture manifest; the future manifest must originate from an independently administered capture root.",
+    "Strong promotion requires an independently verified issuer/signature or equivalent administrator-controlled runtime provenance in a separately reviewed slice."
+  ],
+  "non_goals": [
+    "installing or editing requirements.toml",
+    "installing managed hook scripts",
+    "enabling Codex invocation",
+    "claiming same-run identity",
+    "claiming hard read-only enforcement",
+    "promoting runtime attestation",
+    "granting dispatch",
+    "changing active .github/workflows",
+    "plugin distribution"
+  ]
+}
