@@ -107,11 +107,25 @@ _t97_rc=0
 _t97_ref=$(sed -n 's/.*"source_ref": "\([^"]*\)".*/\1/p' "$_t97_r0" | tail -1)
 
 if [ "$_t97_rc" -eq 0 ] && [ -n "$_t97_ref" ]; then
-  "$_T97_PY" "$_T97_AI_LOOP/runtime_evidence_investigation.py" \
-    --repo-root "$_t97_repo" \
-    --source-ref "$_t97_ref" \
-    --platform codex \
-    >"$_t97_r1" 2>"$_t97_tmp/r1.err" || _t97_rc=$?
+  "$_T97_PY" - "$_T97_AI_LOOP" "$_t97_repo" "$_t97_ref" "$_t97_r1" \
+    >"$_t97_tmp/r1.api.out" 2>"$_t97_tmp/r1.err" <<'PY' || _t97_rc=$?
+import json
+import pathlib
+import sys
+
+sys.path.insert(0, sys.argv[1])
+import runtime_evidence_investigation as investigation
+
+request = investigation.build_r1_investigation_request(
+    repo_root=sys.argv[2],
+    source_ref=sys.argv[3],
+    platform="codex",
+)
+pathlib.Path(sys.argv[4]).write_text(
+    json.dumps(request, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+PY
 fi
 
 if [ "$_t97_rc" -eq 0 ] && grep -q '"domain": "plangate.runtime-investigation-request/v1"' "$_t97_r1"; then

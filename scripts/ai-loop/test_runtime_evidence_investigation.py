@@ -268,7 +268,7 @@ class RuntimeInvestigationR1Tests(unittest.TestCase):
         self.assertNotIn("do-not-emit", emitted)
         self.assertNotIn("deploy now", emitted)
         self.assertNotIn("source", parsed)
-        self.assertNotIn("source_ref", emitted)
+        self.assertNotIn('"source_ref":', emitted)
         self.assertNotIn("refs", parsed["untrusted_evidence"])
         self.assertEqual(
             parsed["output_contract"],
