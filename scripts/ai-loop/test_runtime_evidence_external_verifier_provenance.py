@@ -192,6 +192,25 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
         with self.assertRaises(prov.ExternalVerifierProvenanceError):
             _verify(binary="sha256:" + "c" * 64)
 
+    def test_stale_upstream_result_cannot_be_rewrapped(self):
+        value = _upstream()
+        value["issued_at"] = "2026-10-04T22:00:00Z"
+        value["expires_at"] = "2026-10-04T22:05:00Z"
+        body = dict(value)
+        body.pop("result_hash")
+        value["result_hash"] = ingress._canonical_hash(body)
+        with self.assertRaises(prov.ExternalVerifierProvenanceError):
+            _verify(up=value, receipt=_receipt(value))
+
+    def test_malformed_upstream_nonce_is_rejected(self):
+        value = _upstream()
+        value["verification_nonce"] = "short"
+        body = dict(value)
+        body.pop("result_hash")
+        value["result_hash"] = ingress._canonical_hash(body)
+        with self.assertRaises(prov.ExternalVerifierProvenanceError):
+            _verify(up=value, receipt=_receipt(value))
+
     def test_stale_provenance_is_rejected(self):
         value = _receipt()
         value["issued_at"] = "2026-10-04T22:00:00Z"
