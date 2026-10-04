@@ -46,6 +46,8 @@ import gh_exec  # noqa: E402
 REPO = "s977043/plangate"
 OTHER_REPO = "other/other"
 SHA = "0123456789abcdef0123456789abcdef01234567"
+ATTESTATION_WORKFLOW = f"{REPO}/.github/workflows/verify-runtime-attestation.yml"
+ATTESTATION_ARTIFACT = "/tmp/capture-manifest.json"
 
 
 # ---------------------------------------------------------------------------
@@ -118,6 +120,20 @@ def allowed_gh_commands(body_file: str) -> list:
         ["pr", "diff", "1", "--name-only", "--repo", REPO],
         ["pr", "checks", "1", "--json", "name,state", "--repo", REPO],
         ["pr", "comment", "1", "--body-file", body_file, "--repo", REPO],
+        [
+            "attestation", "verify", ATTESTATION_ARTIFACT,
+            "--repo", REPO,
+            "--signer-repo", REPO,
+            "--signer-workflow", ATTESTATION_WORKFLOW,
+            "--source-digest", SHA,
+            "--signer-digest", SHA,
+            "--source-ref", "refs/heads/main",
+            "--cert-oidc-issuer", "https://token.actions.githubusercontent.com",
+            "--predicate-type", "https://slsa.dev/provenance/v1",
+            "--deny-self-hosted-runners",
+            "--no-public-good",
+            "--format", "json",
+        ],
         _api(f"repos/{REPO}"),
         _api(f"repos/{REPO}/issues/1448"),
         _api(f"repos/{REPO}/issues/comments/12345"),
@@ -145,10 +161,11 @@ ALLOWED_GIT_COMMANDS = [
 ]
 
 #: TC-22 の直積生成に使う語彙（allowlist を拡張しても本集合は変えずに追随する）。
-NOUNS = ("pr", "issue", "repo", "api", "release", "run", "workflow", "gist", "auth")
+NOUNS = ("pr", "issue", "repo", "api", "release", "run", "workflow", "gist", "auth",
+         "attestation")
 VERBS = ("merge", "close", "reopen", "ready", "edit", "delete", "create", "review",
          "sync", "rerun", "cancel", "checkout", "lock", "unlock", "transfer",
-         "view", "diff", "checks", "comment", "list", "status")
+         "view", "diff", "checks", "comment", "list", "status", "verify")
 
 
 # ===========================================================================
@@ -323,6 +340,53 @@ class FlagDimensionTests(SpyMixin, unittest.TestCase):
     def test_repo_flag_must_be_bound_to_actual_repo(self):
         with self.assertRaises(gh_exec.Denied):
             gh_exec.run_gh(["pr", "view", "1", "--repo", OTHER_REPO], repo=REPO)
+        self.assertNoSpawn()
+
+
+    def test_attestation_verify_requires_full_strong_policy(self):
+        base = [
+            "attestation", "verify", ATTESTATION_ARTIFACT,
+            "--repo", REPO,
+            "--signer-repo", REPO,
+            "--signer-workflow", ATTESTATION_WORKFLOW,
+            "--source-digest", SHA,
+            "--signer-digest", SHA,
+            "--source-ref", "refs/heads/main",
+            "--cert-oidc-issuer", "https://token.actions.githubusercontent.com",
+            "--predicate-type", "https://slsa.dev/provenance/v1",
+            "--deny-self-hosted-runners",
+            "--no-public-good",
+            "--format", "json",
+        ]
+        gh_exec.authorize_gh(base, repo=REPO)
+
+        cases = []
+        for required in (
+            "--deny-self-hosted-runners", "--no-public-good",
+            "--signer-workflow", "--source-digest", "--signer-digest",
+            "--source-ref", "--cert-oidc-issuer", "--predicate-type", "--format",
+        ):
+            mutated = list(base)
+            index = mutated.index(required)
+            width = 1 if required in (
+                "--deny-self-hosted-runners", "--no-public-good"
+            ) else 2
+            del mutated[index:index + width]
+            cases.append(mutated)
+
+        wrong_repo = list(base)
+        wrong_repo[wrong_repo.index("--repo") + 1] = OTHER_REPO
+        cases.append(wrong_repo)
+        wrong_signer = list(base)
+        wrong_signer[wrong_signer.index("--signer-workflow") + 1] = (
+            "other/other/.github/workflows/verify-runtime-attestation.yml"
+        )
+        cases.append(wrong_signer)
+
+        for args in cases:
+            with self.subTest(args=args):
+                with self.assertRaises(gh_exec.Denied):
+                    gh_exec.run_gh(args, repo=REPO)
         self.assertNoSpawn()
 
 
