@@ -311,6 +311,47 @@ class ExternalVerifierReceiptTests(unittest.TestCase):
                 )
             )
 
+    def test_wrong_capture_manifest_file_digest_is_rejected(self):
+        with self.assertRaises(ext.ExternalVerifierReceiptError):
+            self._run(
+                mutate_receipt=lambda value: value.__setitem__(
+                    "capture_manifest_file_sha256", "sha256:" + "7" * 64
+                )
+            )
+
+    def test_wrong_signer_workflow_binding_is_rejected(self):
+        with self.assertRaises(ext.ExternalVerifierReceiptError):
+            self._run(
+                mutate_receipt=lambda value: value.__setitem__(
+                    "signer_workflow",
+                    "other/repo/.github/workflows/verify.yml",
+                )
+            )
+
+    def test_wrong_source_digest_binding_is_rejected(self):
+        with self.assertRaises(ext.ExternalVerifierReceiptError):
+            self._run(
+                mutate_receipt=lambda value: value.__setitem__(
+                    "source_digest", "1" * 40
+                )
+            )
+
+    def test_wrong_signer_digest_binding_is_rejected(self):
+        with self.assertRaises(ext.ExternalVerifierReceiptError):
+            self._run(
+                mutate_receipt=lambda value: value.__setitem__(
+                    "signer_digest", "2" * 40
+                )
+            )
+
+    def test_wrong_source_ref_binding_is_rejected(self):
+        with self.assertRaises(ext.ExternalVerifierReceiptError):
+            self._run(
+                mutate_receipt=lambda value: value.__setitem__(
+                    "source_ref", "refs/heads/other"
+                )
+            )
+
     def test_candidate_self_promotion_is_rejected(self):
         with self.assertRaises(ext.ExternalVerifierReceiptError):
             self._run(
