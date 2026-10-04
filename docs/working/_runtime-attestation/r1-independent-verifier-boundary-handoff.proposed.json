@@ -1,0 +1,64 @@
+{
+  "description": "PROPOSAL/CONTRACT — #1473 repository-side handoff for a future independently administered GitHub Actions verifier boundary. Passing this contract proves only shape/binding; it does not authenticate administrator separation, workflow/binary provenance, evidence refs, or nonce-ledger behavior.",
+  "contract_stage": "r1-independent-verifier-boundary-handoff-candidate-v1",
+  "profile": "github-actions-dedicated-repository-v1",
+  "binds_to": {
+    "consumer_domain": "plangate.runtime-r1-external-verifier-receipt/v1",
+    "consumer_contract_stage": "r1-external-verifier-receipt-candidate-v1",
+    "receipt_input_domain": "plangate.runtime-r1-external-verifier-receipt-input/v1",
+    "receipt_input_stage": "r1-external-verifier-receipt-input-v1",
+    "receipt_max_validity_seconds": 900
+  },
+  "required_external_boundary": {
+    "verifier_repo_must_not_be_plangate": true,
+    "verifier_workflow_ref_must_be_commit_pinned": true,
+    "verifier_binary_sha256_required": true,
+    "trusted_issuer": "https://token.actions.githubusercontent.com",
+    "runner_policy": "github-hosted-only",
+    "self_hosted_runners_denied": true,
+    "nonce_issue_once": true,
+    "nonce_consume_once": true,
+    "nonce_reuse_rejected": true
+  },
+  "required_admin_evidence_kinds": [
+    "repository_admin_separation",
+    "workflow_immutability",
+    "nonce_ledger_ownership"
+  ],
+  "evidence_ref_contract": {
+    "https_only": true,
+    "content_digest_required": true,
+    "repository_does_not_fetch_or_authenticate_evidence": true
+  },
+  "candidate_evidence": [
+    "verifier_repository_separation_candidate",
+    "immutable_verifier_workflow_binding_candidate",
+    "verifier_binary_binding_candidate",
+    "trusted_issuer_binding_candidate",
+    "github_hosted_runner_policy_candidate",
+    "nonce_one_time_contract_candidate",
+    "admin_evidence_refs_content_addressed_candidate"
+  ],
+  "strong_fields_must_remain_false": [
+    "administrator_separation_authenticated",
+    "verifier_workflow_identity_cryptographically_verified",
+    "verifier_binary_cryptographically_verified",
+    "admin_evidence_authenticated",
+    "nonce_one_time_consumption_verified",
+    "independent_admin_boundary_verified",
+    "independent_verifier_execution_attested",
+    "runtime_probe_attestation_verified",
+    "human_rollout_decision_verified",
+    "dispatch_ready",
+    "dispatch_allowed"
+  ],
+  "trust_notes": {
+    "different_repository_is_necessary_not_sufficient_for_independence": true,
+    "content_addressed_admin_evidence_is_not_authenticated_admin_evidence": true,
+    "declared_one_time_nonce_contract_is_not_verified_consumption": true,
+    "plan_gate_must_not_host_the_independent_verifier_workflow": true,
+    "plan_gate_must_not_own_the_independent_nonce_ledger": true,
+    "external_admin_evidence_required_before_any_strong_promotion": true
+  },
+  "next_gate": "independently provision verifier repository/service and nonce ledger; collect auditable external admin/provenance evidence; only then implement a separate promotion consumer"
+}
