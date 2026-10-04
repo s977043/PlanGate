@@ -351,7 +351,7 @@ API_GET_CONDITION_NAMES = tuple(name for name, _ in API_GET_CONDITIONS)
 
 
 def api_endpoint_patterns(repo: str) -> tuple:
-    """4 本の endpoint 正規表現を **呼び出し時の repo 実値で束縛**して返す。
+    """R1 external-trustを含む read-only endpoint を repo 実値で束縛して返す。
 
     `{owner}` プレースホルダや自由変数は使わない（配布先で壊れる repo 固有 id を
     埋め込まないため、ruleset 一覧 / `rulesets/{id}` も載せない）。
@@ -361,7 +361,18 @@ def api_endpoint_patterns(repo: str) -> tuple:
     r = re.escape(name)
     query = r"(?:\?per_page=[0-9]{1,3})?"
     ref = r"[A-Za-z0-9][A-Za-z0-9._/-]*"
+    sha40 = r"[0-9a-f]{40}"
+    canary_path = (
+        r"\.github/workflows/"
+        r"runtime-r1-request-bound-canary\.yml"
+    )
     return (
+        re.compile(rf"repos/{o}/{r}"),
+        re.compile(rf"repos/{o}/{r}/issues/[0-9]+"),
+        re.compile(rf"repos/{o}/{r}/issues/comments/[0-9]+"),
+        re.compile(rf"repos/{o}/{r}/actions/runs/[0-9]+"),
+        re.compile(rf"repos/{o}/{r}/actions/runs/[0-9]+/jobs{query}"),
+        re.compile(rf"repos/{o}/{r}/contents/{canary_path}\?ref={sha40}"),
         re.compile(rf"repos/{o}/{r}/commits/[0-9a-f]{{7,40}}/check-runs{query}"),
         re.compile(rf"repos/{o}/{r}/pulls/[0-9]+{query}"),
         re.compile(rf"repos/{o}/{r}/pulls/[0-9]+/reviews{query}"),
@@ -550,6 +561,38 @@ def run_gh(args, *, repo: str, cwd=None, rules=GH_RULES):
 def run_git(args, *, cwd=None, rules=GIT_READ_RULES):
     """allowlist を通過した **読み取り系** git コマンドのみ実行する。"""
     return _spawn(authorize_git(args, rules=rules), cwd=cwd)
+
+
+MAX_API_JSON_BYTES = 4 * 1024 * 1024
+
+
+def get_api_json(endpoint: str, *, repo: str, cwd=None):
+    """Allowlisted `gh api --method GET` を実行し JSON を返す。
+
+    外部作用は `run_gh()` の allowlist を必ず通す。レスポンスは 4 MiB 上限。
+    """
+    result = run_gh(
+        ["api", endpoint, "--method", "GET"],
+        repo=repo,
+        cwd=cwd,
+    )
+    if result.returncode != 0:
+        raise Denied(
+            REASON_PRECHECK,
+            f"gh api GET に失敗（rc={result.returncode}）: {result.stderr!r}",
+        )
+    raw = result.stdout
+    if not isinstance(raw, str):
+        raise Denied(REASON_PRECHECK, "gh api GET stdout must be text")
+    if len(raw.encode("utf-8")) > MAX_API_JSON_BYTES:
+        raise Denied(REASON_PRECHECK, "gh api GET response exceeds 4 MiB")
+    try:
+        return json.loads(raw)
+    except (ValueError, TypeError) as exc:
+        raise Denied(
+            REASON_PRECHECK,
+            f"gh api GET output is not valid JSON: {exc}",
+        ) from exc
 
 
 # ---------------------------------------------------------------------------

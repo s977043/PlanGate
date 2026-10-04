@@ -118,6 +118,15 @@ def allowed_gh_commands(body_file: str) -> list:
         ["pr", "diff", "1", "--name-only", "--repo", REPO],
         ["pr", "checks", "1", "--json", "name,state", "--repo", REPO],
         ["pr", "comment", "1", "--body-file", body_file, "--repo", REPO],
+        _api(f"repos/{REPO}"),
+        _api(f"repos/{REPO}/issues/1448"),
+        _api(f"repos/{REPO}/issues/comments/12345"),
+        _api(f"repos/{REPO}/actions/runs/424242"),
+        _api(f"repos/{REPO}/actions/runs/424242/jobs"),
+        _api(
+            f"repos/{REPO}/contents/.github/workflows/"
+            f"runtime-r1-request-bound-canary.yml?ref={SHA}"
+        ),
         _api(f"repos/{REPO}/commits/{SHA}/check-runs"),
         _api(f"repos/{REPO}/pulls/1"),
         _api(f"repos/{REPO}/pulls/1/reviews?per_page=100"),
@@ -590,10 +599,20 @@ class RuleTableStructureTests(unittest.TestCase):
 # ===========================================================================
 
 class PositiveAllowTests(SpyMixin, unittest.TestCase):
-    """TC-29 / TC-14: 4 endpoint の GET と読み取り系 git 7 サブコマンドが allow。"""
+    """TC-29 / TC-14: bounded GET endpoints と読み取り系 git が allow。"""
 
-    def test_four_api_endpoints_are_allowed(self):
+    def test_bounded_api_endpoints_are_allowed(self):
         endpoints = (
+            f"repos/{REPO}",
+            f"repos/{REPO}/issues/1448",
+            f"repos/{REPO}/issues/comments/12345",
+            f"repos/{REPO}/actions/runs/424242",
+            f"repos/{REPO}/actions/runs/424242/jobs",
+            f"repos/{REPO}/actions/runs/424242/jobs?per_page=100",
+            (
+                f"repos/{REPO}/contents/.github/workflows/"
+                f"runtime-r1-request-bound-canary.yml?ref={SHA}"
+            ),
             f"repos/{REPO}/commits/{SHA}/check-runs",
             f"repos/{REPO}/commits/0123abc/check-runs",
             f"repos/{REPO}/pulls/12345",
@@ -610,6 +629,51 @@ class PositiveAllowTests(SpyMixin, unittest.TestCase):
                 gh_exec.authorize_gh(["api", ep], repo=REPO)
                 gh_exec.authorize_gh(["api", ep, "--jq", ".[]"], repo=REPO)
                 gh_exec.authorize_gh(["api", ep, "--paginate"], repo=REPO)
+
+    def test_external_trust_api_allowlist_stays_narrow(self):
+        denied = (
+            f"repos/{OTHER_REPO}",
+            f"repos/{REPO}/issues",
+            f"repos/{REPO}/issues/comments",
+            f"repos/{REPO}/actions/runs",
+            f"repos/{REPO}/actions/runs/424242/artifacts",
+            f"repos/{REPO}/actions/jobs/123",
+            f"repos/{REPO}/contents/README.md?ref={SHA}",
+            (
+                f"repos/{REPO}/contents/.github/workflows/"
+                "runtime-r1-request-bound-canary.yml?ref=main"
+            ),
+            (
+                f"repos/{REPO}/contents/.github/workflows/"
+                f"other.yml?ref={SHA}"
+            ),
+        )
+        for ep in denied:
+            with self.subTest(endpoint=ep):
+                with self.assertRaises(gh_exec.Denied):
+                    gh_exec.authorize_gh(
+                        ["api", ep, "--method", "GET"], repo=REPO
+                    )
+
+    def test_api_json_helper_uses_allowlisted_get(self):
+        self.spy._handler = lambda argv: _Completed(
+            0, json.dumps({"ok": True}), ""
+        )
+        result = gh_exec.get_api_json(
+            f"repos/{REPO}/issues/1448", repo=REPO
+        )
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(
+            self.spy.calls[0][1],
+            ["gh", "api", f"repos/{REPO}/issues/1448", "--method", "GET"],
+        )
+
+    def test_api_json_helper_rejects_invalid_json(self):
+        self.spy._handler = lambda argv: _Completed(0, "not-json", "")
+        with self.assertRaises(gh_exec.Denied):
+            gh_exec.get_api_json(
+                f"repos/{REPO}/issues/1448", repo=REPO
+            )
 
     def test_pr_view_json_fields_are_allowed(self):
         argv = gh_exec.authorize_gh(

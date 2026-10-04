@@ -1,0 +1,74 @@
+{
+  "description": "PROPOSAL ONLY — validate candidate evidence derived from an independently executed gh attestation verify --format json result without claiming cryptographic verification inside PlanGate.",
+  "contract_stage": "r1-github-attestation-receipt-candidate-v1",
+  "official_basis": {
+    "gh_verify_outputs_json_array": true,
+    "verification_result_contains_signature_certificate": true,
+    "verification_result_contains_verified_timestamps": true,
+    "verification_result_contains_statement_subject": true,
+    "statement_predicate_is_workflow_controllable": true,
+    "reference": "https://cli.github.com/manual/gh_attestation_verify"
+  },
+  "artifact_binding": {
+    "artifact": "external managed capture manifest file",
+    "required": [
+      "exact raw capture-manifest file SHA-256",
+      "exact #1463 internal manifest_hash binding",
+      "exactly one gh verified attestation entry",
+      "exactly one statement subject",
+      "statement subject sha256 equals raw capture-manifest file SHA-256",
+      "SLSA provenance v1 predicate type",
+      "non-empty signature.certificate object",
+      "non-empty verifiedTimestamps array"
+    ]
+  },
+  "candidate_verification": {
+    "may_be_true": [
+      "github_attestation_output_structure_verified",
+      "artifact_subject_digest_match_candidate",
+      "signature_certificate_present_candidate",
+      "verified_timestamp_present_candidate",
+      "slsa_provenance_predicate_type_candidate"
+    ],
+    "must_remain_false": [
+      "statement_predicate_trusted",
+      "gh_attestation_cli_execution_verified",
+      "artifact_digest_cryptographically_verified",
+      "attestation_signature_cryptographically_verified",
+      "signer_certificate_identity_verified",
+      "verified_timestamp_cryptographically_verified",
+      "signer_workflow_policy_verified",
+      "source_digest_policy_verified",
+      "self_hosted_runner_denial_verified",
+      "independent_admin_boundary_verified",
+      "independent_verifier_execution_attested",
+      "manifest_signature_verified",
+      "managed_hook_root_attested",
+      "same_run_identity_verified",
+      "runtime_probe_attestation_verified",
+      "human_rollout_decision_verified",
+      "dispatch_ready",
+      "dispatch_allowed"
+    ]
+  },
+  "trust_notes": [
+    "GitHub CLI documents that signature.certificate and verifiedTimestamps contain values that cannot be manipulated by the originating workflow when the JSON came from successful gh attestation verify.",
+    "PlanGate does not execute gh in this slice, so a JSON file that merely has that shape is still candidate evidence and can be forged outside the repository.",
+    "statement.predicate is never used for trust or promotion because GitHub documents it as workflow-controllable metadata.",
+    "The candidate binds the attested subject digest to the exact raw bytes of the external capture-manifest file, not only to its internal canonical manifest_hash.",
+    "The next promotion gate must execute gh attestation verify in an independently administered environment with strict signer/source/self-hosted-runner policy and preserve verifiable provenance for that execution."
+  ],
+  "non_goals": [
+    "adding gh attestation verify to gh_exec.py",
+    "expanding plugin execution capability",
+    "creating or editing active GitHub Actions workflows",
+    "creating artifact attestations",
+    "trusting statement.predicate",
+    "claiming signer identity verification",
+    "claiming cryptographic signature verification",
+    "claiming independent administrator control",
+    "promoting runtime attestation",
+    "granting dispatch",
+    "plugin distribution"
+  ]
+}
