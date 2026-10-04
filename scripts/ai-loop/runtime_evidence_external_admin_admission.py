@@ -239,11 +239,6 @@ def _validate_evidence(value: Any, errors: list[str]) -> None:
                     for segment in canonical_segments
                     if segment not in ("", ".", "..")
                 ]
-                normalized_host = (
-                    parsed.hostname.casefold().rstrip(".")
-                    if parsed.hostname
-                    else ""
-                )
                 plangate_path_reference = any(
                     left == "s977043" and right == "plangate"
                     for left, right in zip(
@@ -255,14 +250,6 @@ def _validate_evidence(value: Any, errors: list[str]) -> None:
                     errors.append(
                         f"{prefix}.uri: PlanGate repository cannot be independent-admin Evidence"
                     )
-                if normalized_host in {"github.com", "www.github.com"} and (
-                    len(normalized_segments) >= 2
-                    and normalized_segments[0] == "s977043"
-                    and normalized_segments[1] == "plangate"
-                ):
-                    # Kept explicit for auditability even though the canonical-path
-                    # rule above already rejects this common GitHub form.
-                    pass
 
         digest = item.get("sha256")
         if not isinstance(digest, str) or HASH_RE.fullmatch(digest) is None:
