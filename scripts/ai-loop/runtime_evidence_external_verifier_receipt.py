@@ -251,6 +251,25 @@ def _validate_command_candidate(value: Any) -> list[str]:
     if not isinstance(provider, str) or ingress.PROVIDER_RE.fullmatch(provider) is None:
         errors.append("command_candidate.provider: provider-neutral identifier required")
 
+    try:
+        command._validate_policy(
+            attestation_repo=value.get("attestation_repo"),
+            signer_repo=value.get("signer_repo"),
+            signer_workflow=value.get("signer_workflow"),
+            source_digest=value.get("source_digest"),
+            signer_digest=value.get("signer_digest"),
+            source_ref=value.get("source_ref"),
+        )
+    except command.IndependentAttestationVerifierError as exc:
+        errors.extend(
+            f"command_candidate.policy: {error}" for error in exc.errors
+        )
+
+    if value.get("oidc_issuer") != command.OIDC_ISSUER:
+        errors.append("command_candidate.oidc_issuer: exact #1470 issuer required")
+    if value.get("predicate_type") != fileio.EXPECTED_PREDICATE_TYPE:
+        errors.append("command_candidate.predicate_type: exact #1470 predicate required")
+
     body = dict(value)
     claimed_hash = body.pop("result_hash", None)
     if claimed_hash != ingress._canonical_hash(body):
@@ -432,9 +451,12 @@ def verify_candidate_bytes(
         "exact_command_candidate_binding_verified_candidate": True,
         "external_receipt_self_hash_verified_candidate": True,
         "external_claim_set_complete_candidate": True,
-        "challenge_binding_verified_candidate": True,
-        "freshness_window_verified_candidate": True,
-        "replay_absence_verified_candidate": True,
+        "expected_challenge_match_candidate": True,
+        "supplied_observation_within_freshness_window_candidate": True,
+        "not_in_supplied_consumed_set_candidate": True,
+        "challenge_issuance_verified": False,
+        "evaluation_time_source_verified": False,
+        "persistent_replay_state_verified": False,
         "external_receipt_signature_verified": False,
         "external_receipt_origin_verified": False,
         "gh_attestation_cli_execution_verified": False,
@@ -457,10 +479,12 @@ def verify_candidate_bytes(
         "dispatch_ready": False,
         "dispatch_allowed": False,
         "verification_limit": (
-            "receipt structure, content binding, one-time challenge, bounded freshness, "
-            "and caller-supplied replay absence are validated, but the repository has "
-            "not authenticated the receipt signature/origin or independently attested "
-            "the verifier execution; all strong authority remains false"
+            "receipt structure/content binding, expected-challenge equality, the "
+            "caller-supplied observation time window, and absence from the caller-supplied "
+            "consumed set are validated, but challenge issuance, trusted evaluation time, "
+            "persistent replay state, receipt signature/origin, and independent verifier "
+            "execution are not authenticated; the repository has "
+            "not established a promotion trust root; all strong authority remains false"
         ),
         "authority": {
             "agent_invoke_allowed": False,
