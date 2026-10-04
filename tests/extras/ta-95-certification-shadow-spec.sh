@@ -134,6 +134,22 @@ else
   fail=$((fail + 1))
 fi
 
+printf 'def broken(:\n' >"$_T95_PROBE/scripts/ai-loop-v2/broken.py"
+git -C "$_T95_PROBE" add scripts/ai-loop-v2/broken.py
+_T95_PARSE_PROBE_GOT=$(_t95_owner_seam_refs "$_T95_PROBE")
+case "$_T95_PARSE_PROBE_GOT" in
+  *'PARSE_ERROR:scripts/ai-loop-v2/broken.py:SyntaxError'*)
+    printf '  [PASS] owner-seam parser-error positive control\n'
+    pass=$((pass + 1))
+    ;;
+  *)
+    printf '  [FAIL] owner-seam parser-error control did not fail closed:\n%s\n' "$_T95_PARSE_PROBE_GOT" >&2
+    fail=$((fail + 1))
+    ;;
+esac
+rm -f "$_T95_PROBE/scripts/ai-loop-v2/broken.py"
+git -C "$_T95_PROBE" rm --cached -q scripts/ai-loop-v2/broken.py
+
 if _t95_design_contract_ok "$_T95_PROBE"; then
   printf '  [PASS] design-contract detector positive control\n'
   pass=$((pass + 1))
