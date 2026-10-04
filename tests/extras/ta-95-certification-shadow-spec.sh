@@ -86,7 +86,8 @@ for rel in sorted(line for line in proc.stdout.splitlines() if line):
     path = root / rel
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=rel)
-    except (OSError, SyntaxError):
+    except (OSError, SyntaxError) as exc:
+        print(f"PARSE_ERROR:{rel}:{type(exc).__name__}")
         continue
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "artifact_verdicts":
@@ -177,12 +178,19 @@ else
 fi
 
 _T95_OWNER_SEAM=$(_t95_owner_seam_refs "$_T95_ROOT")
-if [ -n "$_T95_OWNER_SEAM" ]; then
-  printf '  [FAIL] owner artifact_verdicts seam detected; re-run #1460 preflight before keeping Mode A:\n%s\n' "$_T95_OWNER_SEAM" >&2
-  fail=$((fail + 1))
-else
-  printf '  [PASS] owner artifact_verdicts seam still absent; Mode A preflight remains valid\n'
-  pass=$((pass + 1))
-fi
+case "$_T95_OWNER_SEAM" in
+  *PARSE_ERROR:*)
+    printf '  [FAIL] owner-seam scan could not parse production Python; Mode A preflight is invalid:\n%s\n' "$_T95_OWNER_SEAM" >&2
+    fail=$((fail + 1))
+    ;;
+  '')
+    printf '  [PASS] owner artifact_verdicts seam still absent; Mode A preflight remains valid\n'
+    pass=$((pass + 1))
+    ;;
+  *)
+    printf '  [FAIL] owner artifact_verdicts seam detected; re-run #1460 preflight before keeping Mode A:\n%s\n' "$_T95_OWNER_SEAM" >&2
+    fail=$((fail + 1))
+    ;;
+esac
 
 pg_extra_contract_finalize
