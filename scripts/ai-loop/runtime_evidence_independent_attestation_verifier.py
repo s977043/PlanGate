@@ -25,7 +25,7 @@ import json
 import pathlib
 import re
 import sys
-from typing import Any, Callable
+from typing import Any
 
 HERE = pathlib.Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
@@ -130,7 +130,6 @@ def verify_with_github_attestation(
     source_digest: str,
     source_ref: str,
     cwd=None,
-    runner: Callable[..., Any] = gh_exec.run_gh,
 ) -> dict[str, Any]:
     manifest_path = candidate_receipt._require_external_regular_file(
         capture_manifest_path,
@@ -152,7 +151,7 @@ def verify_with_github_attestation(
     )
 
     try:
-        proc = runner(args, repo=verifier_repo, cwd=cwd)
+        proc = gh_exec.run_gh(args, repo=verifier_repo, cwd=cwd)
     except gh_exec.Denied as exc:
         raise IndependentAttestationVerifierError(
             [f"gh_attestation_verify: allowlist denied: {exc}"]
