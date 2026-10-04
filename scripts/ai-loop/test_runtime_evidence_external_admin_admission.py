@@ -103,6 +103,7 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
             "oidc_issuer_bound_candidate",
             "self_hosted_runner_denial_declared_candidate",
             "admin_evidence_refs_content_addressed_candidate",
+            "admin_evidence_set_content_hash_candidate",
             "nonce_owner_declared_candidate",
             "receipt_contract_compatible_candidate",
         ):
@@ -126,6 +127,22 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
         ):
             self.assertFalse(result[field])
         self.assertFalse(any(result["authority"].values()))
+        self.assertTrue(result["admin_evidence_set_hash"].startswith("sha256:"))
+        self.assertNotIn("admin_separation_evidence", result)
+
+    def test_evidence_set_hash_is_order_independent(self):
+        first = self._run()
+
+        def reverse(value):
+            value["admin_separation_evidence"] = list(
+                reversed(value["admin_separation_evidence"])
+            )
+
+        second = self._run(mutate=reverse)
+        self.assertEqual(
+            first["admin_evidence_set_hash"],
+            second["admin_evidence_set_hash"],
+        )
 
     def test_signer_repo_must_be_separate_from_attestation_repo(self):
         with self.assertRaises(admission.ExternalAdminAdmissionError):
