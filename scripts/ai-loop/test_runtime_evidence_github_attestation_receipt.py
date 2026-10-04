@@ -296,6 +296,40 @@ class ReceiptTests(unittest.TestCase):
                 gh_attestation_output_sha256="sha256:" + "2" * 64,
             )
 
+    def test_upstream_provider_format_drift_is_rejected(self):
+        manifest = _manifest()
+        managed_result = _managed_result(manifest)
+        managed_result["provider"] = "Bad/Provider"
+        body = dict(managed_result)
+        body.pop("result_hash")
+        managed_result["result_hash"] = ingress._canonical_hash(body)
+        file_sha = _file_sha(_manifest_bytes(manifest))
+        with self.assertRaises(receipt.GitHubAttestationReceiptError):
+            _verify(
+                managed_capture_result=managed_result,
+                capture_manifest=manifest,
+                capture_manifest_file_sha256=file_sha,
+                gh_attestation_output=_gh_output(file_sha),
+                gh_attestation_output_sha256="sha256:" + "2" * 64,
+            )
+
+    def test_upstream_managed_source_drift_is_rejected(self):
+        manifest = _manifest()
+        managed_result = _managed_result(manifest)
+        managed_result["managed_hook_source_claim"] = "project"
+        body = dict(managed_result)
+        body.pop("result_hash")
+        managed_result["result_hash"] = ingress._canonical_hash(body)
+        file_sha = _file_sha(_manifest_bytes(manifest))
+        with self.assertRaises(receipt.GitHubAttestationReceiptError):
+            _verify(
+                managed_capture_result=managed_result,
+                capture_manifest=manifest,
+                capture_manifest_file_sha256=file_sha,
+                gh_attestation_output=_gh_output(file_sha),
+                gh_attestation_output_sha256="sha256:" + "2" * 64,
+            )
+
     def test_unknown_managed_result_field_is_rejected(self):
         manifest = _manifest()
         managed_result = _managed_result(manifest)
