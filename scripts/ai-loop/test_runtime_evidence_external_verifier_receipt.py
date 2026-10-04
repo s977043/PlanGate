@@ -157,12 +157,15 @@ class ExternalVerifierReceiptTests(unittest.TestCase):
             "exact_command_candidate_binding_verified_candidate",
             "external_receipt_self_hash_verified_candidate",
             "external_claim_set_complete_candidate",
-            "challenge_binding_verified_candidate",
-            "freshness_window_verified_candidate",
-            "replay_absence_verified_candidate",
+            "expected_challenge_match_candidate",
+            "supplied_observation_within_freshness_window_candidate",
+            "not_in_supplied_consumed_set_candidate",
         ):
             self.assertTrue(result[field])
         for field in (
+            "challenge_issuance_verified",
+            "evaluation_time_source_verified",
+            "persistent_replay_state_verified",
             "external_receipt_signature_verified",
             "external_receipt_origin_verified",
             "gh_attestation_cli_execution_verified",
@@ -216,6 +219,35 @@ class ExternalVerifierReceiptTests(unittest.TestCase):
         with self.assertRaises(verifier_receipt.ExternalVerifierReceiptError):
             _verify(receipt=receipt)
 
+    def test_wrong_signer_workflow_binding_is_rejected(self):
+        receipt = _receipt()
+        receipt["signer_workflow"] = (
+            SIGNER_REPO + "/.github/workflows/other-verifier.yml"
+        )
+        _rehash(receipt)
+        with self.assertRaises(verifier_receipt.ExternalVerifierReceiptError):
+            _verify(receipt=receipt)
+
+    def test_wrong_source_digest_binding_is_rejected(self):
+        receipt = _receipt()
+        receipt["source_digest"] = "fedcba9876543210fedcba9876543210fedcba98"
+        _rehash(receipt)
+        with self.assertRaises(verifier_receipt.ExternalVerifierReceiptError):
+            _verify(receipt=receipt)
+
+    def test_wrong_manifest_file_binding_is_rejected(self):
+        receipt = _receipt()
+        receipt["capture_manifest_file_sha256"] = "sha256:" + "5" * 64
+        _rehash(receipt)
+        with self.assertRaises(verifier_receipt.ExternalVerifierReceiptError):
+            _verify(receipt=receipt)
+
+    def test_receipt_self_hash_mismatch_is_rejected(self):
+        receipt = _receipt()
+        receipt["receipt_hash"] = "sha256:" + "6" * 64
+        with self.assertRaises(verifier_receipt.ExternalVerifierReceiptError):
+            _verify(receipt=receipt)
+
     def test_wrong_challenge_is_rejected(self):
         with self.assertRaises(verifier_receipt.ExternalVerifierReceiptError):
             _verify(expected_challenge_hash="sha256:" + "4" * 64)
@@ -262,6 +294,22 @@ class ExternalVerifierReceiptTests(unittest.TestCase):
         with self.assertRaises(verifier_receipt.ExternalVerifierReceiptError):
             _verify(receipt=receipt)
 
+    def test_invalid_command_candidate_policy_is_rejected(self):
+        candidate = _command_candidate()
+        candidate["signer_workflow"] = "other/repo/.github/workflows/verify.yml"
+        _rehash(candidate, "result_hash")
+        receipt = _receipt(candidate)
+        with self.assertRaises(verifier_receipt.ExternalVerifierReceiptError):
+            _verify(candidate=candidate, receipt=receipt)
+
+    def test_command_candidate_wrong_oidc_issuer_is_rejected(self):
+        candidate = _command_candidate()
+        candidate["oidc_issuer"] = "https://example.invalid"
+        _rehash(candidate, "result_hash")
+        receipt = _receipt(candidate)
+        with self.assertRaises(verifier_receipt.ExternalVerifierReceiptError):
+            _verify(candidate=candidate, receipt=receipt)
+
     def test_promoted_repository_command_candidate_is_rejected(self):
         candidate = _command_candidate()
         candidate["gh_attestation_cli_execution_verified"] = True
@@ -284,7 +332,9 @@ class ExternalVerifierReceiptTests(unittest.TestCase):
             repo_root.mkdir()
             path = repo_root / "receipt.json"
             path.write_bytes(_json_bytes(_receipt()))
-            with self.assertRaises(Exception):
+            with self.assertRaises(
+                verifier_receipt.fileio.GitHubAttestationReceiptError
+            ):
                 verifier_receipt.fileio.load_raw_bytes(
                     path,
                     repo_root=repo_root,
