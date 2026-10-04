@@ -138,11 +138,47 @@ else
   created_gate_test=0
 fi
 
-if sh "$PLANGATE_BIN" exec TASK-GATETEST 2>&1 | grep -q 'C-3 gate not cleared'; then
-  printf '[PASS] exec: missing approvals/c3.json → C-3 gate not cleared\n'
+_t03_missing_out="$(sh "$PLANGATE_BIN" exec TASK-GATETEST 2>&1 || true)"
+if printf '%s' "$_t03_missing_out" | grep -q 'C-3 gate not cleared' \
+  && printf '%s' "$_t03_missing_out" | grep -q 'Next: plangate status TASK-GATETEST' \
+  && printf '%s' "$_t03_missing_out" | grep -q 'Human action:'; then
+  printf '[PASS] exec: missing approvals/c3.json → actionable C-3 recovery guidance\n'
   pass=$((pass + 1))
 else
-  printf '[FAIL] exec: expected "C-3 gate not cleared" error\n'
+  printf '[FAIL] exec: missing C-3 recovery guidance not found\n'
+  printf '%s\n' "$_t03_missing_out"
+  fail=$((fail + 1))
+fi
+
+mkdir -p "$REPO_WORKING/approvals"
+cat > "$REPO_WORKING/approvals/c3.json" <<'JSON'
+{"c3_status":"REJECTED"}
+JSON
+_t03_rejected_out="$(sh "$PLANGATE_BIN" exec TASK-GATETEST 2>&1 || true)"
+if printf '%s' "$_t03_rejected_out" | grep -q 'C-3 gate not approved' \
+  && printf '%s' "$_t03_rejected_out" | grep -q 'Next: plangate status TASK-GATETEST' \
+  && printf '%s' "$_t03_rejected_out" | grep -q 'Human action:'; then
+  printf '[PASS] exec: non-approved C-3 → status + Human-owned recovery guidance\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] exec: non-approved C-3 recovery guidance not found\n'
+  printf '%s\n' "$_t03_rejected_out"
+  fail=$((fail + 1))
+fi
+
+cat > "$REPO_WORKING/approvals/c3.json" <<'JSON'
+{"c3_status":"APPROVED","plan_hash":"sha256:0000000000000000000000000000000000000000000000000000000000000000"}
+JSON
+_t03_hash_out="$(sh "$PLANGATE_BIN" exec TASK-GATETEST 2>&1 || true)"
+if printf '%s' "$_t03_hash_out" | grep -q 'plan_hash mismatch' \
+  && printf '%s' "$_t03_hash_out" | grep -q 'Next    : plangate validate TASK-GATETEST' \
+  && printf '%s' "$_t03_hash_out" | grep -q 'Human action:' \
+  && ! printf '%s' "$_t03_hash_out" | grep -q 'update c3.json plan_hash'; then
+  printf '[PASS] exec: plan_hash mismatch → validate + Human-owned re-decision guidance\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] exec: plan_hash mismatch recovery guidance is unsafe or incomplete\n'
+  printf '%s\n' "$_t03_hash_out"
   fail=$((fail + 1))
 fi
 
