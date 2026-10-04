@@ -133,7 +133,6 @@ def allowed_gh_commands(body_file: str) -> list:
             "--cert-oidc-issuer", "https://token.actions.githubusercontent.com",
             "--predicate-type", "https://slsa.dev/provenance/v1",
             "--deny-self-hosted-runners",
-            "--no-public-good",
             "--format", "json",
         ],
         _api(f"repos/{REPO}"),
@@ -332,6 +331,7 @@ class FlagDimensionTests(SpyMixin, unittest.TestCase):
             ["pr", "checks", "1", "--watch"],
             ["pr", "checks", "1", "--fail-fast"],
             ["api", f"repos/{REPO}/pulls/1", "--cache", "1h"],
+            ["attestation", "verify", ATTESTATION_ARTIFACT, "--no-public-good"],
         )
         for args in cases:
             with self.subTest(args=args):
@@ -357,22 +357,19 @@ class FlagDimensionTests(SpyMixin, unittest.TestCase):
             "--cert-oidc-issuer", "https://token.actions.githubusercontent.com",
             "--predicate-type", "https://slsa.dev/provenance/v1",
             "--deny-self-hosted-runners",
-            "--no-public-good",
             "--format", "json",
         ]
         gh_exec.authorize_gh(base, repo=REPO)
 
         cases = []
         for required in (
-            "--deny-self-hosted-runners", "--no-public-good",
+            "--deny-self-hosted-runners",
             "--signer-workflow", "--source-digest", "--signer-digest",
             "--source-ref", "--cert-oidc-issuer", "--predicate-type", "--format",
         ):
             mutated = list(base)
             index = mutated.index(required)
-            width = 1 if required in (
-                "--deny-self-hosted-runners", "--no-public-good"
-            ) else 2
+            width = 1 if required == "--deny-self-hosted-runners" else 2
             del mutated[index:index + width]
             cases.append(mutated)
 
