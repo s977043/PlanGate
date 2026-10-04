@@ -1,0 +1,19 @@
+{
+  "schema_version": "1",
+  "domain": "plangate.runtime-r1-external-nonce-ledger-policy/v1",
+  "status": "proposal-only",
+  "owner": "<external-nonce-owner>",
+  "forbidden_owners": [
+    "s977043/PlanGate",
+    "<attestation-repo>"
+  ],
+  "issue_once": true,
+  "consume_once": true,
+  "reuse_rejected": true,
+  "atomic_consume_required": true,
+  "durable_consumption_record_required": true,
+  "cross_request_nonce_reuse_rejected": true,
+  "raw_runtime_payload_storage_allowed": false,
+  "plangate_write_authority_allowed": false,
+  "promotion_allowed": false
+}
