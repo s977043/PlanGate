@@ -28,7 +28,13 @@
   "evidence_ref_contract": {
     "https_only": true,
     "content_digest_required": true,
-    "repository_does_not_fetch_or_authenticate_evidence": true
+    "repository_does_not_fetch_or_authenticate_evidence": true,
+    "exact_subject_binding_required": true,
+    "subject_mapping": {
+      "repository_admin_separation": "verifier_repo",
+      "workflow_immutability": "verifier_workflow_ref",
+      "nonce_ledger_ownership": "nonce_ledger_owner"
+    }
   },
   "candidate_evidence": [
     "verifier_repository_separation_candidate",
