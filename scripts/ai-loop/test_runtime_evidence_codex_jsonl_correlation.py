@@ -56,17 +56,13 @@ def _hook_records():
             request_hash=REQ,
             config_sha=CONFIG,
             provider=PROVIDER,
-                hook_jsonl_sha256="sha256:" + "d" * 64,
-                exec_jsonl_sha256="sha256:" + "c" * 64,
-            ),
+        ),
         probe.normalize_hook_event(
             event=stop,
             request_hash=REQ,
             config_sha=CONFIG,
             provider=PROVIDER,
-                hook_jsonl_sha256="sha256:" + "d" * 64,
-                exec_jsonl_sha256="sha256:" + "c" * 64,
-            ),
+        ),
     ]
 
 
@@ -124,7 +120,6 @@ class CorrelationTests(unittest.TestCase):
         self.assertFalse(result["codex_jsonl_thread_correlation_verified"])
         self.assertTrue(result["trace_content_binding_verified"])
         self.assertTrue(result["single_turn_envelope_verified"])
-        self.assertTrue(result["codex_jsonl_thread_correlation_verified"])
         self.assertTrue(
             result["explicit_forbidden_item_type_absence_verified"]
         )
