@@ -1323,6 +1323,76 @@ class LiveShadowCollectorTests(unittest.TestCase):
             " ".join(inventory["invalid_case_artifacts"][0]["errors"]),
         )
 
+    def test_materialization_inventory_rejects_extra_case_fields(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs()
+        collector.collect_reviewed_materialization_case(
+            repo_root=self.root,
+            admission_case_ref=self.case_artifact_ref,
+            payload_ref=self.payload_ref,
+            existing_work_ref=self.existing_work_ref,
+            oracle_ref=self.materialization_oracle_ref,
+            case_artifact_ref=self.materialization_case_ref,
+        )
+
+        case = json.loads(
+            (self.root / self.materialization_case_ref).read_text(
+                encoding="utf-8"
+            )
+        )
+        case["review_notes"] = "not part of the reviewed collector contract"
+        (self.root / self.materialization_case_ref).write_text(
+            json.dumps(case, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+
+        inventory = collector.inventory_live_materialization_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["evaluated_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 1)
+        self.assertIn(
+            "exact collector-owned fields required",
+            " ".join(inventory["invalid_case_artifacts"][0]["errors"]),
+        )
+
+    def test_materialization_inventory_rejects_extra_expected_field(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs()
+        collector.collect_reviewed_materialization_case(
+            repo_root=self.root,
+            admission_case_ref=self.case_artifact_ref,
+            payload_ref=self.payload_ref,
+            existing_work_ref=self.existing_work_ref,
+            oracle_ref=self.materialization_oracle_ref,
+            case_artifact_ref=self.materialization_case_ref,
+        )
+
+        case = json.loads(
+            (self.root / self.materialization_case_ref).read_text(
+                encoding="utf-8"
+            )
+        )
+        case["expected"]["review_note"] = "unreviewed"
+        (self.root / self.materialization_case_ref).write_text(
+            json.dumps(case, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+
+        inventory = collector.inventory_live_materialization_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["evaluated_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 1)
+        self.assertIn(
+            "materialization_case.expected: exact collector-owned fields required",
+            " ".join(inventory["invalid_case_artifacts"][0]["errors"]),
+        )
+
     def test_materialization_inventory_rejects_extra_evidence_ref(self):
         self._prepare_materialize_admission_case()
         self._write_materialization_inputs()
