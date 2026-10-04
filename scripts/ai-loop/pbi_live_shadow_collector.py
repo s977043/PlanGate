@@ -485,6 +485,92 @@ def collect_review_packet(
     }
 
 
+def _validate_review_packet_contract(
+    packet: dict[str, Any],
+    *,
+    task_id: str,
+) -> None:
+    errors: list[str] = []
+
+    if set(packet) != {
+        "schema_version",
+        "domain",
+        "mode",
+        "evidence_class",
+        "task_id",
+        "run_id",
+        "refs",
+        "hashes",
+        "review_contract",
+        "authority",
+    }:
+        errors.append("review_packet: exact collector-owned fields required")
+    if packet.get("schema_version") != 1:
+        errors.append("review_packet.schema_version: 1 required")
+    if packet.get("domain") != "plangate.pbi-live-shadow-review-packet/v1":
+        errors.append(
+            "review_packet.domain: plangate.pbi-live-shadow-review-packet/v1 required"
+        )
+    if packet.get("mode") != "pbi_live_shadow_review_packet":
+        errors.append("review_packet.mode: pbi_live_shadow_review_packet required")
+    if packet.get("evidence_class") != "live_shadow":
+        errors.append("review_packet.evidence_class: live_shadow required")
+    if packet.get("task_id") != task_id:
+        errors.append("review_packet.task_id: task mismatch")
+    if not isinstance(packet.get("run_id"), str) or not packet.get("run_id", "").strip():
+        errors.append("review_packet.run_id: non-empty string required")
+
+    refs = packet.get("refs")
+    if not isinstance(refs, dict):
+        errors.append("review_packet.refs: object required")
+    elif set(refs) != {
+        "blind_review_source_ref",
+        "capture_ref_for_binding_only",
+        "run_evidence_ref_for_binding_only",
+    }:
+        errors.append("review_packet.refs: exact collector-owned fields required")
+
+    hashes = packet.get("hashes")
+    if not isinstance(hashes, dict):
+        errors.append("review_packet.hashes: object required")
+    elif set(hashes) != {
+        "source_sha256",
+        "signal_hash",
+        "capture_hash",
+        "run_evidence_hash",
+    }:
+        errors.append("review_packet.hashes: exact collector-owned fields required")
+
+    if packet.get("review_contract") != {
+        "independent_review_required": True,
+        "review_from_upstream_source": True,
+        "actual_decision_disclosed": False,
+        "normalized_disposition_disclosed": False,
+        "oracle_attached": False,
+        "expected_decision_attached": False,
+        "quality_acceptance_decided": False,
+        "packet_blind_to_actual": True,
+        "capture_signal_blinding_enforced": False,
+        "oracle_independence_owner": "caller_or_independent_reviewer",
+    }:
+        errors.append("review_packet.review_contract: exact collector contract required")
+
+    if packet.get("authority") != {
+        "evidence_create_allowed": True,
+        "overwrite_allowed": False,
+        "idempotent_reuse_allowed": True,
+        "pbi_write_allowed": False,
+        "issue_write_allowed": False,
+        "close_allowed": False,
+        "suppression_allowed": False,
+        "merge_allowed": False,
+    }:
+        errors.append("review_packet.authority: exact non-authoritative contract required")
+
+    if errors:
+        raise CollectorError("; ".join(errors))
+
+
 def _validate_admission_oracle(
     *,
     oracle: dict[str, Any],
@@ -495,6 +581,20 @@ def _validate_admission_oracle(
     source_sha256: str,
 ) -> None:
     errors: list[str] = []
+
+    if set(oracle) != {
+        "schema_version",
+        "domain",
+        "case_ref",
+        "packet_ref",
+        "packet_hash",
+        "reviewed_source_ref",
+        "reviewed_source_sha256",
+        "expected_admission_decision",
+        "independent_review_asserted",
+        "maker_actual_not_consulted_asserted",
+    }:
+        errors.append("oracle: exact reviewed fields required")
 
     if oracle.get("schema_version") != 1:
         errors.append("oracle.schema_version: 1 required")
@@ -577,6 +677,7 @@ def collect_reviewed_admission_case(
     task_id = packet.get("task_id")
     if not isinstance(task_id, str):
         raise CollectorError("packet.task_id: string required")
+    _validate_review_packet_contract(packet, task_id=task_id)
     _validate_output_ref(task_id, packet_ref, "packet_ref")
     case_artifact_ref = _validate_output_ref(
         task_id, case_artifact_ref, "case_artifact_ref"
@@ -772,6 +873,7 @@ def _revalidate_admission_case_chain(
     _packet_path, packet = _load_repo_json_object(
         repo_root, packet_ref, "review_packet_ref"
     )
+    _validate_review_packet_contract(packet, task_id=task_id)
     if packet.get("domain") != "plangate.pbi-live-shadow-review-packet/v1":
         raise CollectorError("review_packet_ref: unsupported review packet domain")
     if packet.get("mode") != "pbi_live_shadow_review_packet":
