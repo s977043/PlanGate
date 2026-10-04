@@ -36,8 +36,8 @@ high-risk / critical は **個々のタスクの risk / complexity を分類す�
 [Adoption UX & Ecosystem Roadmap](./pages/explanation/product/adoption-and-ecosystem-roadmap.md)
 を参照。
 
-| フェーズ | いつ | モード | ゲート | 主目的 |
-|---------|------|--------|--------|--------|
+| フェーズ | いつ | 推奨初期モード | ゲート | 主目的 |
+|---------|------|----------------|--------|--------|
 | Phase 0 | Day 1 | ultra-light | なし | 体験する |
 | Phase 1 | Week 1 | light | C-1 簡易 | 計画を書く |
 | Phase 2 | Week 2-3 | standard | C-1 + C-3 | ゲートで止める |
