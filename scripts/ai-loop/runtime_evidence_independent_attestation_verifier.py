@@ -15,9 +15,10 @@ strictly allowlisted, read-only gh attestation verify path through gh_exec and
 then reuses the #1466 candidate receipt parser for exact capture-manifest
 binding.
 
-Successful cryptographic verification is not proof that this Python process
-itself ran inside an independently administered boundary. Therefore the
-independent-admin, runtime-probe, and dispatch authority flags stay false.
+A successful repository-local gh command is candidate Evidence only. Until the
+gh binary/execution environment and independently administered verifier boundary
+are themselves attested, cryptographic, independent-admin, runtime-probe, and
+dispatch authority flags all stay false.
 """
 
 import argparse
@@ -199,16 +200,21 @@ def verify_with_github_attestation(
         "source_ref": source_ref,
         "oidc_issuer": OIDC_ISSUER,
         "predicate_type": candidate_receipt.EXPECTED_PREDICATE_TYPE,
-        "exact_verifier_policy_bound": True,
-        "gh_attestation_cli_execution_verified": True,
-        "artifact_digest_cryptographically_verified": True,
-        "attestation_signature_cryptographically_verified": True,
-        "signer_certificate_identity_verified": True,
-        "verified_timestamp_cryptographically_verified": True,
-        "signer_workflow_policy_verified": True,
-        "source_digest_policy_verified": True,
-        "self_hosted_runner_denial_verified": True,
-        "capture_manifest_artifact_attestation_verified": True,
+        "exact_verifier_policy_bound_candidate": True,
+        "gh_attestation_verify_exit_success_candidate": True,
+        "capture_manifest_artifact_binding_candidate": True,
+        "signer_workflow_policy_requested_candidate": True,
+        "source_digest_policy_requested_candidate": True,
+        "self_hosted_runner_denial_requested_candidate": True,
+        "gh_attestation_cli_execution_verified": False,
+        "artifact_digest_cryptographically_verified": False,
+        "attestation_signature_cryptographically_verified": False,
+        "signer_certificate_identity_verified": False,
+        "verified_timestamp_cryptographically_verified": False,
+        "signer_workflow_policy_verified": False,
+        "source_digest_policy_verified": False,
+        "self_hosted_runner_denial_verified": False,
+        "capture_manifest_artifact_attestation_verified": False,
         "independent_admin_boundary_verified": False,
         "independent_verifier_execution_attested": False,
         "managed_hook_root_attested": False,
@@ -220,10 +226,11 @@ def verify_with_github_attestation(
         "dispatch_ready": False,
         "dispatch_allowed": False,
         "verification_limit": (
-            "gh cryptographically verified the exact capture-manifest artifact "
-            "against a pinned repository/workflow/source policy, but this process "
-            "cannot self-attest that its execution environment is independently "
-            "administered; runtime/dispatch promotion therefore remains blocked"
+            "the repository-local gh command exited successfully under the pinned "
+            "verification policy and its JSON output binds the exact capture-manifest "
+            "bytes, but the gh binary/execution environment and independent-admin "
+            "boundary are not independently attested; cryptographic/runtime/dispatch "
+            "promotion therefore remains blocked"
         ),
         "authority": {
             "agent_invoke_allowed": False,
