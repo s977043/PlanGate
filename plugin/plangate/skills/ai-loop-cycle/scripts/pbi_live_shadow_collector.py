@@ -1068,6 +1068,8 @@ def inventory_live_materialization_cases(
     discovered = sorted(root.glob(pattern))
     candidates: list[tuple[str, dict[str, Any]]] = []
     invalid: list[dict[str, Any]] = []
+    refs_by_case_id: dict[str, list[str]] = {}
+    case_id_by_ref: dict[str, str] = {}
 
     for path in discovered:
         try:
@@ -1090,6 +1092,11 @@ def inventory_live_materialization_cases(
         except CollectorError as exc:
             invalid.append({"ref": rel, "errors": [str(exc)]})
             continue
+
+        logical = case.get("case_ref")
+        if isinstance(logical, str) and logical:
+            refs_by_case_id.setdefault(logical, []).append(rel)
+            case_id_by_ref[rel] = logical
 
         parts = pathlib.PurePosixPath(rel).parts
         task_id = parts[2] if len(parts) > 2 else ""
@@ -1115,18 +1122,21 @@ def inventory_live_materialization_cases(
             continue
         candidates.append((rel, case))
 
-    refs_by_case_id: dict[str, list[str]] = {}
-    for rel, case in candidates:
-        logical = case.get("case_ref")
-        if isinstance(logical, str):
-            refs_by_case_id.setdefault(logical, []).append(rel)
-
     duplicate_refs = {
         ref
         for refs in refs_by_case_id.values()
         if len(refs) > 1
         for ref in refs
     }
+
+    for item in invalid:
+        ref = item.get("ref")
+        if isinstance(ref, str) and ref in duplicate_refs:
+            logical = case_id_by_ref.get(ref)
+            item.setdefault("errors", []).append(
+                f"duplicate logical case_ref {logical!r}: "
+                + ", ".join(refs_by_case_id.get(logical, []))
+            )
 
     valid_cases: list[dict[str, Any]] = []
     valid_refs: list[str] = []
@@ -1271,6 +1281,8 @@ def inventory_live_shadow_cases(
 
     candidates: list[tuple[str, dict[str, Any]]] = []
     invalid: list[dict[str, Any]] = []
+    refs_by_case_id: dict[str, list[str]] = {}
+    case_id_by_ref: dict[str, str] = {}
 
     for path in discovered:
         try:
@@ -1293,6 +1305,11 @@ def inventory_live_shadow_cases(
         except CollectorError as exc:
             invalid.append({"ref": rel, "errors": [str(exc)]})
             continue
+
+        logical = case.get("case_ref")
+        if isinstance(logical, str) and logical:
+            refs_by_case_id.setdefault(logical, []).append(rel)
+            case_id_by_ref[rel] = logical
 
         parts = pathlib.PurePosixPath(rel).parts
         task_id = parts[2] if len(parts) > 2 else ""
@@ -1340,18 +1357,21 @@ def inventory_live_shadow_cases(
 
         candidates.append((rel, case))
 
-    refs_by_case_id: dict[str, list[str]] = {}
-    for rel, case in candidates:
-        logical = case.get("case_ref")
-        if isinstance(logical, str):
-            refs_by_case_id.setdefault(logical, []).append(rel)
-
     duplicate_refs = {
         ref
         for refs in refs_by_case_id.values()
         if len(refs) > 1
         for ref in refs
     }
+
+    for item in invalid:
+        ref = item.get("ref")
+        if isinstance(ref, str) and ref in duplicate_refs:
+            logical = case_id_by_ref.get(ref)
+            item.setdefault("errors", []).append(
+                f"duplicate logical case_ref {logical!r}: "
+                + ", ".join(refs_by_case_id.get(logical, []))
+            )
 
     valid_cases: list[dict[str, Any]] = []
     valid_refs: list[str] = []
