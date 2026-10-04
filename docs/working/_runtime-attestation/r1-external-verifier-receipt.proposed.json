@@ -1,0 +1,42 @@
+{
+  "description": "Phase B1 candidate for #1468: externally produced verifier receipt bound to the #1470 command-candidate result, with nonce/freshness/content-addressing and GitHub artifact-attestation command verification.",
+  "contract_stage": "r1-external-verifier-receipt-candidate-v1",
+  "inputs": {
+    "command_candidate": "absolute external file produced by #1470 verifier",
+    "external_verifier_receipt": "absolute external file outside repository",
+    "verification_nonce": "PLANGATE_R1_EXTERNAL_VERIFIER_NONCE"
+  },
+  "verified_locally": [
+    "receipt_structure_verified",
+    "receipt_candidate_binding_verified",
+    "receipt_content_addressed",
+    "receipt_nonce_binding_verified",
+    "receipt_freshness_verified",
+    "receipt_artifact_digest_binding_candidate",
+    "receipt_attestation_verify_exit_success_candidate"
+  ],
+  "negative_controls": [
+    "wrong request/config/provider/capture binding",
+    "wrong command-candidate result hash or file digest",
+    "replayed/wrong nonce",
+    "expired receipt",
+    "overlong validity window",
+    "receipt bytes not matching attested artifact digest",
+    "candidate self-promotion",
+    "raw runtime payload keys"
+  ],
+  "authority_boundary": {
+    "receipt_claims_authenticated": false,
+    "gh_attestation_cli_execution_verified": false,
+    "artifact_digest_cryptographically_verified": false,
+    "attestation_signature_cryptographically_verified": false,
+    "independent_admin_boundary_verified": false,
+    "independent_verifier_execution_attested": false,
+    "runtime_probe_attestation_verified": false,
+    "human_rollout_decision_verified": false,
+    "dispatch_ready": false,
+    "dispatch_allowed": false
+  },
+  "reason": "Repository-local gh attestation verify success is still candidate Evidence until the gh execution environment and independently administered signer/verifier boundary are themselves attested.",
+  "next_gate": "independent administrator provenance for signer/verifier execution before strong machine-attestation promotion"
+}
