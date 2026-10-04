@@ -550,12 +550,10 @@ def verify_external_receipt(
         raise ExternalVerifierReceiptError(
             ["gh_attestation_verify: text stdout required"]
         )
-    try:
-        gh_output = json.loads(stdout)
-    except json.JSONDecodeError as exc:
-        raise ExternalVerifierReceiptError(
-            ["gh_attestation_verify: invalid JSON output"]
-        ) from exc
+    gh_output = _strict_json_loads(
+        stdout.encode("utf-8"),
+        "gh_attestation_output",
+    )
 
     receipt_sha_hex = hashlib.sha256(receipt_raw).hexdigest()
     if not _verified_subject_digest(gh_output, receipt_sha_hex):
