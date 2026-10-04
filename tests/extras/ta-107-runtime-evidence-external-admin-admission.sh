@@ -69,9 +69,12 @@ else
 fi
 
 if grep -q '"signer_repo_structurally_separate_candidate": True' "$_T107_IMPL" \
+  && grep -q '"immutable_signer_workflow_identity_bound_candidate": True' "$_T107_IMPL" \
+  && grep -q '"nonce_one_time_contract_candidate": True' "$_T107_IMPL" \
   && grep -q '"admin_evidence_refs_content_addressed_candidate": True' "$_T107_IMPL" \
   && grep -q '"admin_evidence_set_content_hash_candidate": True' "$_T107_IMPL" \
   && grep -q '"admin_evidence_independently_verified": False' "$_T107_IMPL" \
+  && grep -q '"nonce_one_time_consumption_verified": False' "$_T107_IMPL" \
   && grep -q '"independent_admin_boundary_verified": False' "$_T107_IMPL" \
   && grep -q '"runtime_probe_attestation_verified": False' "$_T107_IMPL" \
   && grep -q '"human_rollout_decision_verified": False' "$_T107_IMPL" \
@@ -86,6 +89,8 @@ fi
 
 if [ -f "$_T107_PROPOSAL" ] \
   && grep -q '"self_hosted_runner_denied": true' "$_T107_PROPOSAL" \
+  && grep -q '"one_time_nonce_lifecycle"' "$_T107_PROPOSAL" \
+  && grep -q '"nonce_one_time_consumption_verified"' "$_T107_PROPOSAL" \
   && grep -q '"admin_evidence_independently_verified"' "$_T107_PROPOSAL" \
   && grep -q '"independent_admin_boundary_verified"' "$_T107_PROPOSAL" \
   && grep -q '"dispatch_allowed"' "$_T107_PROPOSAL"; then
