@@ -1007,6 +1007,22 @@ def _validate_materialization_oracle(
 ) -> None:
     errors: list[str] = []
 
+    if set(oracle) != {
+        "schema_version",
+        "domain",
+        "case_ref",
+        "admission_case_ref",
+        "admission_case_hash",
+        "payload_ref",
+        "payload_hash",
+        "existing_work_ref",
+        "existing_work_hash",
+        "expected",
+        "independent_review_asserted",
+        "maker_actual_not_consulted_asserted",
+    }:
+        errors.append("materialization_oracle: exact reviewed fields required")
+
     if oracle.get("schema_version") != 1:
         errors.append("materialization_oracle.schema_version: 1 required")
     if oracle.get("domain") != "plangate.pbi-live-shadow-materialization-oracle/v1":
@@ -1044,6 +1060,15 @@ def _validate_materialization_oracle(
     expected = oracle.get("expected")
     expected_for_validation: dict[str, Any] = {"oracle_ref": oracle_ref}
     if isinstance(expected, dict):
+        if set(expected) != {
+            "decision",
+            "matched_ref",
+            "readiness_status",
+            "readiness_route",
+        }:
+            errors.append(
+                "materialization_oracle.expected: exact reviewed fields required"
+            )
         expected_for_validation.update(expected)
     else:
         errors.append("materialization_oracle.expected: object required")
