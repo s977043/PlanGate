@@ -436,6 +436,48 @@ class JsonlLoaderTests(unittest.TestCase):
             with self.assertRaises(corr.CodexJsonlCorrelationError):
                 corr.load_hook_jsonl(path, repo_root=repo)
 
+    def test_hook_invalid_utf8_is_fail_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo = root / "repo"
+            repo.mkdir()
+            path = root / "hooks.jsonl"
+            path.write_bytes(b"\xff\n")
+            with self.assertRaises(corr.CodexJsonlCorrelationError) as ctx:
+                corr.load_hook_jsonl(path, repo_root=repo)
+        self.assertTrue(
+            any("UTF-8 required" in e for e in ctx.exception.errors)
+        )
+
+    def test_hook_malformed_json_is_fail_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo = root / "repo"
+            repo.mkdir()
+            path = root / "hooks.jsonl"
+            path.write_text("{not-json}\n", encoding="utf-8")
+            with self.assertRaises(corr.CodexJsonlCorrelationError) as ctx:
+                corr.load_hook_jsonl(path, repo_root=repo)
+        self.assertTrue(
+            any("invalid JSON" in e for e in ctx.exception.errors)
+        )
+
+    def test_hook_record_count_limit_is_fail_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo = root / "repo"
+            repo.mkdir()
+            path = root / "hooks.jsonl"
+            path.write_text(
+                "{}\n" * (probe.MAX_JSONL_RECORDS + 1),
+                encoding="utf-8",
+            )
+            with self.assertRaises(corr.CodexJsonlCorrelationError) as ctx:
+                corr.load_hook_jsonl(path, repo_root=repo)
+        self.assertTrue(
+            any("record count exceeds limit" in e for e in ctx.exception.errors)
+        )
+
     def test_loader_returns_content_hash(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = pathlib.Path(tmp) / "exec.jsonl"
