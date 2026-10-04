@@ -1,0 +1,83 @@
+{
+  "description": "PROPOSAL/CONTRACT — #1468 external verifier receipt consumer candidate. It validates a bounded, content-addressed receipt against the exact #1470 verification-command candidate plus immutable verifier identity, one-run challenge, and freshness window. It does not self-prove independent administration, cryptographic receipt signature, or same-challenge one-time consumption.",
+  "contract_stage": "r1-independent-verifier-receipt-candidate-v1",
+  "inputs": {
+    "verification_command_candidate": "exact #1470 command-candidate JSON result",
+    "verifier_receipt": "external regular JSON file outside repository",
+    "expected_challenge_id": "sha256 one-run challenge",
+    "expected_verifier_issuer": "out-of-band expected verifier issuer",
+    "expected_verifier_workflow_ref": "immutable owner/repo/.github/workflows/file.yml@40hex",
+    "expected_verifier_binary_sha256": "out-of-band sha256 verifier binary digest",
+    "observed_at": "trusted caller clock, RFC3339 UTC seconds"
+  },
+  "receipt_contract": {
+    "max_bytes": 262144,
+    "max_ttl_seconds": 900,
+    "exact_key_set": true,
+    "canonical_content_hash": true,
+    "raw_runtime_payload_forbidden": true,
+    "binds": [
+      "request_hash",
+      "config_sha",
+      "provider",
+      "platform",
+      "capture_id",
+      "verification_command_candidate_result_hash",
+      "capture_manifest_file_sha256",
+      "attestation_repo",
+      "signer_repo",
+      "signer_workflow",
+      "source_digest",
+      "signer_digest",
+      "source_ref",
+      "challenge_id",
+      "verifier_issuer",
+      "verifier_workflow_ref",
+      "verifier_binary_sha256",
+      "execution_id",
+      "issued_at",
+      "expires_at"
+    ]
+  },
+  "candidate_evidence": [
+    "external_receipt_structure_candidate",
+    "external_receipt_content_addressed_candidate",
+    "external_receipt_exact_binding_candidate",
+    "immutable_verifier_identity_binding_candidate",
+    "freshness_window_candidate",
+    "run_challenge_binding_candidate",
+    "cross_run_replay_binding_candidate"
+  ],
+  "fail_closed": [
+    "wrong request/config/provider/platform/capture",
+    "wrong command candidate result hash",
+    "wrong capture artifact digest",
+    "wrong attestation/signer/source policy",
+    "wrong challenge",
+    "wrong verifier issuer/workflow/binary digest",
+    "expired or overlong receipt lifetime",
+    "tampered canonical receipt hash",
+    "repository-local receipt file"
+  ],
+  "still_unproven": [
+    "receipt_signature_verified",
+    "same_challenge_replay_prevented",
+    "independent_admin_boundary_verified",
+    "independent_verifier_execution_attested",
+    "gh_attestation_cli_execution_verified",
+    "artifact_digest_cryptographically_verified",
+    "attestation_signature_cryptographically_verified",
+    "runtime_probe_attestation_verified",
+    "human_rollout_decision_verified",
+    "dispatch_ready",
+    "dispatch_allowed"
+  ],
+  "trust_notes": {
+    "repository_file_existence_is_not_external_provenance": true,
+    "self_hash_is_content_addressing_not_signature": true,
+    "challenge_binding_rejects_cross_run_replay_but_not_double_use_of_same_challenge": true,
+    "same_challenge_one_time_consumption_requires_external_ledger": true,
+    "independent_admin_proof_requires_external_trust_root": true,
+    "statement_or_runtime_text_is_not_authority": true
+  }
+}
