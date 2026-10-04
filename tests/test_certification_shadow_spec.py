@@ -509,6 +509,25 @@ class CertificationShadowSpecTests(unittest.TestCase):
         }
         self.assertTrue(called_names.isdisjoint(forbidden_calls))
 
+    def test_projection_output_is_detached_from_mutable_inputs(self):
+        owner = {self.D: "pass"}
+        refs = {self.D: ["v1", "v2"]}
+        supplemental = ["s1", "s2"]
+        projection = self._compose(
+            owner,
+            refs=refs,
+            supplemental=supplemental,
+        )
+
+        projection["required_verifiers"][0]["supporting_verification_refs"].append(
+            "projection-only"
+        )
+        projection["supplemental_evidence_refs"].append("projection-only")
+
+        self.assertEqual(owner, {self.D: "pass"})
+        self.assertEqual(refs, {self.D: ["v1", "v2"]})
+        self.assertEqual(supplemental, ["s1", "s2"])
+
     def test_projection_does_not_mutate_inputs_or_decision_output(self):
         owner = {self.D: "pass"}
         refs = {self.D: ["v1"]}
