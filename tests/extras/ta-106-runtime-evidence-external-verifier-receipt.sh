@@ -1,6 +1,6 @@
 #!/bin/sh
 # PG_EXTRA_CAPABILITY: standalone-capable
-# TA-106 — external verifier receipt replay/binding candidate (#1468).
+# TA-106 — external verifier receipt nonce/freshness binding candidate (#1468).
 
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
   _pg_extra_mode=harness
@@ -72,10 +72,10 @@ fi
 if grep -q 'PLANGATE_R1_EXTERNAL_VERIFIER_NONCE' "$_T106_IMPL" \
   && ! grep -q -- '--expected-nonce' "$_T106_IMPL" \
   && grep -q 'MAX_VALIDITY_SECONDS = 15 \* 60' "$_T106_IMPL"; then
-  printf '  [PASS] replay boundary: nonce is out-of-band and receipt lifetime is bounded\n'
+  printf '  [PASS] nonce/freshness boundary: nonce is out-of-band and receipt lifetime is bounded\n'
   pass=$((pass + 1))
 else
-  printf '  [FAIL] replay boundary: nonce/freshness contract incomplete\n' >&2
+  printf '  [FAIL] nonce/freshness boundary: contract incomplete\n' >&2
   fail=$((fail + 1))
 fi
 
