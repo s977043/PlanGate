@@ -319,6 +319,15 @@ class ExternalVerifierReceiptTests(unittest.TestCase):
                 )
             )
 
+    def test_candidate_policy_tamper_is_rejected(self):
+        with self.assertRaises(ext.ExternalVerifierReceiptError):
+            self._run(
+                mutate_candidate=lambda value: value.__setitem__(
+                    "signer_workflow",
+                    "other/repo/.github/workflows/verify.yml",
+                )
+            )
+
     def test_receipt_artifact_digest_mismatch_is_rejected(self):
         def mutate(output):
             output[0]["verificationResult"]["statement"]["subject"][0]["digest"][
