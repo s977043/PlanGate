@@ -384,9 +384,9 @@ def collect_review_packet(
     packet_ref: str,
 ) -> dict[str, Any]:
     capture, run_evidence, errors = _validate_safe_live_run_binding(
+        repo_root=repo_root,
         capture_ref=capture_ref,
         run_evidence_ref=run_evidence_ref,
-        authority_root=repo_root,
     )
     if errors or capture is None or run_evidence is None:
         raise CollectorError(
@@ -615,9 +615,9 @@ def collect_reviewed_admission_case(
         raise CollectorError("packet.hashes.source_sha256: current source hash mismatch")
 
     capture, run_evidence, binding_errors = _validate_safe_live_run_binding(
+        repo_root=repo_root,
         capture_ref=capture_ref,
         run_evidence_ref=run_evidence_ref,
-        authority_root=repo_root,
     )
     if binding_errors or capture is None or run_evidence is None:
         raise CollectorError(
