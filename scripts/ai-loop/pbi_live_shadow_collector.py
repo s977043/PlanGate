@@ -723,13 +723,35 @@ def _revalidate_admission_case_chain(
     task_id: str,
     case: dict[str, Any],
 ) -> None:
+    allowed_case_keys = {
+        "case_ref",
+        "split",
+        "evidence_class",
+        "evidence_refs",
+        "live_capture",
+        "signal",
+        "expected",
+    }
+    if set(case) != allowed_case_keys:
+        raise CollectorError(
+            "admission_case: exact collector-owned fields required"
+        )
+
     expected = case.get("expected")
     live_capture = case.get("live_capture")
     evidence_refs = case.get("evidence_refs")
     if not isinstance(expected, dict):
         raise CollectorError("admission case expected: object required")
+    if set(expected) != {"oracle_ref", "admission_decision"}:
+        raise CollectorError(
+            "admission_case.expected: exact collector-owned fields required"
+        )
     if not isinstance(live_capture, dict):
         raise CollectorError("admission case live_capture: object required")
+    if set(live_capture) != {"capture_ref", "run_evidence_ref"}:
+        raise CollectorError(
+            "admission_case.live_capture: exact collector-owned fields required"
+        )
     if not isinstance(evidence_refs, list):
         raise CollectorError("admission case evidence_refs: array required")
 
