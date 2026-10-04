@@ -1,0 +1,55 @@
+{
+  "description": "PROPOSAL/CONTRACT — #1468 cryptographic verifier slice. GitHub artifact-attestation cryptography may be verified under an exact pinned policy, but repository execution cannot self-prove an independently administered execution boundary.",
+  "contract_stage": "r1-independent-attestation-verifier-crypto-v1",
+  "execution_policy": {
+    "command": "gh attestation verify",
+    "mutation": false,
+    "required": [
+      "--repo",
+      "--signer-repo",
+      "--signer-workflow",
+      "--source-digest",
+      "--signer-digest",
+      "--source-ref",
+      "--cert-oidc-issuer",
+      "--predicate-type",
+      "--deny-self-hosted-runners",
+      "--no-public-good",
+      "--format json"
+    ],
+    "predicate_type": "https://slsa.dev/provenance/v1",
+    "oidc_issuer": "https://token.actions.githubusercontent.com",
+    "signer_digest_must_equal_source_digest": true,
+    "self_hosted_runner_denied": true
+  },
+  "promotion": {
+    "crypto_may_be_verified": [
+      "gh_attestation_cli_execution_verified",
+      "artifact_digest_cryptographically_verified",
+      "attestation_signature_cryptographically_verified",
+      "signer_certificate_identity_verified",
+      "verified_timestamp_cryptographically_verified",
+      "signer_workflow_policy_verified",
+      "source_digest_policy_verified",
+      "self_hosted_runner_denial_verified"
+    ],
+    "must_remain_false_without_external_admin_proof": [
+      "independent_admin_boundary_verified",
+      "independent_verifier_execution_attested",
+      "managed_hook_root_attested",
+      "same_run_identity_verified",
+      "codex_jsonl_runtime_correlation_verified",
+      "hard_read_only_enforced",
+      "runtime_probe_attestation_verified",
+      "human_rollout_decision_verified",
+      "dispatch_ready",
+      "dispatch_allowed"
+    ]
+  },
+  "trust_notes": {
+    "statement_predicate_is_not_authority": true,
+    "exact_artifact_subject_digest_required": true,
+    "runtime_text_never_becomes_policy": true,
+    "external_admin_boundary_is_separate_gate": true
+  }
+}
