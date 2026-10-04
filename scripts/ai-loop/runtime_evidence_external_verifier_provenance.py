@@ -254,10 +254,13 @@ def _validate_upstream(value: Any) -> list[str]:
         errors.append("external_verifier_result.provider: bounded identifier required")
     if value.get("platform") != "codex":
         errors.append("external_verifier_result.platform: codex required")
-    for field in ("capture_id", "verification_nonce", "verifier_id", "verifier_version"):
+    for field in ("capture_id", "verifier_id", "verifier_version"):
         raw = value.get(field)
         if not isinstance(raw, str) or OPAQUE_RE.fullmatch(raw) is None:
             errors.append(f"external_verifier_result.{field}: bounded identifier required")
+    nonce = value.get("verification_nonce")
+    if not isinstance(nonce, str) or upstream.NONCE_RE.fullmatch(nonce) is None:
+        errors.append("external_verifier_result.verification_nonce: exact #1471 nonce shape required")
 
     for field in UPSTREAM_TRUE_FIELDS:
         if value.get(field) is not True:
@@ -271,6 +274,31 @@ def _validate_upstream(value: Any) -> list[str]:
     claimed_hash = body.pop("result_hash", None)
     if claimed_hash != ingress._canonical_hash(body):
         errors.append("external_verifier_result.result_hash: canonical hash mismatch")
+    return errors
+
+
+def _validate_upstream_freshness(
+    value: dict[str, Any],
+    now: dt.datetime,
+) -> list[str]:
+    errors: list[str] = []
+    issued = _parse_rfc3339(value.get("issued_at"))
+    expires = _parse_rfc3339(value.get("expires_at"))
+    if issued is None:
+        errors.append("external_verifier_result.issued_at: timezone-aware RFC3339 required")
+    if expires is None:
+        errors.append("external_verifier_result.expires_at: timezone-aware RFC3339 required")
+    if issued is not None and expires is not None:
+        if expires <= issued:
+            errors.append("external_verifier_result.expires_at: must be after issued_at")
+        elif (expires - issued).total_seconds() > upstream.MAX_VALIDITY_SECONDS:
+            errors.append(
+                "external_verifier_result: #1471 validity window exceeds upstream limit"
+            )
+        if issued > now + dt.timedelta(seconds=upstream.MAX_FUTURE_SKEW_SECONDS):
+            errors.append("external_verifier_result.issued_at: too far in the future")
+        if now > expires:
+            errors.append("external_verifier_result: stale/expired #1471 result")
     return errors
 
 
@@ -393,6 +421,8 @@ def verify_provenance_bytes(
     if current.tzinfo is None or current.utcoffset() is None:
         errors.append("now: timezone-aware datetime required")
     elif isinstance(upstream_value, dict):
+        current_utc = current.astimezone(dt.timezone.utc)
+        errors.extend(_validate_upstream_freshness(upstream_value, current_utc))
         errors.extend(
             _validate_provenance(
                 provenance_value,
@@ -402,7 +432,7 @@ def verify_provenance_bytes(
                 expected_verifier_workflow_ref=expected_verifier_workflow_ref,
                 expected_verifier_binary_sha256=expected_verifier_binary_sha256,
                 expected_challenge_id=expected_challenge_id,
-                now=current.astimezone(dt.timezone.utc),
+                now=current_utc,
             )
         )
     if errors:
