@@ -280,7 +280,7 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
                     self._run(mutate=mutate)
 
     def test_nonce_owner_must_be_external_to_plangate_and_attestation_repo(self):
-        for owner in (ATTESTATION_REPO, "s977043/PlanGate"):
+        for owner in (ATTESTATION_REPO, "S977043/plangate"):
             with self.subTest(owner=owner):
                 with self.assertRaises(admission.ExternalAdminAdmissionError):
                     self._run(
@@ -288,6 +288,13 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
                             "nonce_owner", owner
                         )
                     )
+
+        def use_distinct_attestation_repo(value):
+            value["attestation_repo"] = "runtime-evidence/attestations"
+            value["nonce_owner"] = "runtime-evidence/attestations"
+
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(mutate=use_distinct_attestation_repo)
 
     def test_one_time_nonce_lifecycle_contract_is_required(self):
         for field in ("nonce_issue_once", "nonce_consume_once", "nonce_reuse_rejected"):
