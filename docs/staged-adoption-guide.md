@@ -20,8 +20,17 @@ Quickstart・onboarding・CLI の表層では「Plan review」「Human approval�
 「Build」「Verify」のような平易な言葉を先に出し、内部コードは補助表記にする。
 
 **新しい「PlanGate Lite / 1-Gate mode」は作らない。**
-最小導入は既存の Phase 0〜2 と ultra-light / light mode を使う。
-導入レベル・mode・gate の概念をさらに増やさず、必要になった段階で詳細を開示する。
+導入手順は本ガイドの Phase 0〜2 から始める。一方、ultra-light / light / standard /
+high-risk / critical は **個々のタスクの risk / complexity を分類する別軸**であり、
+導入 Phase の別名ではない。導入レベル・mode・gate の概念をさらに増やさず、
+必要になった段階で詳細を開示する。
+
+| 用語 | このガイドでの意味 |
+| --- | --- |
+| Phase 0〜3 | 導入タイムライン / 習熟ステップ |
+| Level 1〜5 | capability の段階的採用 |
+| Task Mode | タスクごとの risk / complexity 分類 |
+| C-X / V-X / WF-XX / EH-X | workflow 内の制御点・識別子 |
 
 外部連携を含む成長方針は
 [Adoption UX & Ecosystem Roadmap](./pages/explanation/product/adoption-and-ecosystem-roadmap.md)
