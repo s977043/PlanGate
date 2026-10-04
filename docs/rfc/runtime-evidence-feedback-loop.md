@@ -6,7 +6,7 @@
 **Source case study**: Cloudflare "Detect and send production issues straight to your agent" (2026-09-30)
 **Implementation**: #1448 / PR #1466 (merged 2026-10-04)
 **Companion guide**: [`production-feedback-loop.md`](../ai/ai-loop-v2/production-feedback-loop.md)
-**Next promotion phase**: #1469
+**Next promotion phase**: #1468
 
 ## 1. Motivation
 
@@ -63,7 +63,7 @@ dispatch_allowed = false
 
 Therefore the current implementation does not enable active R1 Agent dispatch, automatic Issue/PBI/code mutation, approval, merge, deploy, managed-hook installation, or active workflow installation.
 
-Promotion from candidate/shadow R1 to independently attested active runtime is a separate phase tracked by #1469. Repository-authored candidate Evidence must not self-promote into runtime authority.
+Promotion from candidate/shadow R1 to independently attested active runtime is a separate phase tracked by #1468. Repository-authored candidate Evidence must not self-promote into runtime authority.
 
 ### 1.1 Existing implementation baseline — do not duplicate the PBI materializer
 
