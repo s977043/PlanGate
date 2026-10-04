@@ -212,11 +212,11 @@ Material claim の最小語彙:
 | `reported` | Human / external source が述べた内容。独立検証済みとは限らない | user feedback、stakeholder statement、issue report |
 | `inferred` | source から AI / Human が導出した仮説・解釈 | cause hypothesis、problem hypothesis、requirement candidate の理由 |
 
-source kind は少なくとも `human_feedback / issue / run_evidence / failure_record / measurement / existing_behavior / external_source / policy` を区別できる記述にする。これは schema enum の新設要求ではなく、Phase 0 の文書契約である。
+source kind は少なくとも `human_feedback / issue / run_evidence / failure_record / measurement / existing_behavior / external_source / decision_log / policy` を区別できる記述にする。これは schema enum の新設要求ではなく、Phase 0 の文書契約である。
 
 **Circular provenance を禁止する。** `pbi-input.md` 自身、またはその PBI から downstream に生成した `plan.md` / review / summary を、同じ PBI の upstream Goal / Problem を独立に裏付ける Evidence として数えない。別 Agent が同じ source を要約しても Evidence independence は増えない。派生 artifact は original source ref を保持する。
 
-accepted Requirement は `acceptance basis` を持ち、少なくとも `evidence / explicit_decision / policy_rule` のどれで採用されたかを辿れるようにする。inferred-only の claim を observed fact として扱うことは禁止するが、低リスク領域で policy が許す Requirement decision まで Human 固定にはしない。
+accepted Requirement は `acceptance basis` を持ち、少なくとも `evidence / explicit_decision / policy_rule` のどれで採用されたかを辿れるようにする。`explicit_decision` は `decision_log` provenance、`policy_rule` は `policy` provenance の実在ファイル + rule fragment へ接続し、自由記述の basis ref だけで authority を成立させない。inferred-only の claim を observed fact として扱うことは禁止するが、低リスク領域で policy が許す Requirement decision まで Human 固定にはしない。
 
 #### Feedback-to-PBI admission / materialization
 
