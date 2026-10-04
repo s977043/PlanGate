@@ -369,11 +369,6 @@ def _c_attestation_verify_policy(ctx: Ctx) -> None:
     if _values(ctx, "--deny-self-hosted-runners") != [None]:
         raise Denied(REASON_CONSTRAINT,
                      "--deny-self-hosted-runners はちょうど1回必須")
-    if _values(ctx, "--no-public-good") != [None]:
-        raise Denied(REASON_CONSTRAINT,
-                     "--no-public-good はちょうど1回必須")
-
-
 def _c_api_method_get(ctx: Ctx) -> None:
     methods = _values(ctx, "--method")
     if len(methods) > 1:
@@ -495,7 +490,6 @@ GH_RULES = (
             ("--cert-oidc-issuer", ARITY_VALUE),
             ("--predicate-type", ARITY_VALUE),
             ("--deny-self-hosted-runners", ARITY_NONE),
-            ("--no-public-good", ARITY_NONE),
             ("--format", ARITY_VALUE),
         ),
         conditions=(
