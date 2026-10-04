@@ -81,14 +81,7 @@ def _load_repo_json_object(
     ref: str,
     label: str,
 ) -> tuple[pathlib.Path, dict[str, Any]]:
-    path, _fragment, errors = pm._resolve_repo_authority_ref(
-        ref,
-        repo_root,
-    )
-    if errors or path is None:
-        raise CollectorError(
-            f"{label}: " + "; ".join(errors or ["unresolvable"])
-        )
+    path = _require_safe_repo_file(repo_root, ref, label)
     return path, _load_json_object(path, label)
 
 
@@ -284,6 +277,21 @@ def _atomic_create_json(
     return pm._canonical_json_hash(value), reused
 
 
+def _validate_safe_live_run_binding(
+    *,
+    repo_root: pathlib.Path,
+    capture_ref: str,
+    run_evidence_ref: str,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, list[str]]:
+    _require_safe_repo_file(repo_root, capture_ref, "capture_ref")
+    _require_safe_repo_file(repo_root, run_evidence_ref, "run_evidence_ref")
+    return pm._validate_live_run_binding(
+        capture_ref=capture_ref,
+        run_evidence_ref=run_evidence_ref,
+        authority_root=repo_root,
+    )
+
+
 def _require_existing_source(
     repo_root: pathlib.Path,
     source_ref: str,
@@ -375,7 +383,7 @@ def collect_review_packet(
     run_evidence_ref: str,
     packet_ref: str,
 ) -> dict[str, Any]:
-    capture, run_evidence, errors = pm._validate_live_run_binding(
+    capture, run_evidence, errors = _validate_safe_live_run_binding(
         capture_ref=capture_ref,
         run_evidence_ref=run_evidence_ref,
         authority_root=repo_root,
@@ -606,7 +614,7 @@ def collect_reviewed_admission_case(
     if hashes.get("source_sha256") != source_sha256:
         raise CollectorError("packet.hashes.source_sha256: current source hash mismatch")
 
-    capture, run_evidence, binding_errors = pm._validate_live_run_binding(
+    capture, run_evidence, binding_errors = _validate_safe_live_run_binding(
         capture_ref=capture_ref,
         run_evidence_ref=run_evidence_ref,
         authority_root=repo_root,
@@ -846,19 +854,12 @@ def collect_reviewed_materialization_case(
     payload_path, payload = _load_repo_json_object(
         repo_root, payload_ref, "payload_ref"
     )
-    existing_path, _fragment, existing_errors = pm._resolve_repo_authority_ref(
-        existing_work_ref,
+    existing_path = _require_safe_repo_file(
         repo_root,
-    )
-    if existing_errors or existing_path is None:
-        raise CollectorError(
-            "existing_work_ref: "
-            + "; ".join(existing_errors or ["unresolvable"])
-        )
-    existing_work = _load_json_array(
-        existing_path,
+        existing_work_ref,
         "existing_work_ref",
     )
+    existing_work = _load_json_array(existing_path, "existing_work_ref")
     _oracle_path, oracle = _load_repo_json_object(
         repo_root, oracle_ref, "oracle_ref"
     )
@@ -1019,15 +1020,11 @@ def _revalidate_materialization_case_chain(
     _payload_path, payload = _load_repo_json_object(
         repo_root, payload_ref, "payload_ref"
     )
-    existing_path, _fragment, existing_errors = pm._resolve_repo_authority_ref(
-        existing_work_ref,
+    existing_path = _require_safe_repo_file(
         repo_root,
+        existing_work_ref,
+        "existing_work_ref",
     )
-    if existing_errors or existing_path is None:
-        raise CollectorError(
-            "existing_work_ref: "
-            + "; ".join(existing_errors or ["unresolvable"])
-        )
     existing_work = _load_json_array(existing_path, "existing_work_ref")
 
     _validate_materialization_oracle(
