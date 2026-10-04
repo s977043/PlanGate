@@ -797,11 +797,16 @@ def _revalidate_admission_case_chain(
             "admission_case.live_capture.run_evidence_ref: packet mismatch"
         )
 
-    for ref in (source_ref, capture_ref, run_evidence_ref, packet_ref):
-        if ref not in evidence_refs:
-            raise CollectorError(
-                f"admission_case.evidence_refs: missing bound ref {ref}"
-            )
+    expected_evidence_refs = [
+        source_ref,
+        capture_ref,
+        run_evidence_ref,
+        packet_ref,
+    ]
+    if evidence_refs != expected_evidence_refs:
+        raise CollectorError(
+            "admission_case.evidence_refs: exact bound refs required"
+        )
     if oracle_ref in evidence_refs:
         raise CollectorError(
             "admission_case.evidence_refs: oracle must remain separate"
