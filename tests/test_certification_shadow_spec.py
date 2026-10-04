@@ -47,6 +47,8 @@ def compose_certification(
     target_ref,
     loop_contract_ref,
     required_verifiers,
+    owner_target_ref,
+    owner_loop_contract_ref,
     owner_artifact_verdicts,
     supporting_verification_refs=None,
     supplemental_evidence_refs=None,
@@ -61,6 +63,10 @@ def compose_certification(
         raise ValueError("target_ref")
     if not isinstance(loop_contract_ref, str) or not loop_contract_ref:
         raise ValueError("loop_contract_ref")
+    if owner_target_ref != target_ref:
+        raise ValueError("owner verdict target binding mismatch")
+    if owner_loop_contract_ref != loop_contract_ref:
+        raise ValueError("owner verdict contract binding mismatch")
 
     required_input = tuple(_key(item) for item in required_verifiers)
     if not required_input or len(set(required_input)) != len(required_input):
@@ -128,6 +134,8 @@ class CertificationShadowSpecTests(unittest.TestCase):
             target_ref="sha256:" + "a" * 64,
             loop_contract_ref="loop-contract:1",
             required_verifiers=required if required is not None else (self.D,),
+            owner_target_ref="sha256:" + "a" * 64,
+            owner_loop_contract_ref="loop-contract:1",
             owner_artifact_verdicts=owner,
             supporting_verification_refs=refs,
             supplemental_evidence_refs=supplemental,
@@ -152,6 +160,26 @@ class CertificationShadowSpecTests(unittest.TestCase):
         self.assertEqual(
             projection["supplemental_evidence_refs"], ["model-review-pass"]
         )
+
+    def test_owner_verdict_binding_must_match_projection_target_and_contract(self):
+        kwargs = {
+            "target_ref": "sha256:" + "a" * 64,
+            "loop_contract_ref": "loop-contract:1",
+            "required_verifiers": (self.D,),
+            "owner_artifact_verdicts": {self.D: "pass"},
+        }
+        with self.assertRaises(ValueError):
+            compose_certification(
+                **kwargs,
+                owner_target_ref="sha256:" + "b" * 64,
+                owner_loop_contract_ref="loop-contract:1",
+            )
+        with self.assertRaises(ValueError):
+            compose_certification(
+                **kwargs,
+                owner_target_ref="sha256:" + "a" * 64,
+                owner_loop_contract_ref="loop-contract:other",
+            )
 
     def test_empty_required_set_is_rejected(self):
         with self.assertRaises(ValueError):
