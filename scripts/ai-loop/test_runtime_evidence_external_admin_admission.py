@@ -219,6 +219,24 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
         with self.assertRaises(admission.ExternalAdminAdmissionError):
             self._run(mutate=mutate)
 
+    def test_plangate_repository_evidence_www_github_alias_is_rejected(self):
+        def mutate(value):
+            value["admin_separation_evidence"][0]["uri"] = (
+                "https://www.github.com/s977043/PlanGate/evidence.json"
+            )
+
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(mutate=mutate)
+
+    def test_plangate_repository_evidence_trailing_dot_host_is_rejected(self):
+        def mutate(value):
+            value["admin_separation_evidence"][0]["uri"] = (
+                "https://github.com./s977043/PlanGate/evidence.json"
+            )
+
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(mutate=mutate)
+
     def test_noncanonical_external_evidence_uri_path_is_rejected(self):
         def mutate(value):
             value["admin_separation_evidence"][0]["uri"] = (
