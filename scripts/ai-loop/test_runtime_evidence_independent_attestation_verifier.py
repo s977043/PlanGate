@@ -34,8 +34,10 @@ CORR = "sha256:" + "e" * 64
 POLICY = "sha256:" + "f" * 64
 RECORDER = "sha256:" + "1" * 64
 SOURCE = "0123456789abcdef0123456789abcdef01234567"
-VERIFIER_REPO = "trusted/runtime-verifier"
-WORKFLOW = VERIFIER_REPO + "/.github/workflows/verify-runtime-attestation.yml"
+SIGNER = "89abcdef0123456789abcdef0123456789abcdef"
+ATTESTATION_REPO = "s977043/plangate"
+SIGNER_REPO = "trusted/runtime-verifier"
+WORKFLOW = SIGNER_REPO + "/.github/workflows/verify-runtime-attestation.yml"
 
 
 def _json_bytes(value):
@@ -125,7 +127,7 @@ def _gh_output(manifest_raw):
         "verificationResult": {
             "signature": {
                 "certificate": {
-                    "sourceRepository": VERIFIER_REPO,
+                    "sourceRepository": ATTESTATION_REPO,
                     "sourceRepositoryDigest": SOURCE,
                     "subjectAlternativeName": (
                         "https://github.com/" + WORKFLOW + "@refs/heads/main"
@@ -182,9 +184,11 @@ class VerifierTests(unittest.TestCase):
                     repo_root=repo_root,
                     managed_capture_result_raw=managed_raw,
                     capture_manifest_path=manifest_path,
-                    verifier_repo=VERIFIER_REPO,
+                    attestation_repo=ATTESTATION_REPO,
+                    signer_repo=SIGNER_REPO,
                     signer_workflow=WORKFLOW,
                     source_digest=SOURCE,
+                    signer_digest=SIGNER,
                     source_ref="refs/heads/main",
                     cwd=repo_root,
                 )
@@ -196,12 +200,15 @@ class VerifierTests(unittest.TestCase):
         result, calls = self._run()
         self.assertEqual(len(calls), 1)
         args, repo, _cwd = calls[0]
-        self.assertEqual(repo, VERIFIER_REPO)
+        self.assertEqual(repo, ATTESTATION_REPO)
         self.assertIn("--deny-self-hosted-runners", args)
         self.assertIn("--no-public-good", args)
+        self.assertEqual(args[args.index("--repo") + 1], ATTESTATION_REPO)
+        self.assertEqual(args[args.index("--signer-repo") + 1], SIGNER_REPO)
         self.assertEqual(args[args.index("--signer-workflow") + 1], WORKFLOW)
         self.assertEqual(args[args.index("--source-digest") + 1], SOURCE)
-        self.assertEqual(args[args.index("--signer-digest") + 1], SOURCE)
+        self.assertEqual(args[args.index("--signer-digest") + 1], SIGNER)
+        self.assertNotEqual(SOURCE, SIGNER)
 
         for field in (
             "exact_verifier_policy_bound_candidate",
@@ -209,6 +216,7 @@ class VerifierTests(unittest.TestCase):
             "capture_manifest_artifact_binding_candidate",
             "signer_workflow_policy_requested_candidate",
             "source_digest_policy_requested_candidate",
+            "signer_digest_policy_requested_candidate",
             "self_hosted_runner_denial_requested_candidate",
         ):
             self.assertTrue(result[field])
@@ -254,19 +262,38 @@ class VerifierTests(unittest.TestCase):
         with self.assertRaises(verifier.IndependentAttestationVerifierError):
             verifier.build_verify_args(
                 artifact_path=pathlib.Path("/tmp/a.json"),
-                verifier_repo=VERIFIER_REPO,
+                attestation_repo=ATTESTATION_REPO,
+                signer_repo=SIGNER_REPO,
                 signer_workflow="other/repo/.github/workflows/verify.yml",
                 source_digest=SOURCE,
+                signer_digest=SIGNER,
                 source_ref="refs/heads/main",
             )
+
+    def test_policy_accepts_distinct_attestation_and_signer_repos(self):
+        args = verifier.build_verify_args(
+            artifact_path=pathlib.Path("/tmp/a.json"),
+            attestation_repo=ATTESTATION_REPO,
+            signer_repo=SIGNER_REPO,
+            signer_workflow=WORKFLOW,
+            source_digest=SOURCE,
+            signer_digest=SIGNER,
+            source_ref="refs/heads/main",
+        )
+        self.assertEqual(args[args.index("--repo") + 1], ATTESTATION_REPO)
+        self.assertEqual(args[args.index("--signer-repo") + 1], SIGNER_REPO)
+        self.assertEqual(args[args.index("--source-digest") + 1], SOURCE)
+        self.assertEqual(args[args.index("--signer-digest") + 1], SIGNER)
 
     def test_policy_rejects_noncanonical_source_ref(self):
         with self.assertRaises(verifier.IndependentAttestationVerifierError):
             verifier.build_verify_args(
                 artifact_path=pathlib.Path("/tmp/a.json"),
-                verifier_repo=VERIFIER_REPO,
+                attestation_repo=ATTESTATION_REPO,
+                signer_repo=SIGNER_REPO,
                 signer_workflow=WORKFLOW,
                 source_digest=SOURCE,
+                signer_digest=SIGNER,
                 source_ref="refs/heads/a/../main",
             )
 
