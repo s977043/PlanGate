@@ -3,6 +3,7 @@
   "contract_stage": "r1-external-admin-admission-candidate-v1",
   "input_requirements": {
     "boundary_descriptor_location": "absolute regular file outside PlanGate repository",
+    "boundary_type": "github_repository only",
     "signer_repository": "must differ from PlanGate and from the attestation repository",
     "signer_workflow": "exact workflow path under the signer repository",
     "signer_digest": "immutable 40-hex Git commit",
@@ -10,7 +11,7 @@
     "oidc_issuer": "https://token.actions.githubusercontent.com",
     "self_hosted_runner_denied": true,
     "receipt_contract": "must match the #1471 external verifier receipt domain/stage",
-    "admin_separation_evidence": "one or more external HTTPS Evidence references, each content-addressed by SHA-256"
+    "admin_separation_evidence": "at least two external HTTPS Evidence references with distinct types and distinct SHA-256 digests; PlanGate repository references are rejected after URI normalization"
   },
   "candidate_facts": [
     "descriptor_structure_verified",
@@ -42,7 +43,9 @@
   "negative_controls": [
     "PlanGate repository used as external signer",
     "signer repository equals attestation repository",
-    "PlanGate repository URL used as independent-admin Evidence",
+    "PlanGate repository URL used as independent-admin Evidence, including case/percent-encoding variants",
+    "non-GitHub-repository boundary type",
+    "single or duplicate-type Evidence set",
     "duplicate Evidence digest",
     "self-hosted runner denial absent",
     "receipt contract mismatch",
