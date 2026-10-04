@@ -46,8 +46,10 @@ import gh_exec  # noqa: E402
 REPO = "s977043/plangate"
 OTHER_REPO = "other/other"
 SHA = "0123456789abcdef0123456789abcdef01234567"
-ATTESTATION_WORKFLOW = f"{REPO}/.github/workflows/verify-runtime-attestation.yml"
+SIGNER_REPO = "trusted/runtime-verifier"
+ATTESTATION_WORKFLOW = f"{SIGNER_REPO}/.github/workflows/verify-runtime-attestation.yml"
 ATTESTATION_ARTIFACT = "/tmp/capture-manifest.json"
+SIGNER_SHA = "89abcdef0123456789abcdef0123456789abcdef"
 
 
 # ---------------------------------------------------------------------------
@@ -123,10 +125,10 @@ def allowed_gh_commands(body_file: str) -> list:
         [
             "attestation", "verify", ATTESTATION_ARTIFACT,
             "--repo", REPO,
-            "--signer-repo", REPO,
+            "--signer-repo", SIGNER_REPO,
             "--signer-workflow", ATTESTATION_WORKFLOW,
             "--source-digest", SHA,
-            "--signer-digest", SHA,
+            "--signer-digest", SIGNER_SHA,
             "--source-ref", "refs/heads/main",
             "--cert-oidc-issuer", "https://token.actions.githubusercontent.com",
             "--predicate-type", "https://slsa.dev/provenance/v1",
@@ -347,10 +349,10 @@ class FlagDimensionTests(SpyMixin, unittest.TestCase):
         base = [
             "attestation", "verify", ATTESTATION_ARTIFACT,
             "--repo", REPO,
-            "--signer-repo", REPO,
+            "--signer-repo", SIGNER_REPO,
             "--signer-workflow", ATTESTATION_WORKFLOW,
             "--source-digest", SHA,
-            "--signer-digest", SHA,
+            "--signer-digest", SIGNER_SHA,
             "--source-ref", "refs/heads/main",
             "--cert-oidc-issuer", "https://token.actions.githubusercontent.com",
             "--predicate-type", "https://slsa.dev/provenance/v1",
@@ -382,6 +384,12 @@ class FlagDimensionTests(SpyMixin, unittest.TestCase):
             "other/other/.github/workflows/verify-runtime-attestation.yml"
         )
         cases.append(wrong_signer)
+        bad_signer_repo = list(base)
+        bad_signer_repo[bad_signer_repo.index("--signer-repo") + 1] = "../unsafe"
+        cases.append(bad_signer_repo)
+        bad_signer_digest = list(base)
+        bad_signer_digest[bad_signer_digest.index("--signer-digest") + 1] = "not-a-sha"
+        cases.append(bad_signer_digest)
 
         for args in cases:
             with self.subTest(args=args):
