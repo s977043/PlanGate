@@ -192,6 +192,26 @@ def _validate_managed_result(value: Any) -> list[str]:
         )
     if value.get("platform") != "codex":
         errors.append("managed_capture_result.platform: codex required")
+    for field in (
+        "request_hash", "config_sha", "managed_policy_sha256",
+        "managed_recorder_sha256", "hook_jsonl_sha256", "exec_jsonl_sha256",
+        "correlation_result_hash", "capture_manifest_hash",
+    ):
+        field_value = value.get(field)
+        if not isinstance(field_value, str) or not probe.HASH_RE.fullmatch(field_value):
+            errors.append(
+                f"managed_capture_result.{field}: sha256:<64 lowercase hex> required"
+            )
+    provider = value.get("provider")
+    if not isinstance(provider, str) or not ingress.PROVIDER_RE.fullmatch(provider):
+        errors.append("managed_capture_result.provider: provider-neutral identifier required")
+    capture_id = value.get("capture_id")
+    if not isinstance(capture_id, str) or not managed.CAPTURE_ID_RE.fullmatch(capture_id):
+        errors.append("managed_capture_result.capture_id: bounded opaque id required")
+    if value.get("managed_hook_source_claim") != managed.EXPECTED_MANAGED_SOURCE:
+        errors.append(
+            "managed_capture_result.managed_hook_source_claim: requirements.toml required"
+        )
 
     body = dict(value)
     claimed_hash = body.pop("result_hash", None)
