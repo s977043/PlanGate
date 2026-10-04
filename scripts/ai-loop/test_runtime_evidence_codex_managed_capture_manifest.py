@@ -231,6 +231,30 @@ class ManagedCaptureManifestTests(unittest.TestCase):
                 capture_manifest=_manifest(result),
             )
 
+    def test_upstream_platform_drift_is_rejected(self):
+        result = _correlation_result()
+        result["platform"] = "other"
+        body = dict(result)
+        body.pop("result_hash")
+        result["result_hash"] = ingress._canonical_hash(body)
+        with self.assertRaises(managed.ManagedCaptureManifestError):
+            managed.verify_candidate(
+                correlation_result=result,
+                capture_manifest=_manifest(result),
+            )
+
+    def test_upstream_runtime_role_drift_is_rejected(self):
+        result = _correlation_result()
+        result["runtime_role"] = "worker_agent"
+        body = dict(result)
+        body.pop("result_hash")
+        result["result_hash"] = ingress._canonical_hash(body)
+        with self.assertRaises(managed.ManagedCaptureManifestError):
+            managed.verify_candidate(
+                correlation_result=result,
+                capture_manifest=_manifest(result),
+            )
+
     def test_unknown_upstream_field_is_rejected(self):
         result = _correlation_result()
         result["future_promotion_flag"] = True

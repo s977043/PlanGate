@@ -180,11 +180,19 @@ def _validate_correlation_result(value: Any) -> list[str]:
         errors.append(f"correlation_result: unsupported keys: {unknown}")
     if missing:
         errors.append(f"correlation_result: missing keys: {missing}")
+    if value.get("schema_version") != "1":
+        errors.append("correlation_result.schema_version: 1 required")
     if value.get("domain") != correlation.DOMAIN:
         errors.append("correlation_result.domain: exact #1461 domain required")
     if value.get("contract_stage") != correlation.CONTRACT_STAGE:
         errors.append(
             "correlation_result.contract_stage: exact #1461 stage required"
+        )
+    if value.get("platform") != "codex":
+        errors.append("correlation_result.platform: codex required")
+    if value.get("runtime_role") != probe.EXPECTED_AGENT_TYPE:
+        errors.append(
+            f"correlation_result.runtime_role: {probe.EXPECTED_AGENT_TYPE} required"
         )
 
     body = dict(value)
