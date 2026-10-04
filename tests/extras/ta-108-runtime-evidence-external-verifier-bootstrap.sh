@@ -60,6 +60,17 @@ else
   printf '  [FAIL] safety: runner/nonce requirements incomplete\n' >&2; fail=$((fail + 1))
 fi
 
+if grep -q 'plangate_repository_write_allowed: false' "$_T108_WORKFLOW" \
+  && grep -q 'issue_write_allowed: false' "$_T108_WORKFLOW" \
+  && grep -q 'pull_request_write_allowed: false' "$_T108_WORKFLOW" \
+  && grep -q 'merge_allowed: false' "$_T108_WORKFLOW" \
+  && grep -q 'deploy_allowed: false' "$_T108_WORKFLOW" \
+  && grep -q 'bounded_receipt_only: true' "$_T108_WORKFLOW"; then
+  printf '  [PASS] least privilege: external verifier cannot write PlanGate/merge/deploy\n'; pass=$((pass + 1))
+else
+  printf '  [FAIL] least privilege: external verifier write boundary incomplete\n' >&2; fail=$((fail + 1))
+fi
+
 if grep -q 'administrator-separation-attestation, subject = signer_repo' "$_T108_README" \
   && grep -q 'signer-identity-attestation, subject = signer_workflow@signer_digest' "$_T108_README" \
   && grep -q 'nonce-lifecycle-policy, subject = nonce_owner' "$_T108_README"; then
