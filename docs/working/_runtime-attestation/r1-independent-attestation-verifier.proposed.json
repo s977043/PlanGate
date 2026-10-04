@@ -14,14 +14,15 @@
       "--cert-oidc-issuer",
       "--predicate-type",
       "--deny-self-hosted-runners",
-      "--no-public-good",
       "--format json"
     ],
     "predicate_type": "https://slsa.dev/provenance/v1",
     "oidc_issuer": "https://token.actions.githubusercontent.com",
     "self_hosted_runner_denied_requested": true,
     "attestation_repo_and_signer_repo_are_separate": true,
-    "source_digest_and_signer_digest_are_independently_pinned": true
+    "source_digest_and_signer_digest_are_independently_pinned": true,
+    "trust_root_policy": "use GitHub CLI supported default trust roots; no custom trusted-root override in this candidate slice",
+    "public_repository_compatible": true
   },
   "candidate_evidence": [
     "exact_verifier_policy_bound_candidate",
@@ -63,6 +64,8 @@
     "runtime_text_never_becomes_policy": true,
     "external_admin_boundary_is_separate_gate": true,
     "attestation_owner_is_not_signer_authority": true,
-    "reusable_signer_repository_may_differ_from_attestation_repository": true
+    "reusable_signer_repository_may_differ_from_attestation_repository": true,
+    "public_repository_attestations_may_use_sigstore_public_good": true,
+    "no_public_good_is_not_forced": true
   }
 }
