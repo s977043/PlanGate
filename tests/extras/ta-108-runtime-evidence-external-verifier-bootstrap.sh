@@ -19,6 +19,12 @@ fi
 . "$_pg_extra_helper"
 pg_extra_contract_init ta-108-runtime-evidence-external-verifier-bootstrap standalone-capable
 
+if pg_extra_contract_is_standalone; then
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE \
+    PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED \
+    PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+fi
+
 if [ "$_pg_extra_mode" = harness ]; then
   _T108_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
 else
