@@ -202,7 +202,7 @@ class VerifierTests(unittest.TestCase):
         args, repo, _cwd = calls[0]
         self.assertEqual(repo, ATTESTATION_REPO)
         self.assertIn("--deny-self-hosted-runners", args)
-        self.assertIn("--no-public-good", args)
+        self.assertNotIn("--no-public-good", args)
         self.assertEqual(args[args.index("--repo") + 1], ATTESTATION_REPO)
         self.assertEqual(args[args.index("--signer-repo") + 1], SIGNER_REPO)
         self.assertEqual(args[args.index("--signer-workflow") + 1], WORKFLOW)
