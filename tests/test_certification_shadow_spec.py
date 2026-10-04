@@ -72,6 +72,8 @@ def compose_certification(
     if owner_loop_contract_ref != loop_contract_ref:
         raise ValueError("owner verdict contract binding mismatch")
 
+    if not isinstance(required_verifiers, (list, tuple, set, frozenset)):
+        raise ValueError("required_verifiers")
     required_input = tuple(_key(item) for item in required_verifiers)
     if not required_input or len(set(required_input)) != len(required_input):
         raise ValueError("required_verifiers")
@@ -91,6 +93,10 @@ def compose_certification(
         raise ValueError("supporting_verification_refs")
     if not set(refs_by_verifier).issubset(set(required)):
         raise ValueError("supporting refs for non-required verifier")
+    for verifier, refs in refs_by_verifier.items():
+        _key(verifier)
+        if not isinstance(refs, (list, tuple, set, frozenset)):
+            raise ValueError("supporting evidence refs must be collections")
 
     projected = []
     for verifier_id, kind in required:
@@ -223,6 +229,26 @@ class CertificationShadowSpecTests(unittest.TestCase):
                 **kwargs,
                 owner_target_ref="sha256:" + "a" * 64,
                 owner_loop_contract_ref="loop-contract:other",
+            )
+
+    def test_required_verifier_collection_shape_is_explicit(self):
+        wrong_required = (None, "deterministic.tests", {"deterministic.tests": "deterministic"})
+        for value in wrong_required:
+            with self.subTest(required=repr(value)):
+                with self.assertRaises(ValueError):
+                    compose_certification(
+                        target_ref="sha256:" + "a" * 64,
+                        loop_contract_ref="loop-contract:1",
+                        required_verifiers=value,
+                        owner_target_ref="sha256:" + "a" * 64,
+                        owner_loop_contract_ref="loop-contract:1",
+                        owner_artifact_verdicts={},
+                    )
+
+        with self.assertRaises(ValueError):
+            self._compose(
+                {self.D: "pass"},
+                refs={self.D: None},
             )
 
     def test_falsy_wrong_types_do_not_collapse_to_empty_inputs(self):
