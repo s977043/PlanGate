@@ -14,7 +14,7 @@ from __future__ import annotations
 __doc__ = """Validate a content-addressed external verifier receipt for #1468.
 
 This layer builds on the repository-local gh attestation verify command candidate
-landed by #1470. It adds replay/stale/binding checks for an external verifier
+landed by #1470. It adds nonce/freshness/binding checks for an external verifier
 receipt without promoting that receipt into runtime authority.
 
 The receipt itself must stay outside the repository and is verified as a GitHub
