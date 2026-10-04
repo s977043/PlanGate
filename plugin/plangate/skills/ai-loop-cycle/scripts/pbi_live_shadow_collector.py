@@ -97,6 +97,10 @@ def _validate_output_ref(task_id: str, ref: Any, label: str) -> str:
         raise CollectorError("; ".join(errors))
     assert isinstance(ref, str)
     clean = ref.strip()
+    if "#" in clean:
+        raise CollectorError(
+            f"{label}: artifact ref must not include fragment"
+        )
     prefix = _namespace_prefix(task_id)
     if not clean.startswith(prefix):
         raise CollectorError(
