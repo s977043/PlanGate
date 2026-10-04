@@ -1213,7 +1213,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
         )
         original = self.root / self.materialization_case_ref
         copied_ref = (
-            "docs/working/TASK-9999/evidence/pbi-live-shadow/"
+            "docs/working/TASK-9998/evidence/pbi-live-shadow/"
             "run-02/materialization-case.json"
         )
         copied = self.root / copied_ref
@@ -1231,7 +1231,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
             copied_ref,
         )
         self.assertIn(
-            "must be under docs/working/TASK-9999/evidence/pbi-live-shadow/",
+            "must be under docs/working/TASK-9998/evidence/pbi-live-shadow/",
             " ".join(inventory["invalid_case_artifacts"][0]["errors"]),
         )
         self.assertTrue(
