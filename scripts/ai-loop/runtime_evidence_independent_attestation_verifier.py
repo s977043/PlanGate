@@ -13,7 +13,7 @@ from __future__ import annotations
 
 __doc__ = """Run bounded GitHub artifact-attestation verification for R1 evidence.
 
-This is the cryptographic-verification slice of #1468. It executes only the
+This is the repository-local verification-command candidate slice of #1468. It executes only the
 strictly allowlisted, read-only gh attestation verify path through gh_exec and
 then reuses the #1466 candidate receipt parser for exact capture-manifest
 binding.
@@ -42,7 +42,7 @@ import runtime_evidence_ingress as ingress  # noqa: E402
 
 
 DOMAIN = "plangate.runtime-r1-independent-attestation-verifier/v1"
-CONTRACT_STAGE = "r1-independent-attestation-verifier-crypto-v1"
+CONTRACT_STAGE = "r1-independent-attestation-verifier-command-candidate-v1"
 OIDC_ISSUER = "https://token.actions.githubusercontent.com"
 REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
