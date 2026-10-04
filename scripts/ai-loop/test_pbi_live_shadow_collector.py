@@ -1042,6 +1042,31 @@ class LiveShadowCollectorTests(unittest.TestCase):
             report["rollout_quality"]["duplicate_false_negative_rate"]
         )
 
+    def test_materialization_case_revalidates_upstream_admission_chain(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs()
+
+        oracle = json.loads(
+            (self.root / self.oracle_ref).read_text(encoding="utf-8")
+        )
+        oracle["packet_hash"] = "sha256:" + "0" * 64
+        (self.root / self.oracle_ref).write_text(
+            json.dumps(oracle, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+
+        with self.assertRaises(collector.CollectorError) as ctx:
+            collector.collect_reviewed_materialization_case(
+                repo_root=self.root,
+                admission_case_ref=self.case_artifact_ref,
+                payload_ref=self.payload_ref,
+                existing_work_ref=self.existing_work_ref,
+                oracle_ref=self.materialization_oracle_ref,
+                case_artifact_ref=self.materialization_case_ref,
+            )
+        self.assertIn("review packet hash mismatch", str(ctx.exception))
+
     def test_materialization_case_requires_reviewed_materialize_admission(self):
         self._collect_packet()
         self._write_oracle(expected="no_action")
@@ -1194,6 +1219,39 @@ class LiveShadowCollectorTests(unittest.TestCase):
         )
         self.assertFalse(
             inventory["coverage"]["representative_coverage_claim_allowed"]
+        )
+
+    def test_materialization_inventory_revalidates_upstream_admission_chain(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs()
+        collector.collect_reviewed_materialization_case(
+            repo_root=self.root,
+            admission_case_ref=self.case_artifact_ref,
+            payload_ref=self.payload_ref,
+            existing_work_ref=self.existing_work_ref,
+            oracle_ref=self.materialization_oracle_ref,
+            case_artifact_ref=self.materialization_case_ref,
+        )
+
+        oracle = json.loads(
+            (self.root / self.oracle_ref).read_text(encoding="utf-8")
+        )
+        oracle["packet_hash"] = "sha256:" + "0" * 64
+        (self.root / self.oracle_ref).write_text(
+            json.dumps(oracle, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+
+        inventory = collector.inventory_live_materialization_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["evaluated_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 1)
+        self.assertIn(
+            "review packet hash mismatch",
+            " ".join(inventory["invalid_case_artifacts"][0]["errors"]),
         )
 
     def test_materialization_inventory_detects_payload_drift(self):
