@@ -1,5 +1,5 @@
 {
-  "description": "Phase B1 candidate for #1468: externally produced verifier receipt bound to the #1470 command-candidate result, with nonce/freshness/content-addressing and GitHub artifact-attestation command verification.",
+  "description": "Phase B1 candidate for #1468: externally produced verifier receipt bound to the #1470 command-candidate result, with nonce binding/freshness/content-addressing and GitHub artifact-attestation command verification.",
   "contract_stage": "r1-external-verifier-receipt-candidate-v1",
   "inputs": {
     "command_candidate": "absolute external file produced by #1470 verifier",
@@ -18,7 +18,7 @@
   "negative_controls": [
     "wrong request/config/provider/capture binding",
     "wrong command-candidate result hash or file digest",
-    "replayed/wrong nonce",
+    "wrong/cross-request nonce",
     "expired receipt",
     "overlong validity window",
     "receipt bytes not matching attested artifact digest",
