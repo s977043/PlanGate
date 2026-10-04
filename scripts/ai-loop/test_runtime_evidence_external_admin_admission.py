@@ -189,6 +189,19 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
                 )
             )
 
+    def test_evidence_uri_query_or_fragment_is_rejected(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value["admin_separation_evidence"][0].update(
+                    {
+                        "uri": (
+                            "https://example.invalid/evidence/admin-separation.json"
+                            "?token=secret#latest"
+                        )
+                    }
+                )
+            )
+
     def test_duplicate_evidence_digest_is_rejected(self):
         def mutate(value):
             value["admin_separation_evidence"][1]["sha256"] = (
