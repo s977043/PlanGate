@@ -54,24 +54,27 @@ fi
 
 # Mode A must remain tests-only. Production paths must not import the test spec.
 _t95_prod_refs() {
-  git -C "$1" grep -lF 'test_certification_shadow_spec' -- 'scripts' 'bin' 2>/dev/null || true
+  git -C "$1" grep -lF 'test_certification_shadow_spec' -- 'scripts' 'bin' 'plugin' 2>/dev/null || true
 }
 
 _T95_PROBE=$(mktemp -d)
-mkdir -p "$_T95_PROBE/scripts" "$_T95_PROBE/bin"
+mkdir -p "$_T95_PROBE/scripts" "$_T95_PROBE/bin" "$_T95_PROBE/plugin/plangate/skills/demo/scripts"
 git -C "$_T95_PROBE" init -q
 printf 'import test_certification_shadow_spec\n' >"$_T95_PROBE/scripts/leak.py"
+printf 'import test_certification_shadow_spec\n' >"$_T95_PROBE/plugin/plangate/skills/demo/scripts/leak.py"
 printf 'print("ok")\n' >"$_T95_PROBE/scripts/ok.py"
 printf '#!/bin/sh\nexit 0\n' >"$_T95_PROBE/bin/ok"
-git -C "$_T95_PROBE" add scripts bin
+git -C "$_T95_PROBE" add scripts bin plugin
 _T95_PROBE_GOT=$(_t95_prod_refs "$_T95_PROBE")
 rm -rf "$_T95_PROBE"
 
-if [ "$_T95_PROBE_GOT" = "scripts/leak.py" ]; then
-  printf '  [PASS] production-reference detector positive control\n'
+_T95_PROBE_WANT='plugin/plangate/skills/demo/scripts/leak.py
+scripts/leak.py'
+if [ "$_T95_PROBE_GOT" = "$_T95_PROBE_WANT" ]; then
+  printf '  [PASS] production-reference detector positive controls (source + plugin)\n'
   pass=$((pass + 1))
 else
-  printf '  [FAIL] production-reference detector missed planted leak: %s\n' "$_T95_PROBE_GOT" >&2
+  printf '  [FAIL] production-reference detector missed planted leak(s):\n%s\n' "$_T95_PROBE_GOT" >&2
   fail=$((fail + 1))
 fi
 
