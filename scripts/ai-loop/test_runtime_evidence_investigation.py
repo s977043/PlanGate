@@ -267,16 +267,15 @@ class RuntimeInvestigationR1Tests(unittest.TestCase):
         self.assertNotIn("SECRET_TOKEN", emitted)
         self.assertNotIn("do-not-emit", emitted)
         self.assertNotIn("deploy now", emitted)
-        self.assertNotIn("statement", parsed["source"])
-        self.assertNotIn("summary", parsed["source"])
+        self.assertNotIn("source", parsed)
+        self.assertNotIn("source_ref", emitted)
+        self.assertNotIn("refs", parsed["untrusted_evidence"])
         self.assertEqual(
-            set(parsed["source"]),
+            parsed["output_contract"],
             {
-                "source_ref",
-                "source_hash",
-                "provider",
-                "intake_identity",
-                "captured_at",
+                "full_request_emitted": False,
+                "source_ref_emitted": False,
+                "inline_runtime_content_emitted": False,
             },
         )
         self.assertFalse(parsed["untrusted_evidence"]["inline_content_allowed"])
