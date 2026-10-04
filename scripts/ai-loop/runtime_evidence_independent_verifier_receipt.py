@@ -258,6 +258,14 @@ def _validate_command_result(value: Any) -> list[str]:
         or SOURCE_REF_RE.fullmatch(source_ref) is None
     ):
         errors.append("verification_command_candidate.source_ref: bounded ref required")
+    if value.get("oidc_issuer") != command_verifier.OIDC_ISSUER:
+        errors.append(
+            "verification_command_candidate.oidc_issuer: exact GitHub Actions issuer required"
+        )
+    if value.get("predicate_type") != attestation_receipt.EXPECTED_PREDICATE_TYPE:
+        errors.append(
+            "verification_command_candidate.predicate_type: exact SLSA provenance v1 required"
+        )
 
     body = dict(value)
     claimed_hash = body.pop("result_hash", None)
@@ -432,15 +440,23 @@ def verify_receipt_bytes(
         "platform": command_result["platform"],
         "capture_id": command_result["capture_id"],
         "verification_command_candidate_result_hash": command_result["result_hash"],
+        "verifier_receipt_hash": receipt["receipt_hash"],
         "capture_manifest_file_sha256": command_result[
             "capture_manifest_file_sha256"
         ],
+        "attestation_repo": command_result["attestation_repo"],
+        "signer_repo": command_result["signer_repo"],
+        "signer_workflow": command_result["signer_workflow"],
+        "source_digest": command_result["source_digest"],
+        "signer_digest": command_result["signer_digest"],
+        "source_ref": command_result["source_ref"],
         "verifier_issuer": receipt["verifier_issuer"],
         "verifier_workflow_ref": receipt["verifier_workflow_ref"],
         "verifier_binary_sha256": receipt["verifier_binary_sha256"],
         "execution_id": receipt["execution_id"],
         "issued_at": receipt["issued_at"],
         "expires_at": receipt["expires_at"],
+        "observed_at": observed_at,
         "external_receipt_structure_candidate": True,
         "external_receipt_content_addressed_candidate": True,
         "external_receipt_exact_binding_candidate": True,
