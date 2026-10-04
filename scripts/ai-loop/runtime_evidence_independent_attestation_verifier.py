@@ -44,7 +44,7 @@ import runtime_evidence_ingress as ingress  # noqa: E402
 DOMAIN = "plangate.runtime-r1-independent-attestation-verifier/v1"
 CONTRACT_STAGE = "r1-independent-attestation-verifier-command-candidate-v1"
 OIDC_ISSUER = "https://token.actions.githubusercontent.com"
-REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+REPO_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$")
 SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 REF_RE = re.compile(r"^refs/(?:heads|tags)/[A-Za-z0-9][A-Za-z0-9._/-]*$")
 WORKFLOW_FILE_RE = re.compile(r"^[A-Za-z0-9_.-]+\.ya?ml$")
@@ -59,16 +59,23 @@ class IndependentAttestationVerifierError(ValueError):
 
 def _validate_policy(
     *,
-    verifier_repo: str,
+    attestation_repo: str,
+    signer_repo: str,
     signer_workflow: str,
     source_digest: str,
+    signer_digest: str,
     source_ref: str,
 ) -> None:
     errors: list[str] = []
-    if not isinstance(verifier_repo, str) or REPO_RE.fullmatch(verifier_repo) is None:
-        errors.append("verifier_repo: owner/repo required")
+    if (
+        not isinstance(attestation_repo, str)
+        or REPO_RE.fullmatch(attestation_repo) is None
+    ):
+        errors.append("attestation_repo: owner/repo required")
+    if not isinstance(signer_repo, str) or REPO_RE.fullmatch(signer_repo) is None:
+        errors.append("signer_repo: owner/repo required")
 
-    expected_prefix = f"{verifier_repo}/.github/workflows/"
+    expected_prefix = f"{signer_repo}/.github/workflows/"
     if (
         not isinstance(signer_workflow, str)
         or not signer_workflow.startswith(expected_prefix)
@@ -77,11 +84,13 @@ def _validate_policy(
         ) is None
     ):
         errors.append(
-            "signer_workflow: exact verifier-repo .github/workflows file required"
+            "signer_workflow: exact signer-repo .github/workflows file required"
         )
 
     if not isinstance(source_digest, str) or SHA40_RE.fullmatch(source_digest) is None:
         errors.append("source_digest: 40 lowercase hex git SHA required")
+    if not isinstance(signer_digest, str) or SHA40_RE.fullmatch(signer_digest) is None:
+        errors.append("signer_digest: 40 lowercase hex git SHA required")
 
     if (
         not isinstance(source_ref, str)
@@ -97,24 +106,28 @@ def _validate_policy(
 def build_verify_args(
     *,
     artifact_path: pathlib.Path,
-    verifier_repo: str,
+    attestation_repo: str,
+    signer_repo: str,
     signer_workflow: str,
     source_digest: str,
+    signer_digest: str,
     source_ref: str,
 ) -> list[str]:
     _validate_policy(
-        verifier_repo=verifier_repo,
+        attestation_repo=attestation_repo,
+        signer_repo=signer_repo,
         signer_workflow=signer_workflow,
         source_digest=source_digest,
+        signer_digest=signer_digest,
         source_ref=source_ref,
     )
     return [
         "attestation", "verify", str(artifact_path),
-        "--repo", verifier_repo,
-        "--signer-repo", verifier_repo,
+        "--repo", attestation_repo,
+        "--signer-repo", signer_repo,
         "--signer-workflow", signer_workflow,
         "--source-digest", source_digest,
-        "--signer-digest", source_digest,
+        "--signer-digest", signer_digest,
         "--source-ref", source_ref,
         "--cert-oidc-issuer", OIDC_ISSUER,
         "--predicate-type", candidate_receipt.EXPECTED_PREDICATE_TYPE,
@@ -129,9 +142,11 @@ def verify_with_github_attestation(
     repo_root,
     managed_capture_result_raw: bytes,
     capture_manifest_path,
-    verifier_repo: str,
+    attestation_repo: str,
+    signer_repo: str,
     signer_workflow: str,
     source_digest: str,
+    signer_digest: str,
     source_ref: str,
     cwd=None,
 ) -> dict[str, Any]:
@@ -148,14 +163,16 @@ def verify_with_github_attestation(
     )
     args = build_verify_args(
         artifact_path=manifest_path,
-        verifier_repo=verifier_repo,
+        attestation_repo=attestation_repo,
+        signer_repo=signer_repo,
         signer_workflow=signer_workflow,
         source_digest=source_digest,
+        signer_digest=signer_digest,
         source_ref=source_ref,
     )
 
     try:
-        proc = gh_exec.run_gh(args, repo=verifier_repo, cwd=cwd)
+        proc = gh_exec.run_gh(args, repo=attestation_repo, cwd=cwd)
     except gh_exec.Denied as exc:
         raise IndependentAttestationVerifierError(
             [f"gh_attestation_verify: allowlist denied: {exc}"]
@@ -197,9 +214,11 @@ def verify_with_github_attestation(
         "candidate_receipt_hash": upstream["result_hash"],
         "capture_manifest_hash": upstream["capture_manifest_hash"],
         "capture_manifest_file_sha256": upstream["capture_manifest_file_sha256"],
-        "verifier_repo": verifier_repo,
+        "attestation_repo": attestation_repo,
+        "signer_repo": signer_repo,
         "signer_workflow": signer_workflow,
         "source_digest": source_digest,
+        "signer_digest": signer_digest,
         "source_ref": source_ref,
         "oidc_issuer": OIDC_ISSUER,
         "predicate_type": candidate_receipt.EXPECTED_PREDICATE_TYPE,
@@ -208,6 +227,7 @@ def verify_with_github_attestation(
         "capture_manifest_artifact_binding_candidate": True,
         "signer_workflow_policy_requested_candidate": True,
         "source_digest_policy_requested_candidate": True,
+        "signer_digest_policy_requested_candidate": True,
         "self_hosted_runner_denial_requested_candidate": True,
         "gh_attestation_cli_execution_verified": False,
         "artifact_digest_cryptographically_verified": False,
@@ -252,9 +272,11 @@ def main(argv=None) -> int:
     parser.add_argument("--repo-root", required=True)
     parser.add_argument("--managed-capture-result", required=True)
     parser.add_argument("--capture-manifest", required=True)
-    parser.add_argument("--verifier-repo", required=True)
+    parser.add_argument("--attestation-repo", required=True)
+    parser.add_argument("--signer-repo", required=True)
     parser.add_argument("--signer-workflow", required=True)
     parser.add_argument("--source-digest", required=True)
+    parser.add_argument("--signer-digest", required=True)
     parser.add_argument("--source-ref", required=True)
     args = parser.parse_args(argv)
 
@@ -269,9 +291,11 @@ def main(argv=None) -> int:
             repo_root=args.repo_root,
             managed_capture_result_raw=managed_raw,
             capture_manifest_path=args.capture_manifest,
-            verifier_repo=args.verifier_repo,
+            attestation_repo=args.attestation_repo,
+            signer_repo=args.signer_repo,
             signer_workflow=args.signer_workflow,
             source_digest=args.source_digest,
+            signer_digest=args.signer_digest,
             source_ref=args.source_ref,
             cwd=args.repo_root,
         )
