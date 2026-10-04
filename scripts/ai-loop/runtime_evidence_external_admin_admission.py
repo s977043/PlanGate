@@ -239,9 +239,13 @@ def _validate_evidence(value: Any, errors: list[str]) -> None:
                     for segment in canonical_segments
                     if segment not in ("", ".", "..")
                 ]
+                normalized_host = (
+                    parsed.hostname.casefold().rstrip(".")
+                    if parsed.hostname
+                    else ""
+                )
                 if (
-                    parsed.hostname
-                    and parsed.hostname.casefold() == "github.com"
+                    normalized_host in {"github.com", "www.github.com"}
                     and len(normalized_segments) >= 2
                     and normalized_segments[0] == "s977043"
                     and normalized_segments[1] == "plangate"
