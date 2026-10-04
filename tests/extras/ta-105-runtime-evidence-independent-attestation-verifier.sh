@@ -79,22 +79,24 @@ else
   fail=$((fail + 1))
 fi
 
-if grep -q '"gh_attestation_cli_execution_verified": True' "$_T105_IMPL" \
-  && grep -q '"attestation_signature_cryptographically_verified": True' "$_T105_IMPL" \
+if grep -q '"gh_attestation_verify_exit_success_candidate": True' "$_T105_IMPL" \
+  && grep -q '"gh_attestation_cli_execution_verified": False' "$_T105_IMPL" \
+  && grep -q '"attestation_signature_cryptographically_verified": False' "$_T105_IMPL" \
   && grep -q '"independent_admin_boundary_verified": False' "$_T105_IMPL" \
   && grep -q '"independent_verifier_execution_attested": False' "$_T105_IMPL" \
   && grep -q '"runtime_probe_attestation_verified": False' "$_T105_IMPL" \
   && grep -q '"dispatch_ready": False' "$_T105_IMPL" \
   && grep -q '"dispatch_allowed": False' "$_T105_IMPL"; then
-  printf '  [PASS] promotion split: crypto true does not imply admin/runtime authority\n'
+  printf '  [PASS] promotion split: repository-local verification remains candidate-only\n'
   pass=$((pass + 1))
 else
-  printf '  [FAIL] promotion split: authority separation missing\n' >&2
+  printf '  [FAIL] promotion split: candidate/authority separation missing\n' >&2
   fail=$((fail + 1))
 fi
 
 if [ -f "$_T105_PROPOSAL" ] \
   && grep -q '"external_admin_boundary_is_separate_gate": true' "$_T105_PROPOSAL" \
+  && grep -q '"repository_local_gh_success_is_not_crypto_authority": true' "$_T105_PROPOSAL" \
   && grep -q '"statement_predicate_is_not_authority": true' "$_T105_PROPOSAL"; then
   printf '  [PASS] proposal: independent-admin and predicate trust boundaries declared\n'
   pass=$((pass + 1))
