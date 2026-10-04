@@ -172,17 +172,21 @@ class VerifierTests(unittest.TestCase):
                     stdout=json.dumps(output, separators=(",", ":")) + "\n",
                 )
 
-            result = verifier.verify_with_github_attestation(
-                repo_root=repo_root,
-                managed_capture_result_raw=managed_raw,
-                capture_manifest_path=manifest_path,
-                verifier_repo=VERIFIER_REPO,
-                signer_workflow=WORKFLOW,
-                source_digest=SOURCE,
-                source_ref="refs/heads/main",
-                cwd=repo_root,
-                runner=fake_runner,
-            )
+            original_runner = verifier.gh_exec.run_gh
+            verifier.gh_exec.run_gh = fake_runner
+            try:
+                result = verifier.verify_with_github_attestation(
+                    repo_root=repo_root,
+                    managed_capture_result_raw=managed_raw,
+                    capture_manifest_path=manifest_path,
+                    verifier_repo=VERIFIER_REPO,
+                    signer_workflow=WORKFLOW,
+                    source_digest=SOURCE,
+                    source_ref="refs/heads/main",
+                    cwd=repo_root,
+                )
+            finally:
+                verifier.gh_exec.run_gh = original_runner
             return result, calls
 
     def test_crypto_verification_promotes_crypto_only(self):
@@ -271,17 +275,21 @@ class VerifierTests(unittest.TestCase):
                 calls.append(args)
                 return _Completed()
 
-            with self.assertRaises(receipt.GitHubAttestationReceiptError):
-                verifier.verify_with_github_attestation(
-                    repo_root=repo_root,
-                    managed_capture_result_raw=_json_bytes(_managed_result(manifest)),
-                    capture_manifest_path=manifest_path,
-                    verifier_repo=VERIFIER_REPO,
-                    signer_workflow=WORKFLOW,
-                    source_digest=SOURCE,
-                    source_ref="refs/heads/main",
-                    runner=fake_runner,
-                )
+            original_runner = verifier.gh_exec.run_gh
+            verifier.gh_exec.run_gh = fake_runner
+            try:
+                with self.assertRaises(receipt.GitHubAttestationReceiptError):
+                    verifier.verify_with_github_attestation(
+                        repo_root=repo_root,
+                        managed_capture_result_raw=_json_bytes(_managed_result(manifest)),
+                        capture_manifest_path=manifest_path,
+                        verifier_repo=VERIFIER_REPO,
+                        signer_workflow=WORKFLOW,
+                        source_digest=SOURCE,
+                        source_ref="refs/heads/main",
+                    )
+            finally:
+                verifier.gh_exec.run_gh = original_runner
             self.assertEqual(calls, [])
 
 
