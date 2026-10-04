@@ -330,6 +330,19 @@ class LiveShadowCollectorTests(unittest.TestCase):
             )
         self.assertIn("pbi-live-shadow", str(ctx.exception))
 
+    def test_capture_output_ref_rejects_fragment(self):
+        with self.assertRaises(collector.CollectorError) as ctx:
+            collector.collect_capture(
+                repo_root=self.root,
+                signal=self.signal,
+                task_id="TASK-9999",
+                run_id="run-01",
+                captured_at="2099-12-31T12:00:00Z",
+                runtime_head_sha="abcdef1234567890abcdef1234567890abcdef12",
+                capture_ref=self.capture_ref + "#fragment",
+            )
+        self.assertIn("must not include fragment", str(ctx.exception))
+
     def test_capture_rejects_missing_upstream_source(self):
         (self.root / self.source_ref).unlink()
         with self.assertRaises(collector.CollectorError) as ctx:
