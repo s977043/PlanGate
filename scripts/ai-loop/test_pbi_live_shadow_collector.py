@@ -882,6 +882,37 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertIn("TASK-9998", errors)
         self.assertIn("pbi-live-shadow", errors)
 
+    def test_inventory_duplicate_invalid_copy_invalidates_valid_peer(self):
+        self._collect_packet()
+        self._write_oracle(expected="no_action")
+        collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+
+        original = self.root / self.case_artifact_ref
+        duplicate = (
+            self.root
+            / "docs/working/TASK-9998/evidence/pbi-live-shadow/"
+            / "run-02/admission-case.json"
+        )
+        duplicate.parent.mkdir(parents=True, exist_ok=True)
+        duplicate.write_bytes(original.read_bytes())
+
+        inventory = collector.inventory_live_shadow_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["evaluated_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 2)
+        for item in inventory["invalid_case_artifacts"]:
+            self.assertIn(
+                "duplicate logical case_ref",
+                " ".join(item["errors"]),
+            )
+
     def test_inventory_rejects_all_duplicate_logical_case_ids(self):
         self._collect_packet()
         self._write_oracle(expected="no_action")
@@ -1206,6 +1237,39 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertTrue(
             inventory["verification_boundary"]["task_namespace_binding_enforced"]
         )
+
+    def test_materialization_inventory_duplicate_invalid_copy_invalidates_valid_peer(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs()
+        collector.collect_reviewed_materialization_case(
+            repo_root=self.root,
+            admission_case_ref=self.case_artifact_ref,
+            payload_ref=self.payload_ref,
+            existing_work_ref=self.existing_work_ref,
+            oracle_ref=self.materialization_oracle_ref,
+            case_artifact_ref=self.materialization_case_ref,
+        )
+
+        original = self.root / self.materialization_case_ref
+        duplicate = (
+            self.root
+            / "docs/working/TASK-9998/evidence/pbi-live-shadow/"
+            / "run-02/materialization-case.json"
+        )
+        duplicate.parent.mkdir(parents=True, exist_ok=True)
+        duplicate.write_bytes(original.read_bytes())
+
+        inventory = collector.inventory_live_materialization_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["evaluated_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 2)
+        for item in inventory["invalid_case_artifacts"]:
+            self.assertIn(
+                "duplicate logical case_ref",
+                " ".join(item["errors"]),
+            )
 
     def test_materialization_inventory_rejects_duplicate_logical_case_ids(self):
         self._prepare_materialize_admission_case()
