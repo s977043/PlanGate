@@ -149,6 +149,13 @@ def _rehash(value):
     return value
 
 
+def _rehash_command(value):
+    value = dict(value)
+    value.pop("result_hash", None)
+    value["result_hash"] = ingress._canonical_hash(value)
+    return value
+
+
 def _verify(command=None, receipt=None, **overrides):
     command = command or _command_result()
     receipt = receipt or _receipt(command)
@@ -179,6 +186,13 @@ class IndependentVerifierReceiptTests(unittest.TestCase):
         ):
             self.assertTrue(result[field])
 
+        self.assertEqual(result["verifier_receipt_hash"], _receipt()["receipt_hash"])
+        self.assertEqual(result["attestation_repo"], ATTESTATION_REPO)
+        self.assertEqual(result["signer_repo"], SIGNER_REPO)
+        self.assertEqual(result["signer_workflow"], SIGNER_WORKFLOW)
+        self.assertEqual(result["source_digest"], SOURCE)
+        self.assertEqual(result["signer_digest"], SIGNER)
+        self.assertEqual(result["observed_at"], "2026-10-04T15:05:00Z")
         self.assertFalse(result["same_challenge_replay_prevented"])
         self.assertFalse(result["receipt_signature_verified"])
         for field in (
@@ -194,6 +208,21 @@ class IndependentVerifierReceiptTests(unittest.TestCase):
         ):
             self.assertFalse(result[field])
         self.assertFalse(any(result["authority"].values()))
+
+    def test_command_candidate_wrong_oidc_or_predicate_fails_closed(self):
+        for field, value in (
+            ("oidc_issuer", "https://evil.example"),
+            ("predicate_type", "https://example.invalid/predicate"),
+        ):
+            command = _command_result()
+            command[field] = value
+            command = _rehash_command(command)
+            receipt = _receipt(command)
+            with self.subTest(field=field):
+                with self.assertRaises(
+                    receipt_verifier.IndependentVerifierReceiptError
+                ):
+                    _verify(command=command, receipt=receipt)
 
     def test_wrong_request_binding_fails_closed(self):
         receipt = _receipt()
