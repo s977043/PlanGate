@@ -88,6 +88,24 @@ mode / adoption level / phase の概念がさらに増える。
 
 **最小体験は既存の段階導入を整理して提供する。新しい mode は作らない。**
 
+### Level / Phase / Mode / Gate は別軸
+
+初見時の認知負荷を下げるには、既存用語を単純に減らすだけでなく、
+**何を表す軸なのかを混ぜない**ことが重要。
+
+| 軸 | 何を表すか | 例 |
+| --- | --- | --- |
+| Adoption Level | 組織・チームとして、どこまで PlanGate capability を採用するか | Level 1〜5 |
+| Staged Phase | 導入をどの時間軸で進めるかを示す onboarding guide | Phase 0〜3 |
+| Task Mode | 個々のタスクの変更リスク・複雑性に応じた実行分類 | ultra-light〜critical |
+| Gate / Identifier | workflow 内の具体的な制御点・検証点 | C-X / V-X / WF-XX / EH-X |
+
+これらは alias ではない。たとえば、チームが Adoption Level 3 に到達していても、
+個々の typo 修正は ultra-light になり得る。
+
+互換性のため既存名称は維持するが、新規 onboarding document では
+「導入レベル」と「タスク mode」を同じものとして説明しない。
+
 ## 4. Repository onboarding
 
 ### 現状
