@@ -103,6 +103,17 @@ def compose_certification(
             }
         )
 
+    required_support_refs = {
+        ref
+        for item in projected
+        for ref in item["supporting_verification_refs"]
+    }
+    supplemental = [
+        ref
+        for ref in _canonical_refs(supplemental_evidence_refs or ())
+        if ref not in required_support_refs
+    ]
+
     return {
         "authoritative": AUTHORITATIVE,
         "mode": IMPLEMENTATION_MODE,
@@ -111,9 +122,7 @@ def compose_certification(
         "target_ref": target_ref,
         "loop_contract_ref": loop_contract_ref,
         "required_verifiers": projected,
-        "supplemental_evidence_refs": list(
-            _canonical_refs(supplemental_evidence_refs or ())
-        ),
+        "supplemental_evidence_refs": supplemental,
     }
 
 
@@ -210,6 +219,22 @@ class CertificationShadowSpecTests(unittest.TestCase):
         self.assertEqual(
             projection["supplemental_evidence_refs"],
             ["review:1", "review:2"],
+        )
+
+    def test_same_ref_is_not_counted_as_required_and_supplemental(self):
+        projection = self._compose(
+            {self.D: "pass"},
+            refs={self.D: ["shared-ref", "required-only"]},
+            supplemental=["shared-ref", "supplemental-only"],
+        )
+        item = projection["required_verifiers"][0]
+        self.assertEqual(
+            item["supporting_verification_refs"],
+            ["required-only", "shared-ref"],
+        )
+        self.assertEqual(
+            projection["supplemental_evidence_refs"],
+            ["supplemental-only"],
         )
 
     def test_equivalent_set_inputs_have_canonical_projection_order(self):
