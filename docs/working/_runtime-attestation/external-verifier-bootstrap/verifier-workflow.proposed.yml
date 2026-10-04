@@ -1,0 +1,32 @@
+# PROPOSAL ONLY — do not install in PlanGate.
+# Target: a separately administered external signer repository/service.
+schema_version: "1"
+domain: plangate.runtime-r1-external-verifier-bootstrap-workflow/v1
+activation: external-operator-only
+planGate_install_allowed: false
+
+required_identity:
+  oidc_issuer: https://token.actions.githubusercontent.com
+  signer_workflow: "<external-owner>/<external-repo>/.github/workflows/verify-runtime-attestation.yml"
+  signer_digest: "<immutable-40-hex-commit>"
+  source_digest: "<immutable-40-hex-source-commit>"
+  source_ref: refs/heads/main
+
+runner_policy:
+  self_hosted_runner_denied: true
+  github_hosted_runner_required_candidate: true
+
+receipt_contract:
+  domain: plangate.runtime-r1-external-verifier-receipt-input/v1
+  stage: r1-external-verifier-receipt-input-v1
+  artifact_binding_required: true
+  exact_request_config_provider_capture_binding_required: true
+
+evidence_contract:
+  administrator_separation_subject: "<signer_repo>"
+  signer_identity_subject: "<signer_workflow>@<signer_digest>"
+  nonce_lifecycle_subject: "<nonce_owner>"
+
+promotion:
+  allowed: false
+  reason: external boundary and Evidence require independent verification before promotion
