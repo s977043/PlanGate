@@ -208,6 +208,10 @@ def _validate_evidence(value: Any, errors: list[str]) -> None:
                 errors.append(f"{prefix}.uri: normalized HTTPS URI required")
             if parsed.username is not None or parsed.password is not None:
                 errors.append(f"{prefix}.uri: embedded credentials are not allowed")
+            if parsed.query or parsed.fragment:
+                errors.append(
+                    f"{prefix}.uri: query/fragment are not allowed in Evidence URI"
+                )
             if "s977043/plangate" in decoded:
                 errors.append(
                     f"{prefix}.uri: PlanGate repository cannot be independent-admin Evidence"
