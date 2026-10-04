@@ -1,5 +1,5 @@
 {
-  "description": "PROPOSAL/CONTRACT — #1468 repository-local verification-command slice. A successful gh attestation verify invocation under an exact pinned policy is candidate Evidence only; cryptographic promotion requires independently attested verifier binary/execution provenance and an independently administered boundary.",
+  "description": "PROPOSAL/CONTRACT — #1468 repository-local verification-command slice. Attestation lookup ownership (`--repo`) and signer authority (`--signer-repo` / `--signer-workflow`) are separate. A successful gh attestation verify invocation under an exact pinned policy is candidate Evidence only; cryptographic promotion requires independently attested verifier binary/execution provenance and an independently administered boundary.",
   "contract_stage": "r1-independent-attestation-verifier-command-candidate-v1",
   "execution_policy": {
     "command": "gh attestation verify",
@@ -19,8 +19,9 @@
     ],
     "predicate_type": "https://slsa.dev/provenance/v1",
     "oidc_issuer": "https://token.actions.githubusercontent.com",
-    "signer_digest_must_equal_source_digest": true,
-    "self_hosted_runner_denied_requested": true
+    "self_hosted_runner_denied_requested": true,
+    "attestation_repo_and_signer_repo_are_separate": true,
+    "source_digest_and_signer_digest_are_independently_pinned": true
   },
   "candidate_evidence": [
     "exact_verifier_policy_bound_candidate",
@@ -28,6 +29,7 @@
     "capture_manifest_artifact_binding_candidate",
     "signer_workflow_policy_requested_candidate",
     "source_digest_policy_requested_candidate",
+    "signer_digest_policy_requested_candidate",
     "self_hosted_runner_denial_requested_candidate"
   ],
   "promotion": {
@@ -59,6 +61,8 @@
     "repository_local_gh_success_is_not_crypto_authority": true,
     "gh_binary_and_execution_provenance_still_required": true,
     "runtime_text_never_becomes_policy": true,
-    "external_admin_boundary_is_separate_gate": true
+    "external_admin_boundary_is_separate_gate": true,
+    "attestation_owner_is_not_signer_authority": true,
+    "reusable_signer_repository_may_differ_from_attestation_repository": true
   }
 }
