@@ -150,6 +150,7 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
         result = _verify()
         for field in (
             "external_verifier_result_binding_verified",
+            "upstream_receipt_freshness_reverified",
             "provenance_receipt_structure_verified",
             "provenance_receipt_content_addressed",
             "immutable_verifier_identity_binding_candidate",
@@ -173,6 +174,10 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
             "dispatch_allowed",
         ):
             self.assertFalse(result[field])
+        self.assertEqual(
+            result["command_candidate_result_hash"],
+            _upstream()["command_candidate_result_hash"],
+        )
         self.assertFalse(any(result["authority"].values()))
 
     def test_wrong_challenge_is_rejected(self):
