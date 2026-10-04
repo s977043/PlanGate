@@ -144,11 +144,39 @@ def _gh_output(file_sha):
     }]
 
 
+def _json_bytes(value):
+    return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+
+
+def _verify(*, managed_capture_result, capture_manifest, gh_attestation_output,
+            capture_manifest_file_sha256=None, gh_attestation_output_sha256=None):
+    manifest_raw = _json_bytes(capture_manifest)
+    gh_raw = _json_bytes(gh_attestation_output)
+    if capture_manifest_file_sha256 is not None:
+        expected = _file_sha(manifest_raw)
+        if capture_manifest_file_sha256 != expected:
+            # Exercise the internal mismatch path explicitly when requested.
+            return receipt._verify_candidate(
+                managed_capture_result=managed_capture_result,
+                capture_manifest=capture_manifest,
+                capture_manifest_file_sha256=capture_manifest_file_sha256,
+                gh_attestation_output=gh_attestation_output,
+                gh_attestation_output_sha256=(
+                    gh_attestation_output_sha256 or _file_sha(gh_raw)
+                ),
+            )
+    return receipt.verify_candidate_bytes(
+        managed_capture_result_raw=_json_bytes(managed_capture_result),
+        capture_manifest_raw=manifest_raw,
+        gh_attestation_output_raw=gh_raw,
+    )
+
+
 class ReceiptTests(unittest.TestCase):
     def test_valid_receipt_remains_candidate_only(self):
         manifest = _manifest()
         file_sha = _file_sha(_manifest_bytes(manifest))
-        result = receipt.verify_candidate(
+        result = _verify(
             managed_capture_result=_managed_result(manifest),
             capture_manifest=manifest,
             capture_manifest_file_sha256=file_sha,
@@ -188,7 +216,7 @@ class ReceiptTests(unittest.TestCase):
         file_sha = _file_sha(_manifest_bytes(manifest))
         output = _gh_output("sha256:" + "9" * 64)
         with self.assertRaises(receipt.GitHubAttestationReceiptError):
-            receipt.verify_candidate(
+            _verify(
                 managed_capture_result=_managed_result(manifest),
                 capture_manifest=manifest,
                 capture_manifest_file_sha256=file_sha,
@@ -201,7 +229,7 @@ class ReceiptTests(unittest.TestCase):
         file_sha = _file_sha(_manifest_bytes(manifest))
         output = _gh_output(file_sha) * 2
         with self.assertRaises(receipt.GitHubAttestationReceiptError):
-            receipt.verify_candidate(
+            _verify(
                 managed_capture_result=_managed_result(manifest),
                 capture_manifest=manifest,
                 capture_manifest_file_sha256=file_sha,
@@ -215,7 +243,7 @@ class ReceiptTests(unittest.TestCase):
         output = _gh_output(file_sha)
         output[0]["verificationResult"]["verifiedTimestamps"] = []
         with self.assertRaises(receipt.GitHubAttestationReceiptError):
-            receipt.verify_candidate(
+            _verify(
                 managed_capture_result=_managed_result(manifest),
                 capture_manifest=manifest,
                 capture_manifest_file_sha256=file_sha,
@@ -229,7 +257,7 @@ class ReceiptTests(unittest.TestCase):
         output = _gh_output(file_sha)
         output[0]["verificationResult"]["signature"]["certificate"] = {}
         with self.assertRaises(receipt.GitHubAttestationReceiptError):
-            receipt.verify_candidate(
+            _verify(
                 managed_capture_result=_managed_result(manifest),
                 capture_manifest=manifest,
                 capture_manifest_file_sha256=file_sha,
@@ -243,7 +271,7 @@ class ReceiptTests(unittest.TestCase):
         output = _gh_output(file_sha)
         output[0]["verificationResult"]["statement"]["predicateType"] = "other"
         with self.assertRaises(receipt.GitHubAttestationReceiptError):
-            receipt.verify_candidate(
+            _verify(
                 managed_capture_result=_managed_result(manifest),
                 capture_manifest=manifest,
                 capture_manifest_file_sha256=file_sha,
@@ -260,7 +288,7 @@ class ReceiptTests(unittest.TestCase):
         managed_result["result_hash"] = ingress._canonical_hash(body)
         file_sha = _file_sha(_manifest_bytes(manifest))
         with self.assertRaises(receipt.GitHubAttestationReceiptError):
-            receipt.verify_candidate(
+            _verify(
                 managed_capture_result=managed_result,
                 capture_manifest=manifest,
                 capture_manifest_file_sha256=file_sha,
@@ -277,7 +305,7 @@ class ReceiptTests(unittest.TestCase):
         managed_result["result_hash"] = ingress._canonical_hash(body)
         file_sha = _file_sha(_manifest_bytes(manifest))
         with self.assertRaises(receipt.GitHubAttestationReceiptError):
-            receipt.verify_candidate(
+            _verify(
                 managed_capture_result=managed_result,
                 capture_manifest=manifest,
                 capture_manifest_file_sha256=file_sha,
@@ -291,7 +319,7 @@ class ReceiptTests(unittest.TestCase):
         manifest["manifest_hash"] = "sha256:" + "9" * 64
         file_sha = _file_sha(_manifest_bytes(manifest))
         with self.assertRaises(receipt.GitHubAttestationReceiptError):
-            receipt.verify_candidate(
+            _verify(
                 managed_capture_result=managed_result,
                 capture_manifest=manifest,
                 capture_manifest_file_sha256=file_sha,

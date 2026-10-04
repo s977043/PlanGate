@@ -422,6 +422,48 @@ def verify_candidate(
     return result
 
 
+def _decode_json_bytes(raw: bytes, *, field: str, max_bytes: int) -> Any:
+    if len(raw) > max_bytes:
+        raise GitHubAttestationReceiptError(
+            [f"{field}: file exceeds {max_bytes} byte limit"]
+        )
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise GitHubAttestationReceiptError([f"{field}: UTF-8 required"]) from exc
+    return _strict_json_loads(text, field)
+
+
+def verify_candidate_bytes(
+    *,
+    managed_capture_result_raw: bytes,
+    capture_manifest_raw: bytes,
+    gh_attestation_output_raw: bytes,
+) -> dict[str, Any]:
+    managed_result = _decode_json_bytes(
+        managed_capture_result_raw,
+        field="managed_capture_result",
+        max_bytes=MAX_JSON_BYTES,
+    )
+    manifest = _decode_json_bytes(
+        capture_manifest_raw,
+        field="capture_manifest",
+        max_bytes=managed.MAX_JSON_BYTES,
+    )
+    gh_output = _decode_json_bytes(
+        gh_attestation_output_raw,
+        field="gh_attestation_output",
+        max_bytes=MAX_JSON_BYTES,
+    )
+    return _verify_candidate(
+        managed_capture_result=managed_result,
+        capture_manifest=manifest,
+        capture_manifest_file_sha256=_sha256_bytes(capture_manifest_raw),
+        gh_attestation_output=gh_output,
+        gh_attestation_output_sha256=_sha256_bytes(gh_attestation_output_raw),
+    )
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", required=True)
@@ -430,27 +472,22 @@ def main(argv=None) -> int:
     parser.add_argument("--gh-attestation-json", required=True)
     args = parser.parse_args(argv)
     try:
-        managed_result, _ = load_json_value(
-            args.managed_capture_result,
-            repo_root=args.repo_root,
-            field="managed_capture_result",
+        managed_path = _require_external_regular_file(
+            args.managed_capture_result, args.repo_root, "managed_capture_result"
         )
-        manifest, manifest_file_sha = load_json_value(
-            args.capture_manifest,
-            repo_root=args.repo_root,
-            field="capture_manifest",
+        manifest_path = _require_external_regular_file(
+            args.capture_manifest, args.repo_root, "capture_manifest"
         )
-        gh_output, gh_output_sha = load_json_value(
-            args.gh_attestation_json,
-            repo_root=args.repo_root,
-            field="gh_attestation_output",
+        gh_path = _require_external_regular_file(
+            args.gh_attestation_json, args.repo_root, "gh_attestation_output"
         )
-        result = verify_candidate(
-            managed_capture_result=managed_result,
-            capture_manifest=manifest,
-            capture_manifest_file_sha256=manifest_file_sha,
-            gh_attestation_output=gh_output,
-            gh_attestation_output_sha256=gh_output_sha,
+        managed_raw = managed_path.read_bytes()
+        manifest_raw = manifest_path.read_bytes()
+        gh_raw = gh_path.read_bytes()
+        result = verify_candidate_bytes(
+            managed_capture_result_raw=managed_raw,
+            capture_manifest_raw=manifest_raw,
+            gh_attestation_output_raw=gh_raw,
         )
     except GitHubAttestationReceiptError as exc:
         for error in exc.errors:
