@@ -303,6 +303,34 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
                     now=NOW,
                 )
 
+    def test_symlinked_provenance_receipt_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo = root / "repo"
+            external = root / "external"
+            repo.mkdir()
+            external.mkdir()
+            up_path = external / "upstream.json"
+            up_path.write_bytes(_json_bytes(_upstream()))
+            real = external / "real-receipt.json"
+            real.write_bytes(_json_bytes(_receipt()))
+            link = external / "receipt.json"
+            try:
+                link.symlink_to(real)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation unavailable")
+            with self.assertRaises(prov.ExternalVerifierProvenanceError):
+                prov.verify_provenance_files(
+                    repo_root=repo,
+                    external_verifier_result_path=up_path,
+                    provenance_receipt_path=link,
+                    expected_verifier_issuer=ISSUER,
+                    expected_verifier_workflow_ref=WORKFLOW,
+                    expected_verifier_binary_sha256=BINARY,
+                    expected_challenge_id=CHALLENGE,
+                    now=NOW,
+                )
+
     def test_duplicate_json_key_is_rejected(self):
         raw = b'{"schema_version":"1","schema_version":"1"}'
         with self.assertRaises(prov.ExternalVerifierProvenanceError):
