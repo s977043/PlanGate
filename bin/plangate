@@ -2061,7 +2061,7 @@ print(d.get('approval_kind','') if isinstance(d,dict) else '')" "$work_dir/appro
     if [ "$_c3_kind" = "c3-prime" ]; then
       printf 'error: c3-prime exec requires resolvable HEAD (git rev-parse HEAD failed)\n' >&2
       printf 'Next: from the repository root, run: git rev-parse HEAD\n' >&2
-      printf 'Then: plangate status %s\n' "$task_id" >&2
+      printf 'Then: plangate validate %s\n' "$task_id" >&2
       return 1
     fi
   fi
@@ -2070,14 +2070,13 @@ print(d.get('approval_kind','') if isinstance(d,dict) else '')" "$work_dir/appro
   if [ "$_c3_rc" = "1" ]; then
     printf 'error: C-3 gate not approved (c3-prime verification failed; see above)\n' >&2
     printf 'Next: plangate validate %s\n' "$task_id" >&2
-    printf 'Then: plangate status %s\n' "$task_id" >&2
     return 1
   elif [ "$_c3_rc" = "10" ]; then
     c3_status=$(grep '"c3_status"' "$work_dir/approvals/c3.json" 2>/dev/null \
       | sed 's/.*"c3_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
     if [ "$c3_status" != "APPROVED" ]; then
       printf 'error: C-3 gate not approved (status=%s)\n' "${c3_status:-missing}" >&2
-      printf 'Next: plangate status %s\n' "$task_id" >&2
+      printf 'Next: plangate validate %s\n' "$task_id" >&2
       printf 'Human action: resolve the current C-3 decision before exec; create a new approval decision only if that is explicitly intended.\n' >&2
       return 1
     fi
