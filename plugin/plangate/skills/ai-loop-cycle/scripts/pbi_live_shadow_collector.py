@@ -971,6 +971,12 @@ def collect_reviewed_materialization_case(
     task_id = parts[2] if len(parts) > 2 else ""
     _validate_output_ref(task_id, admission_case_ref, "admission_case_ref")
 
+    _revalidate_admission_case_chain(
+        repo_root=repo_root,
+        task_id=task_id,
+        case=admission_case,
+    )
+
     admission_errors = pm._validate_admission_batch(
         [admission_case],
         authority_root=repo_root,
@@ -1147,6 +1153,12 @@ def _revalidate_materialization_case_chain(
     _admission_path, admission_case = _load_repo_json_object(
         repo_root, admission_case_ref, "admission_case_ref"
     )
+    _revalidate_admission_case_chain(
+        repo_root=repo_root,
+        task_id=task_id,
+        case=admission_case,
+    )
+
     admission_errors = pm._validate_admission_batch(
         [admission_case],
         authority_root=repo_root,
