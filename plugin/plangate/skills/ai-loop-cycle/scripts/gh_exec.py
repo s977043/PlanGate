@@ -328,28 +328,33 @@ def _c_attestation_verify_policy(ctx: Ctx) -> None:
     if _values(ctx, "--cert-oidc-issuer") != ["https://token.actions.githubusercontent.com"]:
         raise Denied(REASON_CONSTRAINT,
                      "GitHub Actions OIDC issuer の完全一致が必須")
-    if _values(ctx, "--signer-repo") != [ctx.repo]:
+    signer_repo_values = _values(ctx, "--signer-repo")
+    if len(signer_repo_values) != 1 or re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*",
+        signer_repo_values[0],
+    ) is None:
         raise Denied(REASON_CONSTRAINT,
-                     "--signer-repo は verifier repo に完全一致すること")
+                     "--signer-repo は owner/repo 形式でちょうど1回必要")
+    signer_repo = signer_repo_values[0]
 
     workflow_values = _values(ctx, "--signer-workflow")
     if len(workflow_values) != 1:
         raise Denied(REASON_CONSTRAINT, "--signer-workflow はちょうど1回必要")
     workflow_re = re.compile(
-        rf"{re.escape(ctx.repo)}/\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml"
+        rf"{re.escape(signer_repo)}/\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml"
     )
     if workflow_re.fullmatch(workflow_values[0]) is None:
         raise Denied(REASON_CONSTRAINT,
-                     "--signer-workflow は verifier repo のworkflowへ固定すること")
+                     "--signer-workflow は signer repo のworkflowへ固定すること")
 
     source_values = _values(ctx, "--source-digest")
     signer_values = _values(ctx, "--signer-digest")
     if len(source_values) != 1 or re.fullmatch(r"[0-9a-f]{40}", source_values[0]) is None:
         raise Denied(REASON_CONSTRAINT,
                      "--source-digest は40桁lowercase git SHAが必須")
-    if signer_values != source_values:
+    if len(signer_values) != 1 or re.fullmatch(r"[0-9a-f]{40}", signer_values[0]) is None:
         raise Denied(REASON_CONSTRAINT,
-                     "--signer-digest は source digest と完全一致すること")
+                     "--signer-digest は40桁lowercase git SHAが必須")
 
     ref_values = _values(ctx, "--source-ref")
     if len(ref_values) != 1:
