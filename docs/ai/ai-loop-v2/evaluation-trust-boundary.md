@@ -108,6 +108,21 @@ Candidate が Verifier / Eval / Test strategy を変更する場合、評価は�
 - 「実装 Agent 自身のレビュー」を Independent Review 完了と記録しない（Phase 0 の exit criteria の扱いと同じ。[`phase0-migration.md`](./phase0-migration.md) §7）。
 - 同一 Model でも context / role / run を分離すれば I1（North Star §5）。model の系統的盲点が問題になる surface では I2 以上。
 
+### 4-1. PBI materialization shadow evaluation の独立性
+
+本正本の「Candidate cannot modify the authority that judges the candidate」と同じ原則を、PBI Admission / Materialization の shadow evaluation にも適用する。
+
+```text
+maker actual
+  != reviewer expected
+```
+
+PBI materializer / collector が生成した actual decision を reviewer が先に見てから expected を付与した場合、その expected を「独立 oracle」と呼ばない。独立 review を主張するなら、少なくとも reviewer context / handoff を maker actual から分離し、reviewer が参照した upstream source / Evidence を特定できるようにする。
+
+repository 上で oracle file が別 path にあることは、authorship / reviewer identity / context isolation の証明ではない。機械的に確認できない独立性は `verified` とせず、caller / independent reviewer の assertion として区別する。
+
+shadow evaluation で synthetic / historical / live を比較する場合も、Evidence class の昇格はしない。synthetic fixture の PASS や historical replay の一致率だけを根拠に、live rollout の quality acceptance / mutation authorization を与えない。
+
 ## 5. Promotion Decision
 
 Harness Candidate の評価結果を PASS / FAIL の二値にしない。

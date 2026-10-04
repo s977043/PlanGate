@@ -6,7 +6,7 @@ PlanGate ワークフローで使うテンプレート群。
 
 | テンプレート | 用途 | フェーズ |
 | --- | --- | --- |
-| [`pbi-input.md`](./pbi-input.md) | PBI INPUT PACKAGE（人間が作成する plan の入力） | A / WF-02 |
+| [`pbi-input.md`](./pbi-input.md) | PBI INPUT PACKAGE（AI / 人間が作成可能。Evidence / provenance / Unknowns を保持する plan 入力） | A / WF-02 |
 | [`plan.md`](./plan.md) | 実装前の実行可能な作業指示書（Task Sizing / No Placeholders / 検証計画） | WF-03 / C-1 |
 | [`todo.md`](./todo.md) | EXECUTION TODO（2-5 分粒度 / `Owner` / `depends_on` / `files` / `rollback`） | WF-03 / C-1 |
 | [`test-cases.md`](./test-cases.md) | テストケース定義（受入基準 → テストケースのマッピング / Edge case） | WF-03 / C-1 |

@@ -13,6 +13,7 @@ JSON Lines（`.jsonl`）— 1行1エントリ、append-only。
 | フィールド | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
 | ts | ISO 8601 string | Yes | 判断日時（例: `2026-04-06T14:30:00+09:00`） |
+| decision_id | string | No | 安定参照用の decision ID（例: `D-001`）。既存ログとの後方互換のため任意。ref fragment から個別 decision を参照する場合に使用 |
 | phase | string | Yes | `brainstorm` / `plan` / `C-1` / `C-2` / `exec` |
 | task | string | Yes | タスクID（`T-1` 等）or フェーズ名 |
 | type | enum | Yes | `design` / `scope` / `tool` / `risk` / `other` |
@@ -31,7 +32,7 @@ JSON Lines（`.jsonl`）— 1行1エントリ、append-only。
 ## サンプル
 
 ```jsonl
-{"ts":"2026-04-06T14:30:00+09:00","phase":"exec","task":"T-4","type":"design","decision":"正規表現を /[^\\u0020-\\u007E]/|\\s/ に変更","reason":"ESLint no-control-regex ルールに抵触したため","alternatives":["ESLint ルールを無効化","元の正規表現を維持"],"chosen_by":"agent"}
+{"ts":"2026-04-06T14:30:00+09:00","decision_id":"D-001","phase":"exec","task":"T-4","type":"design","decision":"正規表現を /[^\\u0020-\\u007E]/|\\s/ に変更","reason":"ESLint no-control-regex ルールに抵触したため","alternatives":["ESLint ルールを無効化","元の正規表現を維持"],"chosen_by":"agent"}
 {"ts":"2026-04-06T15:00:00+09:00","phase":"exec","task":"T-8","type":"scope","decision":"IT_RANKING のパス生成未対応を対象外とする","reason":"IT_RANKING に記事データが存在しないため実害なし","alternatives":["IT_RANKING 用の分岐を追加"],"chosen_by":"agent"}
 {"ts":"2026-06-18T10:00:00+09:00","phase":"brainstorm","task":"B-1","type":"design","decision":"アプローチA（最小変更）を採用","reason":"既存パターンに整合し最小変更で要件を満たす","alternatives":["アプローチB（新規抽象化）","アプローチC（全面書き換え）"],"alternatives_rejected":[{"option":"アプローチB（新規抽象化）","rationale":"既存パターンと不整合・保守コスト増"},{"option":"アプローチC（全面書き換え）","rationale":"過剰設計でYAGNI違反・リスク過大"}],"chosen_by":"human"}
 ```

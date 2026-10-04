@@ -14,7 +14,7 @@ PlanGateガイド: `docs/plangate.md`
 ```text
 Ready → In Progress
   → 0: Brainstorming 🤖👤（対話的な要件整理・設計書生成、任意）
-  → A: PBI INPUT PACKAGE作成 👤
+  → A: PBI INPUT PACKAGE作成 🤖/👤
   → B: Plan + ToDo + Test Cases同時生成 🤖
   → C-1: セルフレビュー 🤖（全項目チェック）
   → C-2: 外部AIレビュー 🤖
@@ -64,7 +64,7 @@ Ready → In Progress
 ```text
 docs/working/
 └── TASK-{ticket-number}/
-    ├── pbi-input.md         # A: PBI INPUT PACKAGE（人間が作成）
+    ├── pbi-input.md         # A: PBI INPUT PACKAGE（AI / 人間が作成可能）
     ├── plan.md              # B: EXECUTION PLAN（Prompt 1で生成）
     ├── todo.md              # B: EXECUTION TODO（Prompt 1で生成）
     ├── test-cases.md        # B: テストケース定義（Prompt 1で生成）
@@ -266,7 +266,7 @@ confirmed_by）。人間 confirm 済のみ追記。#200 期間集計の入力源
 
 ### pbi-input.md（PBI INPUT PACKAGE）
 
-フェーズAで人間が作成。以下を含める:
+フェーズAで **AI / 人間のどちらも作成可能**。AI は user feedback / Issue / RunEvidence / FailureRecord / operational observation などから生成・更新してよい。作成者そのものを authority の根拠にせず、provenance / Evidence / uncertainty / policy を残す。Human decision が必要かは mode / risk / conflict / semantic trade-off 等の既存 policy に従う。以下を含める:
 
 - Context / Why（なぜやるか）
 - What（Scope）: In scope / Out of scope
