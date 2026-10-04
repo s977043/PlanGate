@@ -57,6 +57,14 @@ _t95_prod_refs() {
   git -C "$1" grep -lF 'test_certification_shadow_spec' -- 'scripts' 'bin' 'plugin' 2>/dev/null || true
 }
 
+_t95_design_contract_ok() {
+  _t95_design_doc="$1/docs/ai/ai-loop-v2/evidence-certification-promotion.md"
+  [ -f "$_t95_design_doc" ] &&
+    grep -qF 'Certification View (projection only)' "$_t95_design_doc" &&
+    grep -qF 'The Certification View MUST NOT emit or own:' "$_t95_design_doc" &&
+    grep -qF 'Decision Engine artifact_verdicts(inputs)' "$_t95_design_doc"
+}
+
 _t95_owner_seam_refs() {
   python3 - "$1" <<'PY'
 import ast
@@ -97,7 +105,13 @@ printf '#!/bin/sh\nexit 0\n' >"$_T95_PROBE/bin/ok"
 mkdir -p "$_T95_PROBE/scripts/ai-loop-v2"
 printf '# artifact_verdicts mention only; must not trigger\n' >"$_T95_PROBE/scripts/ai-loop-v2/comment_only.py"
 printf 'def artifact_verdicts():\n    return {}\n' >"$_T95_PROBE/scripts/ai-loop-v2/owner.py"
-git -C "$_T95_PROBE" add scripts bin plugin
+mkdir -p "$_T95_PROBE/docs/ai/ai-loop-v2"
+cat >"$_T95_PROBE/docs/ai/ai-loop-v2/evidence-certification-promotion.md" <<'EOF'
+Certification View (projection only)
+The Certification View MUST NOT emit or own:
+Decision Engine artifact_verdicts(inputs)
+EOF
+git -C "$_T95_PROBE" add scripts bin plugin docs
 _T95_PROBE_GOT=$(_t95_prod_refs "$_T95_PROBE")
 _T95_SEAM_PROBE_GOT=$(_t95_owner_seam_refs "$_T95_PROBE")
 
@@ -119,6 +133,23 @@ else
   fail=$((fail + 1))
 fi
 
+if _t95_design_contract_ok "$_T95_PROBE"; then
+  printf '  [PASS] design-contract detector positive control\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] design-contract detector rejected complete fixture\n' >&2
+  fail=$((fail + 1))
+fi
+sed '/Decision Engine artifact_verdicts(inputs)/d'   "$_T95_PROBE/docs/ai/ai-loop-v2/evidence-certification-promotion.md"   >"$_T95_PROBE/docs/ai/ai-loop-v2/evidence-certification-promotion.md.tmp"
+mv "$_T95_PROBE/docs/ai/ai-loop-v2/evidence-certification-promotion.md.tmp"   "$_T95_PROBE/docs/ai/ai-loop-v2/evidence-certification-promotion.md"
+if _t95_design_contract_ok "$_T95_PROBE"; then
+  printf '  [FAIL] design-contract detector accepted missing owner-parity marker\n' >&2
+  fail=$((fail + 1))
+else
+  printf '  [PASS] design-contract detector negative control\n'
+  pass=$((pass + 1))
+fi
+
 rm -rf "$_T95_PROBE"
 if [ ! -e "$_T95_PROBE" ]; then
   printf '  [PASS] positive-control repository cleaned up\n'
@@ -135,6 +166,14 @@ if [ -n "$_T95_GOT" ]; then
 else
   printf '  [PASS] certification spec is not imported by production paths\n'
   pass=$((pass + 1))
+fi
+
+if _t95_design_contract_ok "$_T95_ROOT"; then
+  printf '  [PASS] stacked Certification design contract is present\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] Certification design contract missing or changed; review #1459/#1460 dependency\n' >&2
+  fail=$((fail + 1))
 fi
 
 _T95_OWNER_SEAM=$(_t95_owner_seam_refs "$_T95_ROOT")
