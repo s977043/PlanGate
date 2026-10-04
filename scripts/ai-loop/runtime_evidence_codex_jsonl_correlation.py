@@ -126,6 +126,56 @@ def _require_trace_outside_repo(
     return source
 
 
+def load_hook_jsonl(
+    path: str | pathlib.Path,
+    *,
+    repo_root: str | pathlib.Path | None = None,
+) -> tuple[list[Any], str]:
+    source = pathlib.Path(path)
+    if repo_root is not None:
+        source = _require_trace_outside_repo(
+            source,
+            repo_root,
+            "hooks_jsonl",
+        )
+    try:
+        raw = source.read_bytes()
+    except OSError as exc:
+        raise CodexJsonlCorrelationError(
+            [f"hooks_jsonl: cannot read: {exc}"]
+        ) from exc
+
+    if len(raw) > probe.MAX_JSONL_BYTES:
+        raise CodexJsonlCorrelationError(
+            ["hooks_jsonl: file exceeds 1 MiB limit"]
+        )
+
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise CodexJsonlCorrelationError(
+            ["hooks_jsonl: UTF-8 required"]
+        ) from exc
+
+    values: list[Any] = []
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if len(values) >= probe.MAX_JSONL_RECORDS:
+            raise CodexJsonlCorrelationError(
+                ["hooks_jsonl: record count exceeds limit"]
+            )
+        stripped = line.strip()
+        if not stripped:
+            continue
+        try:
+            values.append(json.loads(stripped))
+        except json.JSONDecodeError as exc:
+            raise CodexJsonlCorrelationError(
+                [f"hooks_jsonl line {line_number}: invalid JSON"]
+            ) from exc
+
+    return values, _sha256_bytes(raw)
+
+
 def load_exec_jsonl(
     path: str | pathlib.Path,
     *,
@@ -430,21 +480,12 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        hook_path = _require_trace_outside_repo(
+        hook_records, hook_sha = load_hook_jsonl(
             args.hooks_jsonl,
-            args.repo_root,
-            "hooks_jsonl",
+            repo_root=args.repo_root,
         )
-        exec_path = _require_trace_outside_repo(
-            args.exec_jsonl,
-            args.repo_root,
-            "exec_jsonl",
-        )
-        hook_raw = hook_path.read_bytes()
-        hook_sha = _sha256_bytes(hook_raw)
-        hook_records = probe.load_jsonl(hook_path)
         exec_events, exec_sha = load_exec_jsonl(
-            exec_path,
+            args.exec_jsonl,
             repo_root=args.repo_root,
         )
         result = correlate_candidate(

@@ -412,6 +412,30 @@ class JsonlLoaderTests(unittest.TestCase):
             any("must not traverse symlinks" in e for e in ctx.exception.errors)
         )
 
+    def test_hook_loader_returns_records_and_content_hash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo = root / "repo"
+            repo.mkdir()
+            path = root / "hooks.jsonl"
+            payload = "\n".join(
+                json.dumps(e, sort_keys=True) for e in _hook_records()
+            ) + "\n"
+            path.write_text(payload, encoding="utf-8")
+            records, digest = corr.load_hook_jsonl(path, repo_root=repo)
+        self.assertEqual(records, _hook_records())
+        self.assertRegex(digest, r"^sha256:[0-9a-f]{64}$")
+
+    def test_hook_size_limit_is_fail_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo = root / "repo"
+            repo.mkdir()
+            path = root / "hooks.jsonl"
+            path.write_bytes(b"x" * (probe.MAX_JSONL_BYTES + 1))
+            with self.assertRaises(corr.CodexJsonlCorrelationError):
+                corr.load_hook_jsonl(path, repo_root=repo)
+
     def test_loader_returns_content_hash(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = pathlib.Path(tmp) / "exec.jsonl"
