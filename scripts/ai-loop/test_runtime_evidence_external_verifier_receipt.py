@@ -15,14 +15,13 @@ import datetime as dt
 import hashlib
 import json
 import pathlib
+import sys
 import tempfile
 import unittest
 
 HERE = pathlib.Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
-
-import sys  # noqa: E402
 
 import runtime_evidence_external_verifier_receipt as ext  # noqa: E402
 import runtime_evidence_independent_attestation_verifier as command  # noqa: E402
