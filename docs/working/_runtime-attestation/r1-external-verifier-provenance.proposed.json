@@ -11,6 +11,7 @@
   },
   "verified_locally": [
     "external_verifier_result_binding_verified",
+    "upstream_receipt_freshness_reverified",
     "provenance_receipt_structure_verified",
     "provenance_receipt_content_addressed",
     "immutable_verifier_identity_binding_candidate",
@@ -24,6 +25,7 @@
     "wrong immutable verifier workflow ref",
     "wrong verifier binary digest",
     "wrong run challenge",
+    "stale or malformed upstream #1471 receipt",
     "expired or overlong provenance receipt",
     "upstream self-promotion",
     "raw runtime payload keys",
