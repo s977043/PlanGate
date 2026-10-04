@@ -4,7 +4,7 @@
 > **Purpose**: Production で観測した failure / degradation / recurrence を、Human-owned authority を維持したまま、検証可能な Agent Work と Learn / Evolve の Evidence へ接続する。
 > **Boundary**: 特定の observability vendor / incident tool / coding agent を前提にしない。Cloudflare Workers Issues は参考実装であり、依存先ではない。
 > **Detailed RFC**: [`Runtime Evidence Feedback Loop`](../../rfc/runtime-evidence-feedback-loop.md) — 実装・検証契約と R0/R1 candidate 状態の詳細。
-> **Current implementation**: #1448 / PR #1466 は R0/R1 shadow candidate まで main に統合済み。active R1 / independent attestation は #1469。
+> **Current implementation**: #1448 / PR #1466 は R0/R1 shadow candidate まで main に統合済み。active R1 / independent attestation は #1468。
 
 ## 1. Principle
 
