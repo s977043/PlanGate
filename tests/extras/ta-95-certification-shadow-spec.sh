@@ -57,6 +57,10 @@ _t95_prod_refs() {
   git -C "$1" grep -lF 'test_certification_shadow_spec' -- 'scripts' 'bin' 'plugin' 2>/dev/null || true
 }
 
+_t95_owner_seam_refs() {
+  git -C "$1" grep -nF 'artifact_verdicts' -- 'scripts/ai-loop-v2' 2>/dev/null || true
+}
+
 _T95_PROBE=$(mktemp -d)
 mkdir -p "$_T95_PROBE/scripts" "$_T95_PROBE/bin" "$_T95_PROBE/plugin/plangate/skills/demo/scripts"
 git -C "$_T95_PROBE" init -q
@@ -64,9 +68,11 @@ printf 'import test_certification_shadow_spec\n' >"$_T95_PROBE/scripts/leak.py"
 printf 'import test_certification_shadow_spec\n' >"$_T95_PROBE/plugin/plangate/skills/demo/scripts/leak.py"
 printf 'print("ok")\n' >"$_T95_PROBE/scripts/ok.py"
 printf '#!/bin/sh\nexit 0\n' >"$_T95_PROBE/bin/ok"
+mkdir -p "$_T95_PROBE/scripts/ai-loop-v2"
+printf 'def artifact_verdicts():\n    return {}\n' >"$_T95_PROBE/scripts/ai-loop-v2/owner.py"
 git -C "$_T95_PROBE" add scripts bin plugin
 _T95_PROBE_GOT=$(_t95_prod_refs "$_T95_PROBE")
-rm -rf "$_T95_PROBE"
+_T95_SEAM_PROBE_GOT=$(_t95_owner_seam_refs "$_T95_PROBE")
 
 _T95_PROBE_WANT='plugin/plangate/skills/demo/scripts/leak.py
 scripts/leak.py'
@@ -78,12 +84,33 @@ else
   fail=$((fail + 1))
 fi
 
+case "$_T95_SEAM_PROBE_GOT" in
+  *'scripts/ai-loop-v2/owner.py:1:def artifact_verdicts():'*)
+    printf '  [PASS] owner-seam tripwire positive control\n'
+    pass=$((pass + 1))
+    ;;
+  *)
+    printf '  [FAIL] owner-seam tripwire missed planted artifact_verdicts seam:\n%s\n' "$_T95_SEAM_PROBE_GOT" >&2
+    fail=$((fail + 1))
+    ;;
+esac
+rm -rf "$_T95_PROBE"
+
 _T95_GOT=$(_t95_prod_refs "$_T95_ROOT")
 if [ -n "$_T95_GOT" ]; then
   printf '  [FAIL] production path imports/references certification test spec:\n%s\n' "$_T95_GOT" >&2
   fail=$((fail + 1))
 else
   printf '  [PASS] certification spec is not imported by production paths\n'
+  pass=$((pass + 1))
+fi
+
+_T95_OWNER_SEAM=$(_t95_owner_seam_refs "$_T95_ROOT")
+if [ -n "$_T95_OWNER_SEAM" ]; then
+  printf '  [FAIL] owner artifact_verdicts seam detected; re-run #1460 preflight before keeping Mode A:\n%s\n' "$_T95_OWNER_SEAM" >&2
+  fail=$((fail + 1))
+else
+  printf '  [PASS] owner artifact_verdicts seam still absent; Mode A preflight remains valid\n'
   pass=$((pass + 1))
 fi
 
