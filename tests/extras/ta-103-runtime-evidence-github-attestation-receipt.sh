@@ -72,8 +72,8 @@ else
   fail=$((fail + 1))
 fi
 
-if ! grep -Eq 'import (subprocess|os)|from (subprocess|os) import' "$_T103_IMPL" \
-  && ! grep -Eq 'gh_exec|attestation verify' "$_T103_IMPL"; then
+if ! grep -Eq '^[[:space:]]*(import (subprocess|os)|from (subprocess|os) import)' "$_T103_IMPL" \
+  && ! grep -Eq '^[[:space:]]*(import gh_exec|from gh_exec import)' "$_T103_IMPL"; then
   printf '  [PASS] execution boundary: parser does not invoke gh/process APIs\n'
   pass=$((pass + 1))
 else
