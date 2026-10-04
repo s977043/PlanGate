@@ -1,0 +1,57 @@
+{
+  "description": "Repository-side admission contract for #1473. This validates the shape and structural separation of an externally administered verifier boundary without treating repository-authored claims as proof of independent administration.",
+  "contract_stage": "r1-external-admin-admission-candidate-v1",
+  "input_requirements": {
+    "boundary_descriptor_location": "absolute regular file outside PlanGate repository",
+    "signer_repository": "must differ from PlanGate and from the attestation repository",
+    "signer_workflow": "exact workflow path under the signer repository",
+    "signer_digest": "immutable 40-hex Git commit",
+    "source_digest": "immutable 40-hex Git commit",
+    "oidc_issuer": "https://token.actions.githubusercontent.com",
+    "self_hosted_runner_denied": true,
+    "receipt_contract": "must match the #1471 external verifier receipt domain/stage",
+    "admin_separation_evidence": "one or more external HTTPS Evidence references, each content-addressed by SHA-256"
+  },
+  "candidate_facts": [
+    "descriptor_structure_verified",
+    "signer_repo_structurally_separate_candidate",
+    "immutable_signer_digest_bound_candidate",
+    "source_digest_policy_bound_candidate",
+    "oidc_issuer_bound_candidate",
+    "self_hosted_runner_denial_declared_candidate",
+    "admin_evidence_refs_content_addressed_candidate",
+    "nonce_owner_declared_candidate",
+    "receipt_contract_compatible_candidate"
+  ],
+  "must_remain_false": [
+    "admin_evidence_independently_verified",
+    "independent_admin_boundary_verified",
+    "independent_verifier_execution_attested",
+    "gh_attestation_cli_execution_verified",
+    "artifact_digest_cryptographically_verified",
+    "attestation_signature_cryptographically_verified",
+    "signer_certificate_identity_verified",
+    "source_digest_policy_verified",
+    "signer_workflow_policy_verified",
+    "self_hosted_runner_denial_verified",
+    "runtime_probe_attestation_verified",
+    "human_rollout_decision_verified",
+    "dispatch_ready",
+    "dispatch_allowed"
+  ],
+  "negative_controls": [
+    "PlanGate repository used as external signer",
+    "signer repository equals attestation repository",
+    "PlanGate repository URL used as independent-admin Evidence",
+    "duplicate Evidence digest",
+    "self-hosted runner denial absent",
+    "receipt contract mismatch",
+    "raw runtime payload key",
+    "descriptor attempts self-promotion",
+    "descriptor stored inside PlanGate repository"
+  ],
+  "next_gate": {
+    "issue": 1473,
+    "requirement": "Create the external admin boundary and independently verify the referenced administrator-separation Evidence before promoting any strong machine-attestation field."
+  }
+}
