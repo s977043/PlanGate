@@ -30,7 +30,6 @@ import pathlib
 import re
 import stat
 import sys
-import urllib.parse
 from typing import Any
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -205,51 +204,43 @@ def _validate_evidence(value: Any, errors: list[str]) -> None:
         if not isinstance(uri, str) or HTTPS_RE.fullmatch(uri) is None:
             errors.append(f"{prefix}.uri: HTTPS URI required")
         else:
-            try:
-                parsed = urllib.parse.urlsplit(uri)
-            except ValueError:
-                parsed = None
-                errors.append(f"{prefix}.uri: valid HTTPS URI required")
-
-            if parsed is not None:
-                if parsed.scheme != "https" or not parsed.hostname:
-                    errors.append(f"{prefix}.uri: HTTPS authority required")
-                if parsed.username is not None or parsed.password is not None:
-                    errors.append(
-                        f"{prefix}.uri: embedded credentials are not allowed"
-                    )
-                if parsed.query or parsed.fragment:
-                    errors.append(
-                        f"{prefix}.uri: query/fragment are not allowed in Evidence URI"
-                    )
-                if "%" in uri:
-                    errors.append(
-                        f"{prefix}.uri: percent-encoding is not allowed in Evidence URI"
-                    )
-
-                segments = parsed.path.split("/")
-                canonical_segments = segments[1:] if segments and segments[0] == "" else segments
-                if any(segment in ("", ".", "..") for segment in canonical_segments):
-                    errors.append(
-                        f"{prefix}.uri: ambiguous/non-canonical path segments are not allowed"
-                    )
-
-                normalized_segments = [
-                    segment.casefold()
-                    for segment in canonical_segments
-                    if segment not in ("", ".", "..")
-                ]
-                plangate_path_reference = any(
-                    left == "s977043" and right == "plangate"
-                    for left, right in zip(
-                        normalized_segments,
-                        normalized_segments[1:],
-                    )
+            remainder = uri[len("https://"):]
+            authority, separator, raw_path = remainder.partition("/")
+            if not authority:
+                errors.append(f"{prefix}.uri: HTTPS authority required")
+            if "@" in authority:
+                errors.append(f"{prefix}.uri: embedded credentials are not allowed")
+            if "?" in uri or "#" in uri:
+                errors.append(
+                    f"{prefix}.uri: query/fragment are not allowed in Evidence URI"
                 )
-                if plangate_path_reference:
-                    errors.append(
-                        f"{prefix}.uri: PlanGate repository cannot be independent-admin Evidence"
-                    )
+            if "%" in uri:
+                errors.append(
+                    f"{prefix}.uri: percent-encoding is not allowed in Evidence URI"
+                )
+
+            canonical_segments = raw_path.split("/") if separator else []
+            if any(segment in ("", ".", "..") for segment in canonical_segments):
+                errors.append(
+                    f"{prefix}.uri: ambiguous/non-canonical path segments are not allowed"
+                )
+
+            normalized_segments = [
+                segment.casefold()
+                for segment in canonical_segments
+                if segment not in ("", ".", "..")
+            ]
+            plangate_path_reference = any(
+                left == "s977043" and right == "plangate"
+                for left, right in zip(
+                    normalized_segments,
+                    normalized_segments[1:],
+                )
+            )
+            if plangate_path_reference:
+                errors.append(
+                    f"{prefix}.uri: PlanGate repository cannot be independent-admin Evidence"
+                )
 
         digest = item.get("sha256")
         if not isinstance(digest, str) or HASH_RE.fullmatch(digest) is None:
