@@ -59,16 +59,19 @@ def _manifest():
         "admin_evidence_refs": [
             {
                 "kind": "repository_admin_separation",
+                "subject": VERIFIER_REPO,
                 "uri": "https://evidence.example/admin-separation.json",
                 "sha256": "sha256:" + "b" * 64,
             },
             {
                 "kind": "workflow_immutability",
+                "subject": WORKFLOW_REF,
                 "uri": "https://evidence.example/workflow-immutability.json",
                 "sha256": "sha256:" + "c" * 64,
             },
             {
                 "kind": "nonce_ledger_ownership",
+                "subject": "trusted.example/nonce-ledger",
                 "uri": "https://evidence.example/nonce-ledger.json",
                 "sha256": "sha256:" + "d" * 64,
             },
@@ -184,6 +187,18 @@ class BoundaryHandoffTests(unittest.TestCase):
     def test_admin_evidence_must_cover_all_kinds_once(self):
         value = _manifest()
         value["admin_evidence_refs"][2] = dict(value["admin_evidence_refs"][1])
+        with self.assertRaises(boundary.IndependentVerifierBoundaryHandoffError):
+            boundary.verify_boundary_handoff_bytes(
+                boundary_manifest_raw=_bytes(_rehash(value))
+            )
+
+    def test_admin_evidence_subject_must_bind_exact_boundary_entity(self):
+        value = _manifest()
+        value["admin_evidence_refs"][1]["subject"] = (
+            VERIFIER_REPO
+            + "/.github/workflows/verify-runtime-attestation.yml@"
+            + "ffffffffffffffffffffffffffffffffffffffff"
+        )
         with self.assertRaises(boundary.IndependentVerifierBoundaryHandoffError):
             boundary.verify_boundary_handoff_bytes(
                 boundary_manifest_raw=_bytes(_rehash(value))
