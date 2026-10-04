@@ -11,6 +11,7 @@ from __future__ import annotations
 import ast
 import copy
 import inspect
+import json
 import unittest
 
 AUTHORITATIVE = False
@@ -402,6 +403,34 @@ class CertificationShadowSpecTests(unittest.TestCase):
         self.assertNotIn("contract_bound_seq", parameters)
         self.assertNotIn("run_state", parameters)
 
+    def test_projection_is_stable_json_data(self):
+        first = self._compose(
+            {self.D: "pass", self.C: "unavailable"},
+            required=(self.D, self.C),
+            refs={self.D: ["v2", "v1"], self.C: ["v3"]},
+            supplemental=["z", "a"],
+        )
+        second = self._compose(
+            {self.C: "unavailable", self.D: "pass"},
+            required=(self.C, self.D),
+            refs={self.C: ["v3"], self.D: ["v1", "v2"]},
+            supplemental=["a", "z"],
+        )
+        first_bytes = json.dumps(
+            first,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        second_bytes = json.dumps(
+            second,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        self.assertEqual(first_bytes, second_bytes)
+        self.assertEqual(json.loads(first_bytes.decode("utf-8")), first)
+
     def test_projection_surface_is_closed_and_reviewable(self):
         projection = self._compose(
             {self.D: "pass", self.C: "unavailable"},
@@ -462,7 +491,7 @@ class CertificationShadowSpecTests(unittest.TestCase):
                 imported.add(node.module.split(".")[0])
 
         self.assertTrue(
-            imported.issubset({"__future__", "ast", "copy", "inspect", "unittest"})
+            imported.issubset({"__future__", "ast", "copy", "inspect", "json", "unittest"})
         )
         self.assertNotIn("decision_core", imported)
 
