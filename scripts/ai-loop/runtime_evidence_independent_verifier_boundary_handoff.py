@@ -30,6 +30,7 @@ import pathlib
 import re
 import sys
 from typing import Any
+from urllib.parse import urlparse
 
 HERE = pathlib.Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
@@ -57,6 +58,24 @@ HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 IDENTITY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:/._@+-]{0,255}$")
 NAMESPACE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$")
 HTTPS_RE = re.compile(r"^https://[^\s]+$")
+
+PLAN_GATE_EVIDENCE_URL_PREFIXES = (
+    ("github.com", "/s977043/PlanGate"),
+    ("api.github.com", "/repos/s977043/PlanGate"),
+    ("raw.githubusercontent.com", "/s977043/PlanGate"),
+)
+
+
+def _is_plangate_self_evidence_url(uri: str) -> bool:
+    parsed = urlparse(uri)
+    host = (parsed.hostname or "").lower()
+    path = parsed.path.rstrip("/")
+    for expected_host, prefix in PLAN_GATE_EVIDENCE_URL_PREFIXES:
+        if host == expected_host and (
+            path == prefix or path.startswith(prefix + "/")
+        ):
+            return True
+    return False
 
 MANIFEST_KEYS = {
     "schema_version",
@@ -280,6 +299,10 @@ def _validate_manifest(value: Any) -> list[str]:
                     )
             if not isinstance(uri, str) or HTTPS_RE.fullmatch(uri) is None:
                 errors.append(f"{prefix}.uri: https URL required")
+            elif _is_plangate_self_evidence_url(uri):
+                errors.append(
+                    f"{prefix}.uri: PlanGate repository cannot be its own independent admin evidence source"
+                )
             else:
                 uris.append(uri)
             if not isinstance(digest, str) or HASH_RE.fullmatch(digest) is None:
