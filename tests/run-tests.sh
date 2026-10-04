@@ -154,13 +154,15 @@ else
   fail=$((fail + 1))
 fi
 
-_t03_status_out="$(sh "$PLANGATE_BIN" status "$GATE_TASK_ID" 2>&1)"
-if printf '%s' "$_t03_status_out" | grep -Fq "Next:    Human approver: review plan.md → plangate approve $GATE_TASK_ID" \
+_t03_status_rc=0
+_t03_status_out="$(sh "$PLANGATE_BIN" status "$GATE_TASK_ID" 2>&1)" || _t03_status_rc=$?
+if [ "$_t03_status_rc" -eq 0 ] \
+  && printf '%s' "$_t03_status_out" | grep -Fq "Next:    Human approver: review plan.md → plangate approve $GATE_TASK_ID" \
   && ! printf '%s' "$_t03_status_out" | grep -q 'create approvals/c3.json'; then
   printf '[PASS] status: pending C-3 → Human-owned approve command without artifact hand-edit guidance\n'
   pass=$((pass + 1))
 else
-  printf '[FAIL] status: pending C-3 guidance still suggests unsafe/manual artifact handling\n'
+  printf '[FAIL] status: pending C-3 recovery contract failed (rc=%s)\n' "$_t03_status_rc"
   printf '%s\n' "$_t03_status_out"
   fail=$((fail + 1))
 fi
