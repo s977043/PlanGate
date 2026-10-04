@@ -2060,7 +2060,7 @@ except Exception: print(''); sys.exit(0)
 print(d.get('approval_kind','') if isinstance(d,dict) else '')" "$work_dir/approvals/c3.json" 2>/dev/null || echo "")
     if [ "$_c3_kind" = "c3-prime" ]; then
       printf 'error: c3-prime exec requires resolvable HEAD (git rev-parse HEAD failed)\n' >&2
-      printf 'Next: verify repository state with: git -C %s rev-parse HEAD\n' "$plangate_root" >&2
+      printf 'Next: from the repository root, run: git rev-parse HEAD\n' >&2
       printf 'Then: plangate status %s\n' "$task_id" >&2
       return 1
     fi
