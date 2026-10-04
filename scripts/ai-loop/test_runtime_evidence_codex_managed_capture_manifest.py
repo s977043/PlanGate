@@ -135,7 +135,7 @@ class ManagedCaptureManifestTests(unittest.TestCase):
         )
         for field in (
             "capture_manifest_structure_verified",
-            "capture_manifest_content_binding_verified",
+            "capture_manifest_self_hash_verified",
             "capture_manifest_cross_binding_verified",
             "same_run_binding_manifest_candidate",
         ):
@@ -143,7 +143,9 @@ class ManagedCaptureManifestTests(unittest.TestCase):
         for field in (
             "managed_hook_source_runtime_verified",
             "managed_policy_live_verified",
+            "managed_policy_content_binding_verified",
             "managed_recorder_binary_verified",
+            "managed_recorder_content_binding_verified",
             "manifest_signature_verified",
             "independent_verifier_execution_attested",
             "managed_hook_root_attested",

@@ -32,7 +32,7 @@
   "candidate_verification": {
     "may_be_true": [
       "capture_manifest_structure_verified",
-      "capture_manifest_content_binding_verified",
+      "capture_manifest_self_hash_verified",
       "capture_manifest_cross_binding_verified",
       "managed_hooks_only_claim_candidate",
       "hooks_feature_pinned_claim_candidate",
@@ -41,7 +41,9 @@
     "must_remain_false": [
       "managed_hook_source_runtime_verified",
       "managed_policy_live_verified",
+      "managed_policy_content_binding_verified",
       "managed_recorder_binary_verified",
+      "managed_recorder_content_binding_verified",
       "manifest_signature_verified",
       "independent_verifier_execution_attested",
       "managed_hook_root_attested",
@@ -56,7 +58,7 @@
   },
   "trust_notes": [
     "A repository validator may prove that a manifest is internally consistent with the reviewed #1461 correlation artifact, but it cannot prove that requirements.toml was the live effective managed layer.",
-    "A SHA-256 claim for managed policy or recorder bytes is a content-binding claim only until an independent administrator-controlled verifier proves the live bytes/source.",
+    "The manifest's own canonical hash can be verified locally, but managed_policy_sha256 and managed_recorder_sha256 remain unverified claims until an independent administrator-controlled verifier proves the live bytes/source.",
     "allow_managed_hooks_only_claimed=true is not equivalent to allow_managed_hooks_only being enforced at runtime.",
     "No repository command creates the managed capture manifest; the future manifest must originate from an independently administered capture root.",
     "Strong promotion requires an independently verified issuer/signature or equivalent administrator-controlled runtime provenance in a separately reviewed slice."
