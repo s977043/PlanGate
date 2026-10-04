@@ -781,6 +781,37 @@ class LiveShadowCollectorTests(unittest.TestCase):
             inventory["rollout_quality"]["materialize_false_negative_rate"]
         )
 
+    def test_inventory_revalidates_oracle_binding_after_case_assembly(self):
+        self._collect_packet()
+        self._write_oracle(expected="no_action")
+        collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+
+        oracle = json.loads(
+            (self.root / self.oracle_ref).read_text(encoding="utf-8")
+        )
+        oracle["packet_hash"] = "sha256:" + "0" * 64
+        (self.root / self.oracle_ref).write_text(
+            json.dumps(oracle, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+
+        inventory = collector.inventory_live_shadow_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["evaluated_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 1)
+        self.assertIn(
+            "review packet hash mismatch",
+            " ".join(inventory["invalid_case_artifacts"][0]["errors"]),
+        )
+
     def test_inventory_keeps_invalid_case_visible(self):
         path = (
             self.root
