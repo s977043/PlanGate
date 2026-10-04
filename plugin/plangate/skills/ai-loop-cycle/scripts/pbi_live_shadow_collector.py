@@ -717,6 +717,154 @@ def collect_reviewed_admission_case(
     }
 
 
+def _revalidate_admission_case_chain(
+    *,
+    repo_root: pathlib.Path,
+    task_id: str,
+    case: dict[str, Any],
+) -> None:
+    expected = case.get("expected")
+    live_capture = case.get("live_capture")
+    evidence_refs = case.get("evidence_refs")
+    if not isinstance(expected, dict):
+        raise CollectorError("admission case expected: object required")
+    if not isinstance(live_capture, dict):
+        raise CollectorError("admission case live_capture: object required")
+    if not isinstance(evidence_refs, list):
+        raise CollectorError("admission case evidence_refs: array required")
+
+    oracle_ref = _validate_output_ref(
+        task_id,
+        expected.get("oracle_ref"),
+        "admission_case.expected.oracle_ref",
+    )
+    _oracle_path, oracle = _load_repo_json_object(
+        repo_root, oracle_ref, "admission_oracle_ref"
+    )
+
+    packet_ref = _validate_output_ref(
+        task_id,
+        oracle.get("packet_ref"),
+        "admission_oracle.packet_ref",
+    )
+    _packet_path, packet = _load_repo_json_object(
+        repo_root, packet_ref, "review_packet_ref"
+    )
+    if packet.get("domain") != "plangate.pbi-live-shadow-review-packet/v1":
+        raise CollectorError("review_packet_ref: unsupported review packet domain")
+    if packet.get("mode") != "pbi_live_shadow_review_packet":
+        raise CollectorError("review_packet_ref: review packet mode required")
+    if packet.get("task_id") != task_id:
+        raise CollectorError("review_packet_ref: task_id mismatch")
+
+    refs = packet.get("refs")
+    hashes = packet.get("hashes")
+    review_contract = packet.get("review_contract")
+    if not isinstance(refs, dict):
+        raise CollectorError("review_packet_ref.refs: object required")
+    if not isinstance(hashes, dict):
+        raise CollectorError("review_packet_ref.hashes: object required")
+    if not isinstance(review_contract, dict):
+        raise CollectorError("review_packet_ref.review_contract: object required")
+    if review_contract.get("packet_blind_to_actual") is not True:
+        raise CollectorError(
+            "review_packet_ref.review_contract.packet_blind_to_actual: true required"
+        )
+    if review_contract.get("actual_decision_disclosed") is not False:
+        raise CollectorError(
+            "review_packet_ref.review_contract.actual_decision_disclosed: false required"
+        )
+
+    source_ref = refs.get("blind_review_source_ref")
+    capture_ref = _validate_output_ref(
+        task_id,
+        refs.get("capture_ref_for_binding_only"),
+        "review_packet_ref.capture_ref",
+    )
+    run_evidence_ref = _validate_output_ref(
+        task_id,
+        refs.get("run_evidence_ref_for_binding_only"),
+        "review_packet_ref.run_evidence_ref",
+    )
+    if not isinstance(source_ref, str) or not source_ref.strip():
+        raise CollectorError("review_packet_ref.source_ref: non-empty string required")
+    source_ref = source_ref.strip()
+
+    if live_capture.get("capture_ref") != capture_ref:
+        raise CollectorError("admission_case.live_capture.capture_ref: packet mismatch")
+    if live_capture.get("run_evidence_ref") != run_evidence_ref:
+        raise CollectorError(
+            "admission_case.live_capture.run_evidence_ref: packet mismatch"
+        )
+
+    for ref in (source_ref, capture_ref, run_evidence_ref, packet_ref):
+        if ref not in evidence_refs:
+            raise CollectorError(
+                f"admission_case.evidence_refs: missing bound ref {ref}"
+            )
+    if oracle_ref in evidence_refs:
+        raise CollectorError(
+            "admission_case.evidence_refs: oracle must remain separate"
+        )
+
+    source_path = _require_existing_source(repo_root, source_ref)
+    source_sha256 = _file_sha256(source_path)
+    if hashes.get("source_sha256") != source_sha256:
+        raise CollectorError(
+            "review_packet_ref.hashes.source_sha256: current source hash mismatch"
+        )
+
+    capture, run_evidence, binding_errors = _validate_safe_live_run_binding(
+        repo_root=repo_root,
+        capture_ref=capture_ref,
+        run_evidence_ref=run_evidence_ref,
+    )
+    if binding_errors or capture is None or run_evidence is None:
+        raise CollectorError(
+            "live binding invalid: "
+            + "; ".join(binding_errors or ["unknown"])
+        )
+
+    if packet.get("run_id") != capture.get("run_id"):
+        raise CollectorError("review_packet_ref.run_id: capture mismatch")
+    if hashes.get("capture_hash") != pm._canonical_json_hash(capture):
+        raise CollectorError(
+            "review_packet_ref.hashes.capture_hash: current capture hash mismatch"
+        )
+    if hashes.get("run_evidence_hash") != pm._canonical_json_hash(run_evidence):
+        raise CollectorError(
+            "review_packet_ref.hashes.run_evidence_hash: current RunEvidence hash mismatch"
+        )
+    if hashes.get("signal_hash") != capture.get("signal_hash"):
+        raise CollectorError(
+            "review_packet_ref.hashes.signal_hash: current signal hash mismatch"
+        )
+
+    _validate_admission_oracle(
+        oracle=oracle,
+        oracle_ref=oracle_ref,
+        packet=packet,
+        packet_ref=packet_ref,
+        source_ref=source_ref,
+        source_sha256=source_sha256,
+    )
+
+    signal = capture.get("signal")
+    if not isinstance(signal, dict):
+        raise CollectorError("capture.signal: object required")
+    if case.get("signal") != signal:
+        raise CollectorError("admission_case.signal: capture signal mismatch")
+    if case.get("case_ref") != oracle.get("case_ref"):
+        raise CollectorError("admission_case.case_ref: oracle case_ref mismatch")
+    if (
+        expected.get("admission_decision")
+        != oracle.get("expected_admission_decision")
+    ):
+        raise CollectorError(
+            "admission_case.expected.admission_decision: oracle mismatch"
+        )
+
+
 def _validate_materialization_oracle(
     *,
     oracle: dict[str, Any],
@@ -1345,6 +1493,16 @@ def inventory_live_shadow_cases(
 
         if ownership_errors:
             invalid.append({"ref": rel, "errors": ownership_errors})
+            continue
+
+        try:
+            _revalidate_admission_case_chain(
+                repo_root=root,
+                task_id=task_id,
+                case=case,
+            )
+        except CollectorError as exc:
+            invalid.append({"ref": rel, "errors": [str(exc)]})
             continue
 
         errors = pm._validate_admission_batch(
