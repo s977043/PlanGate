@@ -26,6 +26,7 @@ created_by: orchestrator
   - `pbi-input.md`
   - `design.md`
   - `test-cases.md`
+- Requirement refs（material な場合）: {`pbi-input.md` の REQ / AC ID。Plan で Requirement semantics を再定義しない}
 
 ## Scope
 
@@ -272,6 +273,7 @@ Docs / config / generated artifact
 - 想定外の変更対象ファイルが必要になった
 - 既存テストがbaselineで失敗している
 - 受入基準と実装方針に矛盾が見つかった
+- `pbi-input.md` の Goal / Problem / Requirement semantics / AC を変更しないと実装できないことが判明した（Plan 内で黙って書き換えず、PBI 更新 + 必要な policy / Human decision へ戻す）
 - Task間のインターフェースが成立しない
 - セキュリティ・データ損失・後方互換性リスクが見つかった
 - hidden dependency が見つかり、Work Breakdown または Files / Interfaces が変わる
@@ -309,6 +311,7 @@ Docs / config / generated artifact
 
 - [ ] Plan Review Readiness Gate が `pass` 相当（7 項目がすべて具体化済み）
 - [ ] 受入基準がWork Breakdownにマッピングされている
+- [ ] material な Requirement refs がある場合、`pbi-input.md` の REQ / AC を参照し、Plan 側で意味を再定義していない
 - [ ] TaskごとのFiles / Interfaces / Steps / Completion Criteriaが具体的
 - [ ] `TBD` / `TODO` / `後で実装` / `必要に応じて` / `適切に` / `いい感じに` が残っていない
 - [ ] 未定義の関数名・型名・ファイルパス・コマンドを参照していない
