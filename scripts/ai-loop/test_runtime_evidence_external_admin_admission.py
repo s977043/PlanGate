@@ -50,21 +50,27 @@ def _descriptor():
         "self_hosted_runner_denied": True,
         "admin_scope": "external-runtime-verifier-admins",
         "nonce_owner": "external-runtime-verifier",
+        "nonce_issue_once": True,
+        "nonce_consume_once": True,
+        "nonce_reuse_rejected": True,
         "receipt_domain": receipt.RECEIPT_DOMAIN,
         "receipt_contract_stage": receipt.RECEIPT_STAGE,
         "admin_separation_evidence": [
             {
                 "evidence_type": "administrator-separation-attestation",
+                "subject": SIGNER_REPO,
                 "uri": "https://example.invalid/evidence/admin-separation.json",
                 "sha256": "sha256:" + "a" * 64,
             },
             {
                 "evidence_type": "signer-identity-attestation",
+                "subject": WORKFLOW + "@" + SIGNER,
                 "uri": "https://example.invalid/evidence/signer-identity.json",
                 "sha256": "sha256:" + "b" * 64,
             },
             {
                 "evidence_type": "nonce-lifecycle-policy",
+                "subject": "external-runtime-verifier",
                 "uri": "https://example.invalid/evidence/nonce-lifecycle.json",
                 "sha256": "sha256:" + "c" * 64,
             },
@@ -108,12 +114,15 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
             "admin_evidence_refs_content_addressed_candidate",
             "admin_evidence_set_content_hash_candidate",
             "nonce_owner_declared_candidate",
+            "immutable_signer_workflow_identity_bound_candidate",
+            "nonce_one_time_contract_candidate",
             "receipt_contract_compatible_candidate",
         ):
             self.assertTrue(result[field])
 
         for field in (
             "admin_evidence_independently_verified",
+            "nonce_one_time_consumption_verified",
             "independent_admin_boundary_verified",
             "independent_verifier_execution_attested",
             "gh_attestation_cli_execution_verified",
@@ -131,6 +140,10 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
             self.assertFalse(result[field])
         self.assertFalse(any(result["authority"].values()))
         self.assertTrue(result["admin_evidence_set_hash"].startswith("sha256:"))
+        self.assertEqual(
+            result["immutable_signer_workflow_ref"],
+            WORKFLOW + "@" + SIGNER,
+        )
         self.assertNotIn("admin_separation_evidence", result)
 
     def test_evidence_set_hash_is_order_independent(self):
@@ -145,6 +158,21 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
         self.assertEqual(
             first["admin_evidence_set_hash"],
             second["admin_evidence_set_hash"],
+        )
+
+    def test_evidence_set_hash_changes_when_bound_subject_changes(self):
+        baseline = self._run()
+
+        def mutate(value):
+            value["nonce_owner"] = "external-runtime-verifier-v2"
+            value["admin_separation_evidence"][2]["subject"] = (
+                "external-runtime-verifier-v2"
+            )
+
+        changed = self._run(mutate=mutate)
+        self.assertNotEqual(
+            baseline["admin_evidence_set_hash"],
+            changed["admin_evidence_set_hash"],
         )
 
     def test_signer_repo_must_be_separate_from_attestation_repo(self):
@@ -200,6 +228,144 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
                     }
                 )
             )
+
+    def test_external_service_type_is_not_admitted_by_github_contract(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value.__setitem__(
+                    "boundary_type", "external_service"
+                )
+            )
+
+    def test_evidence_uri_query_or_fragment_is_rejected(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value["admin_separation_evidence"][0].update(
+                    {
+                        "uri": (
+                            "https://example.invalid/evidence/admin-separation.json"
+                            "?token=secret#latest"
+                        )
+                    }
+                )
+            )
+
+    def test_duplicate_evidence_digest_is_rejected(self):
+        def mutate(value):
+            value["admin_separation_evidence"][1]["sha256"] = (
+                value["admin_separation_evidence"][0]["sha256"]
+            )
+
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(mutate=mutate)
+
+    def test_duplicate_evidence_type_is_rejected(self):
+        def mutate(value):
+            value["admin_separation_evidence"][1]["evidence_type"] = (
+                value["admin_separation_evidence"][0]["evidence_type"]
+            )
+
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(mutate=mutate)
+
+    def test_missing_required_evidence_class_is_rejected(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value.__setitem__(
+                    "admin_separation_evidence",
+                    value["admin_separation_evidence"][:2],
+                )
+            )
+
+    def test_required_evidence_subjects_are_exactly_bound(self):
+        cases = (
+            (0, "other-boundary"),
+            (
+                1,
+                WORKFLOW + "@ffffffffffffffffffffffffffffffffffffffff",
+            ),
+            (2, "other-nonce-owner"),
+        )
+        for index, replacement in cases:
+            def mutate(value, index=index, replacement=replacement):
+                value["admin_separation_evidence"][index]["subject"] = replacement
+
+            with self.subTest(index=index):
+                with self.assertRaises(admission.ExternalAdminAdmissionError):
+                    self._run(mutate=mutate)
+
+    def test_nonce_owner_must_be_external_to_plangate_and_attestation_repo(self):
+        for owner in (ATTESTATION_REPO, "S977043/plangate"):
+            with self.subTest(owner=owner):
+                with self.assertRaises(admission.ExternalAdminAdmissionError):
+                    self._run(
+                        mutate=lambda value, owner=owner: value.__setitem__(
+                            "nonce_owner", owner
+                        )
+                    )
+
+        def use_distinct_attestation_repo(value):
+            value["attestation_repo"] = "runtime-evidence/attestations"
+            value["nonce_owner"] = "runtime-evidence/attestations"
+
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(mutate=use_distinct_attestation_repo)
+
+    def test_one_time_nonce_lifecycle_contract_is_required(self):
+        for field in ("nonce_issue_once", "nonce_consume_once", "nonce_reuse_rejected"):
+            with self.subTest(field=field):
+                with self.assertRaises(admission.ExternalAdminAdmissionError):
+                    self._run(
+                        mutate=lambda value, field=field: value.__setitem__(
+                            field, False
+                        )
+                    )
+
+    def test_self_hosted_runner_denial_is_required(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value.__setitem__(
+                    "self_hosted_runner_denied", False
+                )
+            )
+
+    def test_receipt_contract_must_match_1471(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value.__setitem__(
+                    "receipt_contract_stage", "other-stage"
+                )
+            )
+
+    def test_raw_runtime_payload_key_is_rejected(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value.__setitem__(
+                    "stdout", "runtime output"
+                )
+            )
+
+    def test_self_promotion_field_is_rejected_as_unknown(self):
+        with self.assertRaises(admission.ExternalAdminAdmissionError):
+            self._run(
+                mutate=lambda value: value.__setitem__(
+                    "independent_admin_boundary_verified", True
+                )
+            )
+
+    def test_descriptor_inside_repository_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo_root = root / "repo"
+            repo_root.mkdir()
+            path = repo_root / "boundary.json"
+            path.write_bytes(_json_bytes(_descriptor()))
+            with self.assertRaises(admission.ExternalAdminAdmissionError):
+                admission.evaluate_descriptor(
+                    repo_root=repo_root,
+                    descriptor_path=path,
+                )
+
 
     def test_plangate_repository_evidence_uri_dot_segment_bypass_is_rejected(self):
         def mutate(value):
@@ -272,100 +438,6 @@ class ExternalAdminAdmissionTests(unittest.TestCase):
 
         with self.assertRaises(admission.ExternalAdminAdmissionError):
             self._run(mutate=mutate)
-
-    def test_external_service_type_is_not_admitted_by_github_contract(self):
-        with self.assertRaises(admission.ExternalAdminAdmissionError):
-            self._run(
-                mutate=lambda value: value.__setitem__(
-                    "boundary_type", "external_service"
-                )
-            )
-
-    def test_evidence_uri_query_or_fragment_is_rejected(self):
-        with self.assertRaises(admission.ExternalAdminAdmissionError):
-            self._run(
-                mutate=lambda value: value["admin_separation_evidence"][0].update(
-                    {
-                        "uri": (
-                            "https://example.invalid/evidence/admin-separation.json"
-                            "?token=secret#latest"
-                        )
-                    }
-                )
-            )
-
-    def test_duplicate_evidence_digest_is_rejected(self):
-        def mutate(value):
-            value["admin_separation_evidence"][1]["sha256"] = (
-                value["admin_separation_evidence"][0]["sha256"]
-            )
-
-        with self.assertRaises(admission.ExternalAdminAdmissionError):
-            self._run(mutate=mutate)
-
-    def test_duplicate_evidence_type_is_rejected(self):
-        def mutate(value):
-            value["admin_separation_evidence"][1]["evidence_type"] = (
-                value["admin_separation_evidence"][0]["evidence_type"]
-            )
-
-        with self.assertRaises(admission.ExternalAdminAdmissionError):
-            self._run(mutate=mutate)
-
-    def test_missing_required_evidence_class_is_rejected(self):
-        with self.assertRaises(admission.ExternalAdminAdmissionError):
-            self._run(
-                mutate=lambda value: value.__setitem__(
-                    "admin_separation_evidence",
-                    value["admin_separation_evidence"][:2],
-                )
-            )
-
-    def test_self_hosted_runner_denial_is_required(self):
-        with self.assertRaises(admission.ExternalAdminAdmissionError):
-            self._run(
-                mutate=lambda value: value.__setitem__(
-                    "self_hosted_runner_denied", False
-                )
-            )
-
-    def test_receipt_contract_must_match_1471(self):
-        with self.assertRaises(admission.ExternalAdminAdmissionError):
-            self._run(
-                mutate=lambda value: value.__setitem__(
-                    "receipt_contract_stage", "other-stage"
-                )
-            )
-
-    def test_raw_runtime_payload_key_is_rejected(self):
-        with self.assertRaises(admission.ExternalAdminAdmissionError):
-            self._run(
-                mutate=lambda value: value.__setitem__(
-                    "stdout", "runtime output"
-                )
-            )
-
-    def test_self_promotion_field_is_rejected_as_unknown(self):
-        with self.assertRaises(admission.ExternalAdminAdmissionError):
-            self._run(
-                mutate=lambda value: value.__setitem__(
-                    "independent_admin_boundary_verified", True
-                )
-            )
-
-    def test_descriptor_inside_repository_is_rejected(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = pathlib.Path(tmp)
-            repo_root = root / "repo"
-            repo_root.mkdir()
-            path = repo_root / "boundary.json"
-            path.write_bytes(_json_bytes(_descriptor()))
-            with self.assertRaises(admission.ExternalAdminAdmissionError):
-                admission.evaluate_descriptor(
-                    repo_root=repo_root,
-                    descriptor_path=path,
-                )
-
 
 if __name__ == "__main__":
     unittest.main()
