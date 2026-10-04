@@ -1,6 +1,6 @@
 {
-  "description": "PROPOSAL/CONTRACT — #1468 cryptographic verifier slice. GitHub artifact-attestation cryptography may be verified under an exact pinned policy, but repository execution cannot self-prove an independently administered execution boundary.",
-  "contract_stage": "r1-independent-attestation-verifier-crypto-v1",
+  "description": "PROPOSAL/CONTRACT — #1468 repository-local verification-command slice. A successful gh attestation verify invocation under an exact pinned policy is candidate Evidence only; cryptographic promotion requires independently attested verifier binary/execution provenance and an independently administered boundary.",
+  "contract_stage": "r1-independent-attestation-verifier-command-candidate-v1",
   "execution_policy": {
     "command": "gh attestation verify",
     "mutation": false,
@@ -20,10 +20,18 @@
     "predicate_type": "https://slsa.dev/provenance/v1",
     "oidc_issuer": "https://token.actions.githubusercontent.com",
     "signer_digest_must_equal_source_digest": true,
-    "self_hosted_runner_denied": true
+    "self_hosted_runner_denied_requested": true
   },
+  "candidate_evidence": [
+    "exact_verifier_policy_bound_candidate",
+    "gh_attestation_verify_exit_success_candidate",
+    "capture_manifest_artifact_binding_candidate",
+    "signer_workflow_policy_requested_candidate",
+    "source_digest_policy_requested_candidate",
+    "self_hosted_runner_denial_requested_candidate"
+  ],
   "promotion": {
-    "crypto_may_be_verified": [
+    "must_remain_false_until_independent_verifier_proof": [
       "gh_attestation_cli_execution_verified",
       "artifact_digest_cryptographically_verified",
       "attestation_signature_cryptographically_verified",
@@ -31,9 +39,8 @@
       "verified_timestamp_cryptographically_verified",
       "signer_workflow_policy_verified",
       "source_digest_policy_verified",
-      "self_hosted_runner_denial_verified"
-    ],
-    "must_remain_false_without_external_admin_proof": [
+      "self_hosted_runner_denial_verified",
+      "capture_manifest_artifact_attestation_verified",
       "independent_admin_boundary_verified",
       "independent_verifier_execution_attested",
       "managed_hook_root_attested",
@@ -49,6 +56,8 @@
   "trust_notes": {
     "statement_predicate_is_not_authority": true,
     "exact_artifact_subject_digest_required": true,
+    "repository_local_gh_success_is_not_crypto_authority": true,
+    "gh_binary_and_execution_provenance_still_required": true,
     "runtime_text_never_becomes_policy": true,
     "external_admin_boundary_is_separate_gate": true
   }
