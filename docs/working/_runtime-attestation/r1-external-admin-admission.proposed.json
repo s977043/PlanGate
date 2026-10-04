@@ -11,7 +11,7 @@
     "oidc_issuer": "https://token.actions.githubusercontent.com",
     "self_hosted_runner_denied": true,
     "receipt_contract": "must match the #1471 external verifier receipt domain/stage",
-    "admin_separation_evidence": "at least two external HTTPS Evidence references with distinct types and distinct SHA-256 digests; PlanGate repository references are rejected after URI normalization"
+    "admin_separation_evidence": "three required external HTTPS Evidence classes (administrator-separation-attestation, signer-identity-attestation, nonce-lifecycle-policy), each with a distinct SHA-256 digest; PlanGate repository references are rejected after URI normalization"
   },
   "candidate_facts": [
     "descriptor_structure_verified",
@@ -45,7 +45,7 @@
     "signer repository equals attestation repository",
     "PlanGate repository URL used as independent-admin Evidence, including case/percent-encoding variants",
     "non-GitHub-repository boundary type",
-    "single or duplicate-type Evidence set",
+    "missing required Evidence class or duplicate-type Evidence set",
     "duplicate Evidence digest",
     "self-hosted runner denial absent",
     "receipt contract mismatch",
