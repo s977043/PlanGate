@@ -313,6 +313,62 @@ def _c_body_file_wrapper_temp(ctx: Ctx) -> None:
                          f"{value!r}")
 
 
+def _c_attestation_verify_policy(ctx: Ctx) -> None:
+    """Artifact attestation verificationを強いread-only policyへ束縛する。"""
+    repo_values = _values(ctx, "--repo")
+    if repo_values != [ctx.repo]:
+        raise Denied(REASON_CONSTRAINT,
+                     "--repo は verifier repo にちょうど1回束縛されること")
+
+    if _values(ctx, "--format") != ["json"]:
+        raise Denied(REASON_CONSTRAINT, "--format json が必須")
+    if _values(ctx, "--predicate-type") != ["https://slsa.dev/provenance/v1"]:
+        raise Denied(REASON_CONSTRAINT,
+                     "SLSA provenance v1 predicate の完全一致が必須")
+    if _values(ctx, "--cert-oidc-issuer") != ["https://token.actions.githubusercontent.com"]:
+        raise Denied(REASON_CONSTRAINT,
+                     "GitHub Actions OIDC issuer の完全一致が必須")
+    if _values(ctx, "--signer-repo") != [ctx.repo]:
+        raise Denied(REASON_CONSTRAINT,
+                     "--signer-repo は verifier repo に完全一致すること")
+
+    workflow_values = _values(ctx, "--signer-workflow")
+    if len(workflow_values) != 1:
+        raise Denied(REASON_CONSTRAINT, "--signer-workflow はちょうど1回必要")
+    workflow_re = re.compile(
+        rf"{re.escape(ctx.repo)}/\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml"
+    )
+    if workflow_re.fullmatch(workflow_values[0]) is None:
+        raise Denied(REASON_CONSTRAINT,
+                     "--signer-workflow は verifier repo のworkflowへ固定すること")
+
+    source_values = _values(ctx, "--source-digest")
+    signer_values = _values(ctx, "--signer-digest")
+    if len(source_values) != 1 or re.fullmatch(r"[0-9a-f]{40}", source_values[0]) is None:
+        raise Denied(REASON_CONSTRAINT,
+                     "--source-digest は40桁lowercase git SHAが必須")
+    if signer_values != source_values:
+        raise Denied(REASON_CONSTRAINT,
+                     "--signer-digest は source digest と完全一致すること")
+
+    ref_values = _values(ctx, "--source-ref")
+    if len(ref_values) != 1:
+        raise Denied(REASON_CONSTRAINT, "--source-ref はちょうど1回必要")
+    ref = ref_values[0]
+    if ".." in ref or re.fullmatch(
+        r"refs/(?:heads|tags)/[A-Za-z0-9][A-Za-z0-9._/-]*", ref
+    ) is None:
+        raise Denied(REASON_CONSTRAINT,
+                     "--source-ref は bounded heads/tags ref が必須")
+
+    if _values(ctx, "--deny-self-hosted-runners") != [None]:
+        raise Denied(REASON_CONSTRAINT,
+                     "--deny-self-hosted-runners はちょうど1回必須")
+    if _values(ctx, "--no-public-good") != [None]:
+        raise Denied(REASON_CONSTRAINT,
+                     "--no-public-good はちょうど1回必須")
+
+
 def _c_api_method_get(ctx: Ctx) -> None:
     methods = _values(ctx, "--method")
     if len(methods) > 1:
@@ -387,6 +443,7 @@ def api_endpoint_patterns(repo: str) -> tuple:
 _PR_SELECTOR = Slot("pr", r"(?:[0-9]+|[A-Za-z0-9][A-Za-z0-9._/-]*)")
 _PR_NUMBER = Slot("pr", r"[0-9]+")
 _ENDPOINT = Slot("endpoint", r"[^\s]+")
+_ATTESTATION_ARTIFACT = Slot("artifact", r"[^\x00\r\n]+")
 
 GH_RULES = (
     GhRule(
@@ -419,6 +476,27 @@ GH_RULES = (
         conditions=(("repo_bound", _c_repo_bound),
                     ("body_file_once", _c_body_file_once),
                     ("body_file_wrapper_temp", _c_body_file_wrapper_temp)),
+    ),
+    GhRule(
+        name="attestation verify",
+        verbs=("attestation", "verify", _ATTESTATION_ARTIFACT),
+        flags=(
+            ("--repo", ARITY_VALUE),
+            ("--signer-repo", ARITY_VALUE),
+            ("--signer-workflow", ARITY_VALUE),
+            ("--source-digest", ARITY_VALUE),
+            ("--signer-digest", ARITY_VALUE),
+            ("--source-ref", ARITY_VALUE),
+            ("--cert-oidc-issuer", ARITY_VALUE),
+            ("--predicate-type", ARITY_VALUE),
+            ("--deny-self-hosted-runners", ARITY_NONE),
+            ("--no-public-good", ARITY_NONE),
+            ("--format", ARITY_VALUE),
+        ),
+        conditions=(
+            ("repo_bound", _c_repo_bound),
+            ("attestation_verify_policy", _c_attestation_verify_policy),
+        ),
     ),
     GhRule(
         # body パラメータ 3 種は **flags に載せたうえで条件で deny** する。
