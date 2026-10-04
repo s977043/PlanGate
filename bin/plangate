@@ -2040,7 +2040,8 @@ cmd_exec() {
   # Gate check: c3.json must exist and be APPROVED
   if [ ! -f "$work_dir/approvals/c3.json" ]; then
     printf 'error: C-3 gate not cleared — approvals/c3.json not found\n' >&2
-    printf 'Run: plangate validate %s\n' "$task_id" >&2
+    printf 'Next: plangate status %s\n' "$task_id" >&2
+    printf 'Human action: review the Plan Package; if acceptable, complete the Human-owned C-3 approval workflow before exec.\n' >&2
     return 1
   fi
 
@@ -2059,6 +2060,8 @@ except Exception: print(''); sys.exit(0)
 print(d.get('approval_kind','') if isinstance(d,dict) else '')" "$work_dir/approvals/c3.json" 2>/dev/null || echo "")
     if [ "$_c3_kind" = "c3-prime" ]; then
       printf 'error: c3-prime exec requires resolvable HEAD (git rev-parse HEAD failed)\n' >&2
+      printf 'Next: verify repository state with: git -C %s rev-parse HEAD\n' "$plangate_root" >&2
+      printf 'Then: plangate status %s\n' "$task_id" >&2
       return 1
     fi
   fi
@@ -2066,12 +2069,16 @@ print(d.get('approval_kind','') if isinstance(d,dict) else '')" "$work_dir/appro
   _plangate_c3_dispatch "$work_dir" "$_exec_head" || _c3_rc=$?
   if [ "$_c3_rc" = "1" ]; then
     printf 'error: C-3 gate not approved (c3-prime verification failed; see above)\n' >&2
+    printf 'Next: plangate validate %s\n' "$task_id" >&2
+    printf 'Then: plangate status %s\n' "$task_id" >&2
     return 1
   elif [ "$_c3_rc" = "10" ]; then
     c3_status=$(grep '"c3_status"' "$work_dir/approvals/c3.json" 2>/dev/null \
       | sed 's/.*"c3_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
     if [ "$c3_status" != "APPROVED" ]; then
       printf 'error: C-3 gate not approved (status=%s)\n' "${c3_status:-missing}" >&2
+      printf 'Next: plangate status %s\n' "$task_id" >&2
+      printf 'Human action: resolve the current C-3 decision before exec; create a new approval decision only if that is explicitly intended.\n' >&2
       return 1
     fi
 
@@ -2099,7 +2106,8 @@ print(v[7:] if isinstance(v,str) and v.startswith('sha256:') else '')" "$c3_file
           printf 'error: plan_hash mismatch -- plan.md modified after C-3 approval\n' >&2
           printf '  Recorded: sha256:%s\n' "$recorded_hash" >&2
           printf '  Current : sha256:%s\n' "$current_hash" >&2
-          printf '  Action  : Re-approval required (update c3.json plan_hash) or revert plan.md.\n' >&2
+          printf '  Next    : plangate validate %s\n' "$task_id" >&2
+          printf '  Human action: review the changed plan.md; if acceptable, create a new Human-owned approval decision. Otherwise revert plan.md.\n' >&2
           return 1
         fi
       fi
