@@ -1,6 +1,6 @@
 #!/bin/sh
 # PG_EXTRA_CAPABILITY: standalone-capable
-# TA-105 — independent R1 artifact-attestation verifier crypto slice (#1468).
+# TA-105 — independent R1 artifact-attestation verification-command candidate (#1468).
 
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
   _pg_extra_mode=harness
@@ -41,7 +41,7 @@ _T105_IMPL="$_T105_AI_LOOP/runtime_evidence_independent_attestation_verifier.py"
 _T105_GH="$_T105_AI_LOOP/gh_exec.py"
 _T105_PROPOSAL="$_T105_ROOT/docs/working/_runtime-attestation/r1-independent-attestation-verifier.proposed.json"
 
-printf 'TA-105: independent R1 attestation verifier crypto slice (#1468)\n'
+printf 'TA-105: independent R1 attestation verification-command candidate (#1468)\n'
 
 _t105_tmp=$(mktemp -d)
 register_cleanup "$_t105_tmp"
@@ -97,6 +97,8 @@ fi
 if [ -f "$_T105_PROPOSAL" ] \
   && grep -q '"external_admin_boundary_is_separate_gate": true' "$_T105_PROPOSAL" \
   && grep -q '"repository_local_gh_success_is_not_crypto_authority": true' "$_T105_PROPOSAL" \
+  && grep -q '"attestation_repo_and_signer_repo_are_separate": true' "$_T105_PROPOSAL" \
+  && grep -q '"reusable_signer_repository_may_differ_from_attestation_repository": true' "$_T105_PROPOSAL" \
   && grep -q '"statement_predicate_is_not_authority": true' "$_T105_PROPOSAL"; then
   printf '  [PASS] proposal: independent-admin and predicate trust boundaries declared\n'
   pass=$((pass + 1))
