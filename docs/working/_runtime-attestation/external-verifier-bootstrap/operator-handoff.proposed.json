@@ -1,0 +1,22 @@
+{
+  "schema_version": "1",
+  "domain": "plangate.runtime-r1-external-verifier-operator-handoff/v1",
+  "status": "proposal-only",
+  "separate_administration_required": true,
+  "normal_plangate_repository_writer_as_sole_admin_allowed": false,
+  "plangate_self_certification_allowed": false,
+  "external_operator_must_control": [
+    "signer_repository_or_service_administration",
+    "signer_workflow_or_binary_release",
+    "one_time_nonce_ledger",
+    "administrator_separation_evidence_publication"
+  ],
+  "evidence_return_required": [
+    "administrator-separation-attestation",
+    "signer-identity-attestation",
+    "nonce-lifecycle-policy"
+  ],
+  "evidence_storage_only_in_plangate_allowed": false,
+  "promotion_allowed": false,
+  "completion_condition": "external administration separation and returned Evidence are independently verified"
+}
