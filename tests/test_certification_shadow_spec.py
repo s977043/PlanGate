@@ -19,14 +19,20 @@ OWNER_API_CONNECTED = False
 _ALLOWED_VERDICTS = frozenset({"pass", "fail", "unavailable"})
 
 
+def _identity(value, label):
+    if not isinstance(value, str) or not value or value != value.strip():
+        raise ValueError(label)
+    return value
+
+
 def _key(verifier):
-    if (
-        not isinstance(verifier, tuple)
-        or len(verifier) != 2
-        or not all(isinstance(value, str) and value for value in verifier)
-    ):
+    if not isinstance(verifier, tuple) or len(verifier) != 2:
         raise ValueError("required verifier must be (verifier_id, kind)")
-    return verifier
+    verifier_id, kind = verifier
+    return (
+        _identity(verifier_id, "verifier_id"),
+        _identity(kind, "verifier kind"),
+    )
 
 
 def _canonical_refs(refs):
@@ -36,9 +42,7 @@ def _canonical_refs(refs):
         raise ValueError("evidence refs must be a collection")
     unique = set()
     for ref in refs:
-        if not isinstance(ref, str) or not ref:
-            raise ValueError("evidence ref must be a non-empty string")
-        unique.add(ref)
+        unique.add(_identity(ref, "evidence ref"))
     return tuple(sorted(unique))
 
 
@@ -59,10 +63,10 @@ def compose_certification(
     semantics. This function only checks exact required-set parity and renders
     a deterministic, non-authoritative view.
     """
-    if not isinstance(target_ref, str) or not target_ref:
-        raise ValueError("target_ref")
-    if not isinstance(loop_contract_ref, str) or not loop_contract_ref:
-        raise ValueError("loop_contract_ref")
+    _identity(target_ref, "target_ref")
+    _identity(loop_contract_ref, "loop_contract_ref")
+    _identity(owner_target_ref, "owner_target_ref")
+    _identity(owner_loop_contract_ref, "owner_loop_contract_ref")
     if owner_target_ref != target_ref:
         raise ValueError("owner verdict target binding mismatch")
     if owner_loop_contract_ref != loop_contract_ref:
@@ -169,6 +173,31 @@ class CertificationShadowSpecTests(unittest.TestCase):
         self.assertEqual(
             projection["supplemental_evidence_refs"], ["model-review-pass"]
         )
+
+    def test_identity_inputs_reject_blank_or_surrounding_whitespace(self):
+        bad_values = ("", " ", "  value", "value  ")
+        for bad in bad_values:
+            with self.subTest(value=repr(bad)):
+                with self.assertRaises(ValueError):
+                    compose_certification(
+                        target_ref=bad,
+                        loop_contract_ref="loop-contract:1",
+                        required_verifiers=(self.D,),
+                        owner_target_ref=bad,
+                        owner_loop_contract_ref="loop-contract:1",
+                        owner_artifact_verdicts={self.D: "pass"},
+                    )
+
+        with self.assertRaises(ValueError):
+            self._compose(
+                {(" verifier", "deterministic"): "pass"},
+                required=((" verifier", "deterministic"),),
+            )
+        with self.assertRaises(ValueError):
+            self._compose(
+                {self.D: "pass"},
+                refs={self.D: [" evidence-ref "]},
+            )
 
     def test_owner_verdict_binding_must_match_projection_target_and_contract(self):
         kwargs = {
