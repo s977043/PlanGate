@@ -1085,6 +1085,7 @@ These criteria evaluate the intake mechanism. They do not prove that every runti
 - #1452 — R1 read-only investigation **shadow request** + pre-run/V2 activation separation + Explorer config content binding + TA-96.
 - #1453 — pre-run dispatch readiness evaluator; machine Evidence remains candidate-only, runtime attestation/Human rollout authority cannot self-declare + TA-97.
 - Superseded implementation PRs: #1452 (superseded/closed; branch contract preserved) / #1453 (superseded/closed; branch contract preserved) (stack restack中のforce-rewriteでGitHubによりclose。replacementは #1452 / #1453)。
+- #1468 — independent runtime-attestation verifier: strict gh attestation verify crypto slice binds verifier repo/workflow/source digest/source ref and denies self-hosted runners; cryptographic success does **not** self-prove an independently administered execution boundary, so runtime/dispatch authority remains false.
 - #1448 depends on #1441 / #1443 finalization before production behavior changes.
 - First reference provider: Cloudflare runtime-issue path; provider-neutral contract remains authoritative.
 - R1 Agent invocation remains disabled; #1452/#1453 do not emit V2 `selected/fired` because no PlanGate Run exists yet.
