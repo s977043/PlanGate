@@ -15,5 +15,15 @@
   "cross_request_nonce_reuse_rejected": true,
   "raw_runtime_payload_storage_allowed": false,
   "plangate_write_authority_allowed": false,
-  "promotion_allowed": false
+  "promotion_allowed": false,
+  "request_hash_binding_required": true,
+  "config_sha_binding_required": true,
+  "provider_binding_required": true,
+  "capture_id_binding_required": true,
+  "issued_at_required": true,
+  "expires_at_required": true,
+  "max_validity_seconds": 900,
+  "consumed_at_required": true,
+  "consumption_receipt_content_addressed": true,
+  "consumption_receipt_external_storage_required": true
 }
