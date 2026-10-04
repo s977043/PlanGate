@@ -1103,6 +1103,44 @@ class LiveShadowCollectorTests(unittest.TestCase):
             inventory["collection_gaps"],
         )
 
+    def test_materialization_inventory_rejects_cross_task_case_copy(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs()
+        collector.collect_reviewed_materialization_case(
+            repo_root=self.root,
+            admission_case_ref=self.case_artifact_ref,
+            payload_ref=self.payload_ref,
+            existing_work_ref=self.existing_work_ref,
+            oracle_ref=self.materialization_oracle_ref,
+            case_artifact_ref=self.materialization_case_ref,
+        )
+        original = self.root / self.materialization_case_ref
+        copied_ref = (
+            "docs/working/TASK-9999/evidence/pbi-live-shadow/"
+            "run-02/materialization-case.json"
+        )
+        copied = self.root / copied_ref
+        copied.parent.mkdir(parents=True, exist_ok=True)
+        original.replace(copied)
+
+        inventory = collector.inventory_live_materialization_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["evaluated_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 1)
+        self.assertEqual(
+            inventory["invalid_case_artifacts"][0]["ref"],
+            copied_ref,
+        )
+        self.assertIn(
+            "must be under docs/working/TASK-9999/evidence/pbi-live-shadow/",
+            " ".join(inventory["invalid_case_artifacts"][0]["errors"]),
+        )
+        self.assertTrue(
+            inventory["verification_boundary"]["task_namespace_binding_enforced"]
+        )
+
     def test_materialization_inventory_rejects_duplicate_logical_case_ids(self):
         self._prepare_materialize_admission_case()
         self._write_materialization_inputs()
