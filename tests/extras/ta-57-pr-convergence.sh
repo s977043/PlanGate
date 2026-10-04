@@ -715,7 +715,9 @@ test_runtime_evidence_github_attestation_receipt.py reason: 非配布 runtime_ev
 runtime_evidence_independent_attestation_verifier.py reason: #1468 のcryptographic verifier sliceは独立管理境界の実証前で上流検証専用のため非配布 (#1468)
 test_runtime_evidence_independent_attestation_verifier.py reason: 非配布 runtime_evidence_independent_attestation_verifier.py の上流検証用 test のため非配布 (#1468)
 runtime_evidence_external_verifier_receipt.py reason: #1468 のexternal receipt replay/binding candidateは独立管理境界の実証前で上流検証専用のため非配布 (#1468)
-test_runtime_evidence_external_verifier_receipt.py reason: 非配布 runtime_evidence_external_verifier_receipt.py の上流検証用 test のため非配布 (#1468)'
+test_runtime_evidence_external_verifier_receipt.py reason: 非配布 runtime_evidence_external_verifier_receipt.py の上流検証用 test のため非配布 (#1468)
+runtime_evidence_external_verifier_provenance.py reason: #1468 のverifier provenance candidateは独立管理境界の実証前で上流検証専用のため非配布 (#1468)
+test_runtime_evidence_external_verifier_provenance.py reason: 非配布 runtime_evidence_external_verifier_provenance.py の上流検証用 test のため非配布 (#1468)'
 
   _t57_audit="$_t57_tmp/allowlist_audit.py"
   cat > "$_t57_audit" <<'PY_T57_AUDIT'
