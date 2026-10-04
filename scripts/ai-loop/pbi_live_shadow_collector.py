@@ -1136,9 +1136,34 @@ def _revalidate_materialization_case_chain(
     task_id: str,
     case: dict[str, Any],
 ) -> None:
+    allowed_case_keys = {
+        "case_ref",
+        "split",
+        "evidence_class",
+        "evidence_refs",
+        "live_capture",
+        "payload",
+        "existing_work",
+        "expected",
+    }
+    if set(case) != allowed_case_keys:
+        raise CollectorError(
+            "materialization_case: exact collector-owned fields required"
+        )
+
     expected = case.get("expected")
     if not isinstance(expected, dict):
         raise CollectorError("materialization case expected: object required")
+    if set(expected) != {
+        "oracle_ref",
+        "decision",
+        "matched_ref",
+        "readiness_status",
+        "readiness_route",
+    }:
+        raise CollectorError(
+            "materialization_case.expected: exact collector-owned fields required"
+        )
     oracle_ref = _validate_output_ref(
         task_id,
         expected.get("oracle_ref"),
