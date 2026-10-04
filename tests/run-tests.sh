@@ -138,8 +138,10 @@ else
   created_gate_test=0
 fi
 
-_t03_missing_out="$(sh "$PLANGATE_BIN" exec TASK-GATETEST 2>&1 || true)"
-if printf '%s' "$_t03_missing_out" | grep -q 'C-3 gate not cleared' \
+_t03_missing_rc=0
+_t03_missing_out="$(sh "$PLANGATE_BIN" exec TASK-GATETEST 2>&1)" || _t03_missing_rc=$?
+if [ "$_t03_missing_rc" -ne 0 ] \
+  && printf '%s' "$_t03_missing_out" | grep -q 'C-3 gate not cleared' \
   && printf '%s' "$_t03_missing_out" | grep -q 'Next: plangate status TASK-GATETEST' \
   && printf '%s' "$_t03_missing_out" | grep -q 'Human action:'; then
   printf '[PASS] exec: missing approvals/c3.json → actionable C-3 recovery guidance\n'
@@ -154,8 +156,10 @@ mkdir -p "$REPO_WORKING/approvals"
 cat > "$REPO_WORKING/approvals/c3.json" <<'JSON'
 {"c3_status":"REJECTED"}
 JSON
-_t03_rejected_out="$(sh "$PLANGATE_BIN" exec TASK-GATETEST 2>&1 || true)"
-if printf '%s' "$_t03_rejected_out" | grep -q 'C-3 gate not approved' \
+_t03_rejected_rc=0
+_t03_rejected_out="$(sh "$PLANGATE_BIN" exec TASK-GATETEST 2>&1)" || _t03_rejected_rc=$?
+if [ "$_t03_rejected_rc" -ne 0 ] \
+  && printf '%s' "$_t03_rejected_out" | grep -q 'C-3 gate not approved' \
   && printf '%s' "$_t03_rejected_out" | grep -q 'Next: plangate status TASK-GATETEST' \
   && printf '%s' "$_t03_rejected_out" | grep -q 'Human action:'; then
   printf '[PASS] exec: non-approved C-3 → status + Human-owned recovery guidance\n'
@@ -169,8 +173,10 @@ fi
 cat > "$REPO_WORKING/approvals/c3.json" <<'JSON'
 {"c3_status":"APPROVED","plan_hash":"sha256:0000000000000000000000000000000000000000000000000000000000000000"}
 JSON
-_t03_hash_out="$(sh "$PLANGATE_BIN" exec TASK-GATETEST 2>&1 || true)"
-if printf '%s' "$_t03_hash_out" | grep -q 'plan_hash mismatch' \
+_t03_hash_rc=0
+_t03_hash_out="$(sh "$PLANGATE_BIN" exec TASK-GATETEST 2>&1)" || _t03_hash_rc=$?
+if [ "$_t03_hash_rc" -ne 0 ] \
+  && printf '%s' "$_t03_hash_out" | grep -q 'plan_hash mismatch' \
   && printf '%s' "$_t03_hash_out" | grep -q 'Next    : plangate validate TASK-GATETEST' \
   && printf '%s' "$_t03_hash_out" | grep -q 'Human action:' \
   && ! printf '%s' "$_t03_hash_out" | grep -q 'update c3.json plan_hash'; then
