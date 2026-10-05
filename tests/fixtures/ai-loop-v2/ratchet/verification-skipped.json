@@ -23,7 +23,8 @@
     ],
     "critical_regression_conditions": [
       "known_bad_not_stopped",
-      "negative_control_blocked"
+      "negative_control_blocked",
+      "baseline_detection_power_regression"
     ]
   },
   "candidate": {
@@ -68,7 +69,7 @@
       "expected_effect": "completion without verification evidence is blocked"
     },
     "baseline_manifest_ref": "sha256:77364e04fd614edb481bffd4755e0c999add5a8ba46658ed81ffdbf00b8fd3f6",
-    "evaluation_plan_digest": "sha256:9a9094ab333385dbe35bb76169c458504026702a89841826760a809e251db780"
+    "evaluation_plan_digest": "sha256:987e64960f1ccf95433ea9251b7b2c88316c42e4c4a2c1e4dba3070641ea4e18"
   },
   "sources": [
     {
