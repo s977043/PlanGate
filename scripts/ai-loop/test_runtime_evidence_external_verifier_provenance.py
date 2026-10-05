@@ -255,6 +255,28 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
         )
         self.assertFalse(any(result["authority"].values()))
 
+    def test_bootstrap_self_promotion_is_rejected(self):
+        protected = (
+            "bootstrap_contract_semantics_revalidated",
+            "source_commit_repository_membership_verified",
+            "external_operator_received_package_verified",
+            "external_operator_accepted_package_verified",
+            "independent_admin_boundary_verified",
+            "runtime_probe_attestation_verified",
+            "human_rollout_decision_verified",
+            "dispatch_ready",
+            "dispatch_allowed",
+        )
+        for field in protected:
+            with self.subTest(field=field):
+                boot = _bootstrap_manifest()
+                boot[field] = True
+                body = dict(boot)
+                body.pop("result_hash")
+                boot["result_hash"] = ingress._canonical_hash(body)
+                with self.assertRaises(prov.ExternalVerifierProvenanceError):
+                    _verify(boot=boot, receipt=_receipt(_upstream(), boot))
+
     def test_non_object_bootstrap_manifest_fails_closed(self):
         with self.assertRaises(prov.ExternalVerifierProvenanceError):
             prov.verify_provenance_bytes(
