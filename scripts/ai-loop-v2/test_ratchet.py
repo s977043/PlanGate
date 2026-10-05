@@ -30,21 +30,29 @@ from ratchet import (  # noqa: E402
 
 
 def rebind_sources(value):
-    """Recompute the Candidate's source bindings from ``value["sources"]``.
+    """Recompute Candidate source bindings after a test edits source evidence.
 
-    This makes the Candidate self-consistent with its sources so that a test
-    reaches the provenance check it targets instead of an earlier binding
-    mismatch. It deliberately does not validate run_id agreement.
+    RunEvent is re-bound to the source FailureRecord unless the test explicitly
+    targets an event-binding failure and therefore avoids this helper.
     """
-    refs = [
-        {
+    refs = []
+    for source in value["sources"]:
+        event = source["event"]
+        event["run_id"] = source["run_id"]
+        event["harness_manifest_ref"] = source["run_evidence"][
+            "harness_manifest_ref"
+        ]
+        event["payload"]["failure"] = copy.deepcopy(source["failure_record"])
+        event["event_ref"] = canonical_digest({
+            key: event[key] for key in event if key != "event_ref"
+        })
+        source["event_ref"] = event["event_ref"]
+        refs.append({
             "run_id": source["run_id"],
             "event_ref": source["event_ref"],
             "failure_record_ref": canonical_digest(source["failure_record"]),
             "run_evidence_ref": canonical_digest(source["run_evidence"]),
-        }
-        for source in value["sources"]
-    ]
+        })
     candidate_source = value["candidate"]["source"]
     candidate_source["failure_instance_refs"] = refs
     candidate_source["run_evidence_refs"] = [
@@ -174,6 +182,46 @@ class RatchetVerticalSliceTests(unittest.TestCase):
     def test_source_failure_payload_tamper_is_inconclusive(self):
         value = copy.deepcopy(self.base)
         value["sources"][0]["failure_record"]["observation"] += " tampered"
+        result = self.evaluate(value)
+        self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
+        self.assertIn(
+            "SOURCE_FAILURE_BINDING",
+            result["experiment_result"]["reason_codes"],
+        )
+
+    def test_source_event_ref_is_recomputed_and_bound(self):
+        value = copy.deepcopy(self.base)
+        value["sources"][0]["event_ref"] = "sha256:" + "0" * 64
+        result = self.evaluate(value)
+        self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
+        self.assertIn(
+            "SOURCE_FAILURE_BINDING",
+            result["experiment_result"]["reason_codes"],
+        )
+
+    def test_source_event_payload_must_match_failure_record(self):
+        value = copy.deepcopy(self.base)
+        event = value["sources"][0]["event"]
+        event["payload"]["failure"]["observation"] += " different"
+        event["event_ref"] = canonical_digest({
+            key: event[key] for key in event if key != "event_ref"
+        })
+        value["sources"][0]["event_ref"] = event["event_ref"]
+        result = self.evaluate(value)
+        self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
+        self.assertIn(
+            "SOURCE_FAILURE_BINDING",
+            result["experiment_result"]["reason_codes"],
+        )
+
+    def test_source_event_harness_must_match_run_evidence(self):
+        value = copy.deepcopy(self.base)
+        event = value["sources"][0]["event"]
+        event["harness_manifest_ref"] = "sha256:" + "9" * 64
+        event["event_ref"] = canonical_digest({
+            key: event[key] for key in event if key != "event_ref"
+        })
+        value["sources"][0]["event_ref"] = event["event_ref"]
         result = self.evaluate(value)
         self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
         self.assertIn(
