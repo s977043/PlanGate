@@ -717,7 +717,9 @@ test_runtime_evidence_independent_attestation_verifier.py reason: 非配布 runt
 runtime_evidence_external_verifier_receipt.py reason: #1468 のexternal receipt nonce/freshness binding candidateは独立管理境界の実証前で上流検証専用のため非配布 (#1468)
 test_runtime_evidence_external_verifier_receipt.py reason: 非配布 runtime_evidence_external_verifier_receipt.py の上流検証用 test のため非配布 (#1468)
 runtime_evidence_external_admin_admission.py reason: #1473 のexternal admin admission candidateは独立管理Evidenceの実証前で上流検証専用のため非配布 (#1473)
-test_runtime_evidence_external_admin_admission.py reason: 非配布 runtime_evidence_external_admin_admission.py の上流検証用 test のため非配布 (#1473)'
+test_runtime_evidence_external_admin_admission.py reason: 非配布 runtime_evidence_external_admin_admission.py の上流検証用 test のため非配布 (#1473)
+runtime_evidence_external_verifier_bootstrap_manifest.py reason: #1473 のexternal verifier bootstrap manifest candidateは独立管理境界の実証前で上流検証専用のため非配布 (#1473)
+test_runtime_evidence_external_verifier_bootstrap_manifest.py reason: 非配布 runtime_evidence_external_verifier_bootstrap_manifest.py の上流検証用 test のため非配布 (#1473)'
 
   _t57_audit="$_t57_tmp/allowlist_audit.py"
   cat > "$_t57_audit" <<'PY_T57_AUDIT'
