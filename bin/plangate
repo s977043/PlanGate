@@ -899,7 +899,7 @@ cmd_status() {
   fi
 }
 
-# c3-prime / legacy c3.json# c3-prime / legacy c3.json の受理を判別・検証する共有ヘルパー（TASK-0872 PR-2）。
+# c3-prime / legacy c3.json の受理を判別・検証する共有ヘルパー（TASK-0872 PR-2）。
 # approvals/c3.json の approval_kind を strict JSON で判別し、c3-prime なら
 # scripts/ai-loop/c3prime_verify.py で Plan Package 束縛を全数再検証する
 # （契約 §4/§5: legacy grep 経路は c3-prime に流用しない）。
@@ -2182,7 +2182,7 @@ print(d.get('approval_kind','') if isinstance(d,dict) else '')" "$work_dir/appro
       return 1
     fi
   fi
-  # _c3_rc == 0: c3-prime 受理（Plan Package 束縛整合済み）
+  # _c3_eval_rc == 0: c3-prime 受理（Plan Package 束縛整合済み）
 
   # Record session start
   ts=$(plangate_now)
