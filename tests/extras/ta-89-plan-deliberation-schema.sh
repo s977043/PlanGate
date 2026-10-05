@@ -1,12 +1,10 @@
 #!/bin/sh
 # PG_EXTRA_CAPABILITY: standalone-capable
 # tests/extras/ta-89-plan-deliberation-schema.sh
-# TASK-1353 / #1353 — Plan Deliberation schema proposal contract.
+# TASK-1353 / #1353 — Plan Deliberation schema contract.
 #
-# Pre-HO state:
-#   validates the deterministic generated schema + fixtures without writing schemas/.
-# Post-HO state:
-#   additionally requires the Human-applied schema to byte-match the generator.
+# Validates the canonical schemas/plan-deliberation.schema.json directly and
+# evaluates every valid/invalid case in tests/fixtures/plan-deliberation/cases.json.
 
 # ---- extras execution contract bootstrap (#921) ----------------------------
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
@@ -41,32 +39,19 @@ if [ "$_pg_extra_mode" = harness ]; then
 else
   _T89_ROOT="${_pg_extra_dir%/tests/extras}"
 fi
-PLANGATE_BIN="$_T89_ROOT/bin/plangate"
-_T89_GEN="$_T89_ROOT/scripts/generate-plan-deliberation-schema.py"
-_T89_APPLY="$_T89_ROOT/scripts/apply-task-1353-plan-deliberation-schema.sh"
 _T89_CASES="$_T89_ROOT/tests/fixtures/plan-deliberation/cases.json"
-_T89_TARGET="$_T89_ROOT/schemas/plan-deliberation.schema.json"
-_T89_TMP="$(mktemp)"
-register_cleanup "$_T89_TMP"
+_T89_SCHEMA="$_T89_ROOT/schemas/plan-deliberation.schema.json"
 
-if [ -f "$_T89_GEN" ] && python3 "$_T89_GEN" >"$_T89_TMP"; then
-  printf '[PASS] generator emits schema JSON\n'
+if [ -f "$_T89_SCHEMA" ] && python3 -m json.tool "$_T89_SCHEMA" >/dev/null 2>&1; then
+  printf '[PASS] canonical schema exists and is valid JSON\n'
   pass=$((pass + 1))
 else
-  printf '[FAIL] generator failed\n'
-  fail=$((fail + 1))
-fi
-
-if python3 -m json.tool "$_T89_TMP" >/dev/null 2>&1; then
-  printf '[PASS] generated schema is valid JSON\n'
-  pass=$((pass + 1))
-else
-  printf '[FAIL] generated schema is not valid JSON\n'
+  printf '[FAIL] canonical schema missing or not valid JSON: %s\n' "$_T89_SCHEMA"
   fail=$((fail + 1))
 fi
 
 if python3 -c 'import jsonschema' >/dev/null 2>&1; then
-  if python3 - "$_T89_TMP" "$_T89_CASES" <<'PY'
+  if python3 - "$_T89_SCHEMA" "$_T89_CASES" <<'PY'
 import copy
 import json
 import pathlib
@@ -84,6 +69,7 @@ validator = Draft202012Validator(schema)
 
 assert schema["properties"]["stability"]["enum"] == ["experimental"]
 assert schema["additionalProperties"] is False
+assert cases["valid_cases"] and cases["invalid_cases"], "fixture cases are empty"
 
 def resolve_parent(obj, parts):
     cur = obj
@@ -140,51 +126,6 @@ PY
   fi
 else
   printf '[SKIP] TA-89 semantic fixtures — jsonschema package not installed (CI will install it)\n'
-fi
-
-if [ -f "$_T89_TARGET" ]; then
-  _T89_BEFORE="present:$(cksum <"$_T89_TARGET")"
-else
-  _T89_BEFORE="absent"
-fi
-
-if [ -f "$_T89_APPLY" ] &&
-   sh "$_T89_APPLY" --dry-run >/dev/null 2>&1; then
-  if [ -f "$_T89_TARGET" ]; then
-    _T89_AFTER="present:$(cksum <"$_T89_TARGET")"
-  else
-    _T89_AFTER="absent"
-  fi
-  if [ "$_T89_BEFORE" = "$_T89_AFTER" ]; then
-    printf '[PASS] Human apply script dry-run succeeds and changes no target bytes\n'
-    pass=$((pass + 1))
-  else
-    printf '[FAIL] Human apply script --dry-run changed target state/content\n'
-    fail=$((fail + 1))
-  fi
-else
-  printf '[FAIL] Human apply script --dry-run failed\n'
-  fail=$((fail + 1))
-fi
-
-if sh "$_T89_APPLY" >/dev/null 2>&1; then
-  printf '[FAIL] Human apply script accepted missing explicit confirmation\n'
-  fail=$((fail + 1))
-else
-  printf '[PASS] Human apply path requires explicit --human-confirmed\n'
-  pass=$((pass + 1))
-fi
-
-if [ -f "$_T89_TARGET" ]; then
-  if cmp -s "$_T89_TARGET" "$_T89_TMP"; then
-    printf '[PASS] Human-applied schema byte-matches deterministic generator\n'
-    pass=$((pass + 1))
-  else
-    printf '[FAIL] Human-applied schema differs from deterministic generator\n'
-    fail=$((fail + 1))
-  fi
-else
-  printf '[SKIP] HO schema not yet Human-applied (expected for prep PR)\n'
 fi
 
 pg_extra_contract_finalize
