@@ -229,6 +229,40 @@ class RatchetVerticalSliceTests(unittest.TestCase):
             result["experiment_result"]["reason_codes"],
         )
 
+    def test_source_event_run_id_must_match_source(self):
+        value = copy.deepcopy(self.base)
+        event = value["sources"][0]["event"]
+        event["run_id"] = "run:verification-skipped:other"
+        event["event_ref"] = canonical_digest({
+            key: event[key] for key in event if key != "event_ref"
+        })
+        value["sources"][0]["event_ref"] = event["event_ref"]
+        result = self.evaluate(value)
+        self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
+        self.assertIn(
+            "SOURCE_FAILURE_BINDING",
+            result["experiment_result"]["reason_codes"],
+        )
+
+    def test_source_event_must_be_failure_recorded(self):
+        value = copy.deepcopy(self.base)
+        event = value["sources"][0]["event"]
+        event["event_type"] = "worker_completed"
+        event["payload"] = {
+            "artifact_ref": "sha256:" + "a" * 64,
+            "evidence_ref": "worker:complete",
+        }
+        event["event_ref"] = canonical_digest({
+            key: event[key] for key in event if key != "event_ref"
+        })
+        value["sources"][0]["event_ref"] = event["event_ref"]
+        result = self.evaluate(value)
+        self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
+        self.assertIn(
+            "SOURCE_FAILURE_BINDING",
+            result["experiment_result"]["reason_codes"],
+        )
+
     def test_source_set_digest_self_attestation_is_rejected(self):
         value = copy.deepcopy(self.base)
         value["candidate"]["source"]["pattern_snapshot"]["source_set_digest"] = (
