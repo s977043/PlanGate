@@ -49,6 +49,7 @@ PATTERN_REQUIRED_FIELDS = (
     "classifier_digest",
     "source_set_digest",
 )
+PREVENTION_MODES = {"detect", "prevent", "stop", "reduce_impact"}
 
 
 def canonical_digest(value):
@@ -578,6 +579,30 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             sealed_plan,
             "INCONCLUSIVE",
             ["SOURCE_SET_DIGEST"],
+        )
+
+    expected_prevention = candidate.get("expected_prevention")
+    pattern_refs = (
+        expected_prevention.get("pattern_refs")
+        if isinstance(expected_prevention, dict)
+        else None
+    )
+    if (
+        not isinstance(expected_prevention, dict)
+        or expected_prevention.get("mode") not in PREVENTION_MODES
+        or not isinstance(pattern_refs, list)
+        or not pattern_refs
+        or len(set(pattern_refs)) != len(pattern_refs)
+        or not all(isinstance(ref, str) and ref for ref in pattern_refs)
+        or pattern.get("pattern_id") not in pattern_refs
+        or not isinstance(expected_prevention.get("expected_effect"), str)
+        or not expected_prevention["expected_effect"].strip()
+    ):
+        return _finish(
+            bundle,
+            sealed_plan,
+            "INCONCLUSIVE",
+            ["EXPECTED_PREVENTION_BINDING"],
         )
 
     try:
