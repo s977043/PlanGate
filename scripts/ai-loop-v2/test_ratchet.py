@@ -274,6 +274,56 @@ class RatchetVerticalSliceTests(unittest.TestCase):
             "SOURCE_SET_DIGEST", result["experiment_result"]["reason_codes"]
         )
 
+    def test_expected_prevention_is_required(self):
+        value = copy.deepcopy(self.base)
+        del value["candidate"]["expected_prevention"]
+        result = self.evaluate(value)
+        self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
+        self.assertIn(
+            "EXPECTED_PREVENTION_BINDING",
+            result["experiment_result"]["reason_codes"],
+        )
+
+    def test_expected_prevention_mode_must_be_supported(self):
+        value = copy.deepcopy(self.base)
+        value["candidate"]["expected_prevention"]["mode"] = "wish"
+        result = self.evaluate(value)
+        self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
+        self.assertIn(
+            "EXPECTED_PREVENTION_BINDING",
+            result["experiment_result"]["reason_codes"],
+        )
+
+    def test_expected_prevention_must_bind_current_pattern(self):
+        for pattern_refs in (
+            [],
+            ["pattern:other"],
+            ["pattern:verification-skipped", "pattern:verification-skipped"],
+        ):
+            with self.subTest(pattern_refs=pattern_refs):
+                value = copy.deepcopy(self.base)
+                value["candidate"]["expected_prevention"]["pattern_refs"] = (
+                    pattern_refs
+                )
+                result = self.evaluate(value)
+                self.assertEqual(
+                    result["experiment_result"]["result"], "INCONCLUSIVE"
+                )
+                self.assertIn(
+                    "EXPECTED_PREVENTION_BINDING",
+                    result["experiment_result"]["reason_codes"],
+                )
+
+    def test_expected_prevention_effect_must_be_non_empty(self):
+        value = copy.deepcopy(self.base)
+        value["candidate"]["expected_prevention"]["expected_effect"] = "   "
+        result = self.evaluate(value)
+        self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
+        self.assertIn(
+            "EXPECTED_PREVENTION_BINDING",
+            result["experiment_result"]["reason_codes"],
+        )
+
     def test_candidate_manifest_binding_is_recomputed(self):
         value = copy.deepcopy(self.base)
         value["candidate_manifest_ref"] = "sha256:" + "0" * 64
