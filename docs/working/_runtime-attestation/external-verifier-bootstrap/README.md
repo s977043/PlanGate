@@ -27,17 +27,23 @@ authority:
 
 ## Bootstrap sequence
 
-1. Provision the external signer repository/service under separately controlled administration.
-2. Apply the workflow/policy equivalent to `verifier-workflow.proposed.yml`.
-3. Accept the external-operator responsibilities in `operator-handoff.proposed.json`.
-4. Establish the nonce ledger described by `nonce-ledger-policy.proposed.json`.
-5. Freeze the real signer workflow digest and source policy.
-6. Produce the three Evidence objects outside PlanGate.
-7. Build the external boundary descriptor consumed by
+1. Content-address the exact reviewed bootstrap package with
+   `runtime_evidence_external_verifier_bootstrap_manifest.py`. Treat the
+   declared PlanGate source commit as a bound candidate value, not independently
+   verified Git provenance.
+2. Give the external operator the exact package bytes + package content hash.
+   Repository-local generation does not prove operator receipt or acceptance.
+3. Provision the external signer repository/service under separately controlled administration.
+4. Apply the workflow/policy equivalent to `verifier-workflow.proposed.yml`.
+5. Accept the external-operator responsibilities in `operator-handoff.proposed.json`.
+6. Establish the nonce ledger described by `nonce-ledger-policy.proposed.json`.
+7. Freeze the real signer workflow digest and source policy.
+8. Produce the three Evidence objects outside PlanGate.
+9. Build the external boundary descriptor consumed by
    `runtime_evidence_external_admin_admission.py`.
-8. Run PlanGate admission. Treat PASS as structural admission only.
-9. Independently verify the Evidence objects.
-10. Only then open a separate promotion PR for evidenced strong fields.
+10. Run PlanGate admission. Treat PASS as structural admission only.
+11. Independently verify the Evidence objects and the accepted bootstrap package identity.
+12. Only then open a separate promotion PR for evidenced strong fields.
 
 ## Stop conditions
 
