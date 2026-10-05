@@ -15,6 +15,7 @@ import hashlib
 import json
 
 from decision_core import DecisionError, _canonical_path, decide
+from run_event import EventContractError, validate_event
 
 ACTIVATION = {
     "installed": 1,
@@ -81,20 +82,39 @@ def manifest_ref(manifest):
 
 
 def build_failure_instance(source):
-    required = {"run_id", "event_ref", "failure_record", "run_evidence"}
+    required = {
+        "run_id", "event_ref", "event", "failure_record", "run_evidence"
+    }
     if not isinstance(source, dict) or not required.issubset(source):
         raise RatchetError("source failure bundle")
     if not isinstance(source["run_evidence"], dict):
         raise RatchetError("RunEvidence")
     if not source["run_id"] or source["run_evidence"].get("run_id") != source["run_id"]:
         raise RatchetError("source run_id does not match RunEvidence run_id")
+    try:
+        event = validate_event(source["event"])
+    except EventContractError as exc:
+        raise RatchetError("source RunEvent binding") from exc
+    if event["event_ref"] != source["event_ref"]:
+        raise RatchetError("source event_ref does not match RunEvent")
+    if event["run_id"] != source["run_id"]:
+        raise RatchetError("source run_id does not match RunEvent run_id")
+    if event["event_type"] != "failure_recorded":
+        raise RatchetError("source RunEvent is not failure_recorded")
+    if (
+        event["harness_manifest_ref"]
+        != source["run_evidence"].get("harness_manifest_ref")
+    ):
+        raise RatchetError("RunEvent/RunEvidence harness binding")
     failure_ref = canonical_digest(source["failure_record"])
+    if event["payload"].get("failure") != source["failure_record"]:
+        raise RatchetError("RunEvent failure payload binding")
     run_evidence_ref = canonical_digest(source["run_evidence"])
     if failure_ref not in source["run_evidence"].get("failure_record_refs", []):
         raise RatchetError("RunEvidence missing FailureRecord ref")
     return {
         "run_id": source["run_id"],
-        "event_ref": source["event_ref"],
+        "event_ref": event["event_ref"],
         "failure_record_ref": failure_ref,
         "run_evidence_ref": run_evidence_ref,
     }
