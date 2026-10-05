@@ -524,7 +524,7 @@ class RatchetVerticalSliceTests(unittest.TestCase):
                 )
 
     def test_known_mutant_set_must_be_sealed_and_unique(self):
-        for case in ("missing", "empty", "duplicate"):
+        for case in ("missing", "empty", "duplicate", "unsealed"):
             with self.subTest(case=case):
                 value = copy.deepcopy(self.base)
                 plan = value["sealed_evaluation_plan"]
@@ -532,11 +532,13 @@ class RatchetVerticalSliceTests(unittest.TestCase):
                     del plan["known_mutant_fixture_ids"]
                 elif case == "empty":
                     plan["known_mutant_fixture_ids"] = []
-                else:
+                elif case == "duplicate":
                     plan["known_mutant_fixture_ids"] = [
                         plan["known_bad_fixture_id"],
                         plan["known_bad_fixture_id"],
                     ]
+                else:
+                    plan["known_mutant_fixture_ids"] = ["unsealed-mutant"]
                 value["candidate"]["evaluation_plan_digest"] = (
                     canonical_digest(plan)
                 )
