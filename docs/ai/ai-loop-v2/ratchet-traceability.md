@@ -80,6 +80,7 @@ The sealed plan fixes at least:
 - baseline HarnessManifest ref
 - known-bad fixture ID + digest
 - negative-control fixture ID + digest
+- known-mutant fixture IDs + digests
 - required activation level
 - protected evaluation paths
 - critical regression conditions
@@ -143,6 +144,10 @@ candidate
   -> MERGE_READY
 ```
 
+Known-mutant detection power is evaluated by the stable Ratchet evaluator, not by the Candidate verifier itself. The sealed plan pins the mutant IDs and their fixture digests. Baseline and Candidate run the exact same mutant set; if the Candidate detects fewer mutants than the baseline, the result is `FAIL / BASELINE_DETECTION_POWER_REGRESSION`. Duplicate or unsealed mutant IDs make the evaluation `INCONCLUSIVE`.
+
+For the current `verification-skipped` vertical slice, the incident fixture is also the first known mutant. This keeps the contract narrow while proving the non-regression rule before adding a larger mutant corpus.
+
 The Candidate is not considered active merely because the component is installed or registered.
 
 For this verifier/gate improvement the required activation is:
@@ -163,6 +168,7 @@ PASS
 FAIL
   known-bad is not stopped
   negative control regresses
+  Candidate known-mutant detection power falls below baseline
   actual delta exceeds allowed scope
   protected authority is changed
 
@@ -182,7 +188,8 @@ INCONCLUSIVE
 - a repeated failure-instance tuple (`SOURCE_INSTANCE_BINDING`)
 - a source `run_id` that differs from its RunEvidence `run_id` (`SOURCE_FAILURE_BINDING`)
 - a pattern snapshot missing `pattern_id` / `pattern_version` / `classifier_digest` / `source_set_digest` (`PATTERN_SNAPSHOT_INCOMPLETE`)
-- a sealed plan that does not pin the digests of both the known-bad and the negative-control fixture (`EVALUATION_PLAN_INCOMPLETE`)
+- a sealed plan that does not pin the digests of the known-bad, negative-control, and known-mutant fixtures (`EVALUATION_PLAN_INCOMPLETE`)
+- a missing, empty, duplicate, or unsealed known-mutant set (`EVALUATION_PLAN_INCOMPLETE`)
 
 The simulated delivery artifact's change set is part of each sealed fixture (`changed_paths`), so it is covered by the fixture digest.
 
@@ -259,6 +266,7 @@ Raw conversation transcript, hidden CoT, credentials, and unbounded session memo
 - `scripts/ai-loop-v2/ratchet.py`
 - `scripts/ai-loop-v2/test_ratchet.py`
 - `tests/fixtures/ai-loop-v2/ratchet/verification-skipped.json`
+- `tests/fixtures/ai-loop-v2/ratchet/evolution-input-non-success.json`
 - `tests/extras/ta-92-ai-loop-v2-ratchet.sh`
 
 The vertical slice verifies:
@@ -271,6 +279,8 @@ The vertical slice verifies:
 - protected-surface fail-closed
 - paired baseline/candidate behavior
 - negative control
+- sealed known-mutant baseline detection power
+- non-success Evolution inputs: `HUMAN_ESCALATED`, `BLOCKED`, crash/partial, and `NO_PROGRESS`
 - influenced-decision activation
 - PASS / FAIL / INCONCLUSIVE
 - reverse promotion provenance
