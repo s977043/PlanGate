@@ -255,6 +255,34 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
         )
         self.assertFalse(any(result["authority"].values()))
 
+    def test_non_object_bootstrap_manifest_fails_closed(self):
+        with self.assertRaises(prov.ExternalVerifierProvenanceError):
+            prov.verify_provenance_bytes(
+                bootstrap_manifest_result_raw=b"[]",
+                external_verifier_result_raw=_json_bytes(_upstream()),
+                provenance_receipt_raw=_json_bytes(_receipt()),
+                expected_verifier_workflow_ref=WORKFLOW,
+                expected_challenge_id=CHALLENGE,
+                now=NOW,
+            )
+
+    def test_oversized_bootstrap_file_claim_is_rejected(self):
+        boot = _bootstrap_manifest()
+        boot["files"][0]["size_bytes"] = bootstrap.MAX_FILE_BYTES + 1
+        boot["package_total_bytes"] = sum(item["size_bytes"] for item in boot["files"])
+        package_binding = {
+            "domain": boot["domain"],
+            "contract_stage": boot["contract_stage"],
+            "declared_source_commit": boot["declared_source_commit"],
+            "files": boot["files"],
+        }
+        boot["package_content_hash"] = ingress._canonical_hash(package_binding)
+        body = dict(boot)
+        body.pop("result_hash")
+        boot["result_hash"] = ingress._canonical_hash(body)
+        with self.assertRaises(prov.ExternalVerifierProvenanceError):
+            _verify(boot=boot, receipt=_receipt(_upstream(), boot))
+
     def test_wrong_bootstrap_package_hash_is_rejected(self):
         boot = _bootstrap_manifest()
         boot["package_content_hash"] = "sha256:" + "f" * 64
