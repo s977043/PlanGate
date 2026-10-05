@@ -104,6 +104,14 @@ _t109_assert_unresolved 'legacy REJECTED: does not advance to D/V'
 printf '%s\n' '{"c3_status":"CONDITIONAL"}' >"$_T109_DIR/approvals/c3.json"
 _t109_assert_unresolved 'legacy CONDITIONAL: does not advance to D/V'
 
+printf '%s\n' '{not-json' >"$_T109_DIR/approvals/c3.json"
+_t109_assert_unresolved 'unreadable C-3 JSON: fails safe to diagnosis'
+
+printf '%s\n' '{"c3_status":"REJECTED"}' >"$_T109_DIR/approvals/c3.json"
+touch "$_T109_DIR/handoff.md"
+_t109_assert_unresolved 'handoff present + REJECTED C-3: does not report Done'
+rm -f "$_T109_DIR/handoff.md"
+
 printf '%s\n' '{"c3_status":"APPROVED","plan_hash":"sha256:0000000000000000000000000000000000000000000000000000000000000000"}' >"$_T109_DIR/approvals/c3.json"
 _t109_assert_unresolved 'legacy APPROVED with stale plan_hash: does not advance to D/V'
 
