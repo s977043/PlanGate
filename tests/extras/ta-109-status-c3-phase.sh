@@ -8,6 +8,9 @@ if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "$
 else
   _pg_extra_mode=standalone
   _pg_extra_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE \
+    PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED \
+    PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
 fi
 
 _pg_extra_helper="$_pg_extra_dir/_extra-contract.sh"
