@@ -425,6 +425,16 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
             _verify(receipt=value)
         self.assertIn("must not predate #1471 issued_at", str(caught.exception))
 
+    def test_provenance_cannot_outlive_upstream_result(self):
+        value = _receipt()
+        value["expires_at"] = "2026-10-05T00:06:00Z"
+        body = dict(value)
+        body.pop("provenance_receipt_hash")
+        value["provenance_receipt_hash"] = ingress._canonical_hash(body)
+        with self.assertRaises(prov.ExternalVerifierProvenanceError) as caught:
+            _verify(receipt=value)
+        self.assertIn("must not outlive #1471 expires_at", str(caught.exception))
+
     def test_stale_provenance_is_rejected(self):
         value = _receipt()
         value["issued_at"] = "2026-10-04T22:00:00Z"
