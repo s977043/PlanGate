@@ -80,7 +80,13 @@ if python3 -c 'import jsonschema' >/dev/null 2>&1; then
     fail=$((fail + 1))
   fi
 
-  if ! sh "$PLANGATE_BIN" validate-schemas "$_t05_deliberation_invalid" >/dev/null 2>&1; then
+  # 非ゼロ終了だけでは fixture 欠落や壊れた JSON でも通るため、schema 違反で落ちたことまで確認する
+  _t05_deliberation_rc=0
+  _t05_deliberation_out=$(sh "$PLANGATE_BIN" validate-schemas "$_t05_deliberation_invalid" 2>&1) || _t05_deliberation_rc=$?
+  if [ -f "$_t05_deliberation_invalid" ] &&
+     [ "$_t05_deliberation_rc" -eq 1 ] &&
+     printf '%s\n' "$_t05_deliberation_out" | grep -q '^Summary: PASS=0, FAIL=1,' &&
+     printf '%s\n' "$_t05_deliberation_out" | grep -q "first at outcome/status: 'converged' is not one of"; then
     printf '[PASS] invalid Plan Deliberation fixture (partial cannot converge) fails closed\n'
     pass=$((pass + 1))
   else
