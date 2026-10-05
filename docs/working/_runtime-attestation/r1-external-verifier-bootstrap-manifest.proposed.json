@@ -1,0 +1,41 @@
+{
+  "description": "Content-address the exact reviewed external-verifier bootstrap package bytes before external handoff without treating a repository-local manifest as proof of Git provenance, external receipt, administrator independence, nonce consumption, or runtime attestation.",
+  "contract_stage": "r1-external-verifier-bootstrap-manifest-candidate-v1",
+  "package_path": "docs/working/_runtime-attestation/external-verifier-bootstrap",
+  "required_files": [
+    "README.md",
+    "nonce-ledger-policy.proposed.json",
+    "operator-handoff.proposed.json",
+    "verifier-workflow.proposed.yml"
+  ],
+  "candidate_facts": [
+    "exact_required_file_set_verified",
+    "package_bytes_content_addressed_candidate",
+    "declared_source_commit_bound_candidate"
+  ],
+  "must_remain_false": [
+    "bootstrap_contract_semantics_revalidated",
+    "source_commit_repository_membership_verified",
+    "external_operator_received_package_verified",
+    "external_operator_accepted_package_verified",
+    "admin_evidence_independently_verified",
+    "nonce_one_time_consumption_verified",
+    "independent_admin_boundary_verified",
+    "independent_verifier_execution_attested",
+    "runtime_probe_attestation_verified",
+    "human_rollout_decision_verified",
+    "dispatch_ready",
+    "dispatch_allowed"
+  ],
+  "negative_controls": [
+    "unexpected bootstrap file",
+    "missing bootstrap file",
+    "symlink bootstrap file",
+    "wrong package directory",
+    "invalid declared Git commit",
+    "any bootstrap byte change changes package_content_hash",
+    "declared source commit change changes package_content_hash"
+  ],
+  "verification_limit": "The local manifest binds exact bytes to a declared commit value. It does not independently verify that the bytes are members of that Git commit or that an external operator received or accepted the package.",
+  "next_gate": "The external operator independently retrieves and verifies the exact content-addressed package, then returns Evidence from the separately administered boundary."
+}

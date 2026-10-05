@@ -30,21 +30,29 @@ from ratchet import (  # noqa: E402
 
 
 def rebind_sources(value):
-    """Recompute the Candidate's source bindings from ``value["sources"]``.
+    """Recompute Candidate source bindings after a test edits source evidence.
 
-    This makes the Candidate self-consistent with its sources so that a test
-    reaches the provenance check it targets instead of an earlier binding
-    mismatch. It deliberately does not validate run_id agreement.
+    RunEvent is re-bound to the source FailureRecord unless the test explicitly
+    targets an event-binding failure and therefore avoids this helper.
     """
-    refs = [
-        {
+    refs = []
+    for source in value["sources"]:
+        event = source["event"]
+        event["run_id"] = source["run_id"]
+        event["harness_manifest_ref"] = source["run_evidence"][
+            "harness_manifest_ref"
+        ]
+        event["payload"]["failure"] = copy.deepcopy(source["failure_record"])
+        event["event_ref"] = canonical_digest({
+            key: event[key] for key in event if key != "event_ref"
+        })
+        source["event_ref"] = event["event_ref"]
+        refs.append({
             "run_id": source["run_id"],
             "event_ref": source["event_ref"],
             "failure_record_ref": canonical_digest(source["failure_record"]),
             "run_evidence_ref": canonical_digest(source["run_evidence"]),
-        }
-        for source in value["sources"]
-    ]
+        })
     candidate_source = value["candidate"]["source"]
     candidate_source["failure_instance_refs"] = refs
     candidate_source["run_evidence_refs"] = [
@@ -79,6 +87,17 @@ class RatchetVerticalSliceTests(unittest.TestCase):
             / "verification-skipped.json"
         )
         self.base = json.loads(path.read_text(encoding="utf-8"))
+        non_success_path = (
+            REPO
+            / "tests"
+            / "fixtures"
+            / "ai-loop-v2"
+            / "ratchet"
+            / "evolution-input-non-success.json"
+        )
+        self.non_success_cases = json.loads(
+            non_success_path.read_text(encoding="utf-8")
+        )["cases"]
 
     def evaluate(self, value=None):
         bundle = copy.deepcopy(value or self.base)
@@ -127,6 +146,13 @@ class RatchetVerticalSliceTests(unittest.TestCase):
             experiment["metrics"]["recurrence_observation"],
             expected["recurrence"],
         )
+        mutant_metric = experiment["metrics"]["known_mutant_detection"]
+        for key, expected_value in expected["known_mutant_detection"].items():
+            self.assertEqual(mutant_metric[key], expected_value)
+        self.assertIn(
+            "BASELINE_DETECTION_POWER_PRESERVED",
+            experiment["reason_codes"],
+        )
 
     def test_candidate_cannot_choose_its_evaluation_plan(self):
         value = copy.deepcopy(self.base)
@@ -156,6 +182,80 @@ class RatchetVerticalSliceTests(unittest.TestCase):
     def test_source_failure_payload_tamper_is_inconclusive(self):
         value = copy.deepcopy(self.base)
         value["sources"][0]["failure_record"]["observation"] += " tampered"
+        result = self.evaluate(value)
+        self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
+        self.assertIn(
+            "SOURCE_FAILURE_BINDING",
+            result["experiment_result"]["reason_codes"],
+        )
+
+    def test_source_event_ref_is_recomputed_and_bound(self):
+        value = copy.deepcopy(self.base)
+        value["sources"][0]["event_ref"] = "sha256:" + "0" * 64
+        result = self.evaluate(value)
+        self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
+        self.assertIn(
+            "SOURCE_FAILURE_BINDING",
+            result["experiment_result"]["reason_codes"],
+        )
+
+    def test_source_event_payload_must_match_failure_record(self):
+        value = copy.deepcopy(self.base)
+        event = value["sources"][0]["event"]
+        event["payload"]["failure"]["observation"] += " different"
+        event["event_ref"] = canonical_digest({
+            key: event[key] for key in event if key != "event_ref"
+        })
+        value["sources"][0]["event_ref"] = event["event_ref"]
+        result = self.evaluate(value)
+        self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
+        self.assertIn(
+            "SOURCE_FAILURE_BINDING",
+            result["experiment_result"]["reason_codes"],
+        )
+
+    def test_source_event_harness_must_match_run_evidence(self):
+        value = copy.deepcopy(self.base)
+        event = value["sources"][0]["event"]
+        event["harness_manifest_ref"] = "sha256:" + "9" * 64
+        event["event_ref"] = canonical_digest({
+            key: event[key] for key in event if key != "event_ref"
+        })
+        value["sources"][0]["event_ref"] = event["event_ref"]
+        result = self.evaluate(value)
+        self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
+        self.assertIn(
+            "SOURCE_FAILURE_BINDING",
+            result["experiment_result"]["reason_codes"],
+        )
+
+    def test_source_event_run_id_must_match_source(self):
+        value = copy.deepcopy(self.base)
+        event = value["sources"][0]["event"]
+        event["run_id"] = "run:verification-skipped:other"
+        event["event_ref"] = canonical_digest({
+            key: event[key] for key in event if key != "event_ref"
+        })
+        value["sources"][0]["event_ref"] = event["event_ref"]
+        result = self.evaluate(value)
+        self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
+        self.assertIn(
+            "SOURCE_FAILURE_BINDING",
+            result["experiment_result"]["reason_codes"],
+        )
+
+    def test_source_event_must_be_failure_recorded(self):
+        value = copy.deepcopy(self.base)
+        event = value["sources"][0]["event"]
+        event["event_type"] = "worker_completed"
+        event["payload"] = {
+            "artifact_ref": "sha256:" + "a" * 64,
+            "evidence_ref": "worker:complete",
+        }
+        event["event_ref"] = canonical_digest({
+            key: event[key] for key in event if key != "event_ref"
+        })
+        value["sources"][0]["event_ref"] = event["event_ref"]
         result = self.evaluate(value)
         self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
         self.assertIn(
@@ -293,6 +393,25 @@ class RatchetVerticalSliceTests(unittest.TestCase):
         value["candidate"]["source"]["pattern_snapshot"]["occurrence_count"] = 999
         result = self.evaluate(value)
         self.assertEqual(result["experiment_result"]["result"], "PASS")
+
+    def test_non_success_run_evidence_is_admitted_as_evolution_input(self):
+        for case in self.non_success_cases:
+            with self.subTest(case=case["case_id"]):
+                value = copy.deepcopy(self.base)
+                run_evidence = value["sources"][0]["run_evidence"]
+                if case["outcome"] is None:
+                    run_evidence.pop("outcome", None)
+                else:
+                    run_evidence["outcome"] = case["outcome"]
+                run_evidence["stop_reasons"] = list(case["stop_reasons"])
+                run_evidence["evidence_status"] = case["evidence_status"]
+                rebind_sources(value)
+                result = self.evaluate_bound(value)
+                self.assertEqual(
+                    result["experiment_result"]["result"],
+                    "PASS",
+                    result["experiment_result"],
+                )
 
     # --- bound evaluation (the test supplies its own sealed plan) ---------
 
@@ -485,6 +604,66 @@ class RatchetVerticalSliceTests(unittest.TestCase):
                 self.assertResult(
                     result, "INCONCLUSIVE", "EVALUATION_PLAN_INCOMPLETE"
                 )
+
+    def test_detection_power_regression_must_be_pre_registered(self):
+        value = copy.deepcopy(self.base)
+        plan = value["sealed_evaluation_plan"]
+        plan["critical_regression_conditions"].remove(
+            "baseline_detection_power_regression"
+        )
+        value["candidate"]["evaluation_plan_digest"] = canonical_digest(plan)
+        result = self.evaluate_bound(value)
+        self.assertResult(
+            result, "INCONCLUSIVE", "EVALUATION_PLAN_INCOMPLETE"
+        )
+
+    def test_known_mutant_set_must_be_sealed_and_unique(self):
+        for case in ("missing", "empty", "duplicate", "unsealed"):
+            with self.subTest(case=case):
+                value = copy.deepcopy(self.base)
+                plan = value["sealed_evaluation_plan"]
+                if case == "missing":
+                    del plan["known_mutant_fixture_ids"]
+                elif case == "empty":
+                    plan["known_mutant_fixture_ids"] = []
+                elif case == "duplicate":
+                    plan["known_mutant_fixture_ids"] = [
+                        plan["known_bad_fixture_id"],
+                        plan["known_bad_fixture_id"],
+                    ]
+                else:
+                    plan["known_mutant_fixture_ids"] = ["unsealed-mutant"]
+                value["candidate"]["evaluation_plan_digest"] = (
+                    canonical_digest(plan)
+                )
+                result = self.evaluate_bound(value)
+                self.assertResult(
+                    result, "INCONCLUSIVE", "EVALUATION_PLAN_INCOMPLETE"
+                )
+
+    def test_known_mutant_detection_power_regression_is_fail(self):
+        value = copy.deepcopy(self.base)
+        baseline_component = copy.deepcopy(
+            value["candidate_manifest"]["components"][-1]
+        )
+        baseline_component["content_sha"] = "sha256:" + "9" * 64
+        value["baseline_manifest"]["components"].append(baseline_component)
+        value["candidate_manifest"]["components"][-1]["enabled"] = False
+        rebind_manifests(value)
+
+        result = self.evaluate_bound(value)
+        self.assertResult(
+            result, "FAIL", "BASELINE_DETECTION_POWER_REGRESSION"
+        )
+        self.assertEqual(
+            result["experiment_result"]["policy_verdict"],
+            "HUMAN_REQUIRED",
+        )
+        metric = result["experiment_result"]["metrics"][
+            "known_mutant_detection"
+        ]
+        self.assertEqual(metric["baseline_detection_rate"], 1)
+        self.assertEqual(metric["candidate_detection_rate"], 0)
 
     def test_negative_control_failing_on_baseline_is_inconclusive(self):
         value = copy.deepcopy(self.base)

@@ -6,6 +6,9 @@
     "baseline_manifest_ref": "sha256:77364e04fd614edb481bffd4755e0c999add5a8ba46658ed81ffdbf00b8fd3f6",
     "known_bad_fixture_id": "incident-verification-skipped-v1",
     "negative_control_fixture_id": "negative-valid-verification-v1",
+    "known_mutant_fixture_ids": [
+      "incident-verification-skipped-v1"
+    ],
     "fixture_digests": {
       "incident-verification-skipped-v1": "sha256:1e2c75b0d172bede88136d8028beebf251774e19c97656c6e0d71b4f69cea570",
       "negative-valid-verification-v1": "sha256:14aae27cc2cc9f73f819a271e8a106ef402ea8e04b02bb9cb397a0c500a08a2b"
@@ -20,7 +23,8 @@
     ],
     "critical_regression_conditions": [
       "known_bad_not_stopped",
-      "negative_control_blocked"
+      "negative_control_blocked",
+      "baseline_detection_power_regression"
     ]
   },
   "candidate": {
@@ -33,7 +37,7 @@
       "failure_instance_refs": [
         {
           "run_id": "run:verification-skipped:source-1",
-          "event_ref": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "event_ref": "sha256:d8b4b2e729af6af3a2a6c7e08183a1e6808ebf718a8d4a181ecb837c5d834c4b",
           "failure_record_ref": "sha256:98f79f2951db220899cd1f11621825881000725dcab8c1c7f01bc4932da6cf7c",
           "run_evidence_ref": "sha256:6851f598a8e176e1be1285029a243592b78ae4cc13ce4a40ffd2493e6544fb68"
         }
@@ -42,7 +46,7 @@
         "pattern_id": "pattern:verification-skipped",
         "pattern_version": 1,
         "classifier_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-        "source_set_digest": "sha256:bff15ed7e1e2416509a5676b4c9696a188f9e0273257fb2fbf9cf9c9d1836a4b",
+        "source_set_digest": "sha256:581d6bbca56f2bcb282be5f56bd6cb6a936884452e676d5957fc19a9818a9ca7",
         "fingerprint": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
         "occurrence_count": 1,
         "scope": "project"
@@ -65,12 +69,37 @@
       "expected_effect": "completion without verification evidence is blocked"
     },
     "baseline_manifest_ref": "sha256:77364e04fd614edb481bffd4755e0c999add5a8ba46658ed81ffdbf00b8fd3f6",
-    "evaluation_plan_digest": "sha256:b777f925ee88d7a15af0bd419a6bca3580e59629ef3899fd6cb1825ef00c2756"
+    "evaluation_plan_digest": "sha256:987e64960f1ccf95433ea9251b7b2c88316c42e4c4a2c1e4dba3070641ea4e18"
   },
   "sources": [
     {
       "run_id": "run:verification-skipped:source-1",
-      "event_ref": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "event_ref": "sha256:d8b4b2e729af6af3a2a6c7e08183a1e6808ebf718a8d4a181ecb837c5d834c4b",
+      "event": {
+        "schema_version": "1",
+        "run_id": "run:verification-skipped:source-1",
+        "event_seq": 1,
+        "revision": 1,
+        "event_type": "failure_recorded",
+        "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "plan_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "source_sha": "3333333333333333333333333333333333333333",
+        "payload": {
+          "failure": {
+            "id": "failure:verification-skipped:1",
+            "observation": "completion attempted without required verification evidence",
+            "fingerprint": "verification-required-but-missing",
+            "evidence_refs": [
+              "verification:missing",
+              "completion:attempted"
+            ],
+            "cause_hypothesis": "completion gate did not require verification evidence",
+            "repairability": "repairable",
+            "result": "observed"
+          }
+        },
+        "event_ref": "sha256:d8b4b2e729af6af3a2a6c7e08183a1e6808ebf718a8d4a181ecb837c5d834c4b"
+      },
       "failure_record": {
         "id": "failure:verification-skipped:1",
         "observation": "completion attempted without required verification evidence",
@@ -167,6 +196,13 @@
     "changed_paths": [
       "harness/verifiers/completion-evidence.json"
     ],
+    "known_mutant_detection": {
+      "mutant_count": 1,
+      "baseline_detected_count": 0,
+      "candidate_detected_count": 1,
+      "baseline_detection_rate": 0,
+      "candidate_detection_rate": 1
+    },
     "recurrence": {
       "pattern_classifier_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
       "eligible_run_count": 2,

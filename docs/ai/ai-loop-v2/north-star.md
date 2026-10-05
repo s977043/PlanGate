@@ -393,6 +393,30 @@ Harness の進化を Component 数の増加と定義しない。
 
 簡素化は、必要な能力・検出力・安全条件を維持できることを Evidence で確かめて採用する。読まれない警告も範囲調整・統合・廃止の検討対象とするが、Gate・Verifier の削除・緩和・適用範囲縮小の権限はいずれも §15 に従う（範囲調整・統合が適用範囲の縮小を伴う場合を含む）。
 
+### Model / Runtime change is a re-evaluation trigger
+
+Model / Runtime の major update は、既存 Harness の前提が変わったことを示す **再評価 Trigger** として扱う。能力向上そのものを、Skill / Agent / Flow / Verifier / Prompt / Context の削除・無効化・適用範囲縮小を許可する Permission にはしない。
+
+```text
+Capability change
+  -> Re-evaluation trigger
+  != Simplification permission
+```
+
+強い基盤 Model が、以前は Harness component で補っていた能力を吸収する場合がある。その可能性を検証するときは、同じ更新後 Model / Runtime / Effort と同じ task / fixture を固定し、対象 component の **WITH / WITHOUT paired ablation** を行う。
+
+```text
+same updated Model / Runtime / Effort / task
+  ├─ baseline: existing Harness WITH target component
+  └─ candidate: simplified Harness WITHOUT target component
+       ↓
+compare quality / safety / evidence / cost
+```
+
+旧 Model + component と新 Model - component の比較だけでは、Model 変更と Harness 簡素化が同時に変わるため限界寄与を帰属しない。component の material update では、同じ実行条件で旧版 baseline と candidate を比較する。
+
+activation 未確認、paired case 不足、sample 不足、必要 Evidence の欠測がある場合は `INCONCLUSIVE` とし、簡素化の根拠へ昇格させない。再評価後も approval / permission / security policy、Protected Gate、Human-owned boundary は独立した authority として維持し、緩和・削除は §15 の Human Gate に従う。
+
 ## 13. Improvement Candidate contract principle
 
 Harness 変更を直接始めない。
@@ -417,7 +441,7 @@ Candidate は最低限以下を持つ。
 
 ## 14. Evolution evaluation
 
-Harness 改善は baseline と candidate を同一 fixture / task で比較する。
+Harness 改善は baseline と candidate を同一 fixture / task で比較する。Model / Runtime の能力変化を契機に簡素化を評価する場合も、baseline / candidate の双方で更新後の Model / Runtime / Effort を固定する。
 
 ```text
 Same Fixture
