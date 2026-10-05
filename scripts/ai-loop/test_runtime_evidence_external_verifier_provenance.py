@@ -279,8 +279,9 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
         body.pop("result_hash")
         other["result_hash"] = ingress._canonical_hash(body)
         receipt = _receipt(_upstream(), boot)
-        with self.assertRaises(prov.ExternalVerifierProvenanceError):
+        with self.assertRaises(prov.ExternalVerifierProvenanceError) as caught:
             _verify(boot=other, receipt=receipt)
+        self.assertIn("exact #1484 binding required", str(caught.exception))
 
     def test_legacy_receipt_without_bootstrap_binding_is_rejected(self):
         value = _receipt()
@@ -345,6 +346,15 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
         with self.assertRaises(prov.ExternalVerifierProvenanceError):
             _verify(up=value, receipt=_receipt(value))
 
+    def test_upstream_expiry_boundary_is_rejected(self):
+        value = _upstream()
+        value["expires_at"] = NOW.isoformat().replace("+00:00", "Z")
+        body = dict(value)
+        body.pop("result_hash")
+        value["result_hash"] = ingress._canonical_hash(body)
+        with self.assertRaises(prov.ExternalVerifierProvenanceError):
+            _verify(up=value, receipt=_receipt(value))
+
     def test_malformed_upstream_nonce_is_rejected(self):
         value = _upstream()
         value["verification_nonce"] = "short"
@@ -353,6 +363,17 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
         value["result_hash"] = ingress._canonical_hash(body)
         with self.assertRaises(prov.ExternalVerifierProvenanceError):
             _verify(up=value, receipt=_receipt(value))
+
+    def test_provenance_cannot_predate_upstream_result(self):
+        value = _receipt()
+        value["issued_at"] = "2026-10-04T23:49:00Z"
+        value["expires_at"] = "2026-10-05T00:02:00Z"
+        body = dict(value)
+        body.pop("provenance_receipt_hash")
+        value["provenance_receipt_hash"] = ingress._canonical_hash(body)
+        with self.assertRaises(prov.ExternalVerifierProvenanceError) as caught:
+            _verify(receipt=value)
+        self.assertIn("must not predate #1471 issued_at", str(caught.exception))
 
     def test_stale_provenance_is_rejected(self):
         value = _receipt()
@@ -420,7 +441,7 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
 
     def test_repository_local_receipt_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = pathlib.Path(tmp)
+            root = pathlib.Path(tmp).resolve()
             repo = root / "repo"
             repo.mkdir()
             (repo / "docs").mkdir()
@@ -431,7 +452,7 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
             up_path.write_bytes(_json_bytes(_upstream()))
             receipt_path = repo / "receipt.json"
             receipt_path.write_bytes(_json_bytes(_receipt()))
-            with self.assertRaises(prov.ExternalVerifierProvenanceError):
+            with self.assertRaises(prov.ExternalVerifierProvenanceError) as caught:
                 prov.verify_provenance_files(
                     repo_root=repo,
                     bootstrap_manifest_result_path=boot_path,
@@ -441,10 +462,11 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
                     expected_challenge_id=CHALLENGE,
                     now=NOW,
                 )
+            self.assertIn("must stay outside repository", str(caught.exception))
 
     def test_symlinked_provenance_receipt_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = pathlib.Path(tmp)
+            root = pathlib.Path(tmp).resolve()
             repo = root / "repo"
             external = root / "external"
             repo.mkdir()
