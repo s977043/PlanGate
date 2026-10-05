@@ -79,6 +79,17 @@ class RatchetVerticalSliceTests(unittest.TestCase):
             / "verification-skipped.json"
         )
         self.base = json.loads(path.read_text(encoding="utf-8"))
+        non_success_path = (
+            REPO
+            / "tests"
+            / "fixtures"
+            / "ai-loop-v2"
+            / "ratchet"
+            / "evolution-input-non-success.json"
+        )
+        self.non_success_cases = json.loads(
+            non_success_path.read_text(encoding="utf-8")
+        )["cases"]
 
     def evaluate(self, value=None):
         bundle = copy.deepcopy(value or self.base)
@@ -126,6 +137,13 @@ class RatchetVerticalSliceTests(unittest.TestCase):
         self.assertEqual(
             experiment["metrics"]["recurrence_observation"],
             expected["recurrence"],
+        )
+        mutant_metric = experiment["metrics"]["known_mutant_detection"]
+        for key, expected_value in expected["known_mutant_detection"].items():
+            self.assertEqual(mutant_metric[key], expected_value)
+        self.assertIn(
+            "BASELINE_DETECTION_POWER_PRESERVED",
+            experiment["reason_codes"],
         )
 
     def test_candidate_cannot_choose_its_evaluation_plan(self):
@@ -293,6 +311,25 @@ class RatchetVerticalSliceTests(unittest.TestCase):
         value["candidate"]["source"]["pattern_snapshot"]["occurrence_count"] = 999
         result = self.evaluate(value)
         self.assertEqual(result["experiment_result"]["result"], "PASS")
+
+    def test_non_success_run_evidence_is_admitted_as_evolution_input(self):
+        for case in self.non_success_cases:
+            with self.subTest(case=case["case_id"]):
+                value = copy.deepcopy(self.base)
+                run_evidence = value["sources"][0]["run_evidence"]
+                if case["outcome"] is None:
+                    run_evidence.pop("outcome", None)
+                else:
+                    run_evidence["outcome"] = case["outcome"]
+                run_evidence["stop_reasons"] = list(case["stop_reasons"])
+                run_evidence["evidence_status"] = case["evidence_status"]
+                rebind_sources(value)
+                result = self.evaluate_bound(value)
+                self.assertEqual(
+                    result["experiment_result"]["result"],
+                    "PASS",
+                    result["experiment_result"],
+                )
 
     # --- bound evaluation (the test supplies its own sealed plan) ---------
 
@@ -485,6 +522,66 @@ class RatchetVerticalSliceTests(unittest.TestCase):
                 self.assertResult(
                     result, "INCONCLUSIVE", "EVALUATION_PLAN_INCOMPLETE"
                 )
+
+    def test_detection_power_regression_must_be_pre_registered(self):
+        value = copy.deepcopy(self.base)
+        plan = value["sealed_evaluation_plan"]
+        plan["critical_regression_conditions"].remove(
+            "baseline_detection_power_regression"
+        )
+        value["candidate"]["evaluation_plan_digest"] = canonical_digest(plan)
+        result = self.evaluate_bound(value)
+        self.assertResult(
+            result, "INCONCLUSIVE", "EVALUATION_PLAN_INCOMPLETE"
+        )
+
+    def test_known_mutant_set_must_be_sealed_and_unique(self):
+        for case in ("missing", "empty", "duplicate", "unsealed"):
+            with self.subTest(case=case):
+                value = copy.deepcopy(self.base)
+                plan = value["sealed_evaluation_plan"]
+                if case == "missing":
+                    del plan["known_mutant_fixture_ids"]
+                elif case == "empty":
+                    plan["known_mutant_fixture_ids"] = []
+                elif case == "duplicate":
+                    plan["known_mutant_fixture_ids"] = [
+                        plan["known_bad_fixture_id"],
+                        plan["known_bad_fixture_id"],
+                    ]
+                else:
+                    plan["known_mutant_fixture_ids"] = ["unsealed-mutant"]
+                value["candidate"]["evaluation_plan_digest"] = (
+                    canonical_digest(plan)
+                )
+                result = self.evaluate_bound(value)
+                self.assertResult(
+                    result, "INCONCLUSIVE", "EVALUATION_PLAN_INCOMPLETE"
+                )
+
+    def test_known_mutant_detection_power_regression_is_fail(self):
+        value = copy.deepcopy(self.base)
+        baseline_component = copy.deepcopy(
+            value["candidate_manifest"]["components"][-1]
+        )
+        baseline_component["content_sha"] = "sha256:" + "9" * 64
+        value["baseline_manifest"]["components"].append(baseline_component)
+        value["candidate_manifest"]["components"][-1]["enabled"] = False
+        rebind_manifests(value)
+
+        result = self.evaluate_bound(value)
+        self.assertResult(
+            result, "FAIL", "BASELINE_DETECTION_POWER_REGRESSION"
+        )
+        self.assertEqual(
+            result["experiment_result"]["policy_verdict"],
+            "HUMAN_REQUIRED",
+        )
+        metric = result["experiment_result"]["metrics"][
+            "known_mutant_detection"
+        ]
+        self.assertEqual(metric["baseline_detection_rate"], 1)
+        self.assertEqual(metric["candidate_detection_rate"], 0)
 
     def test_negative_control_failing_on_baseline_is_inconclusive(self):
         value = copy.deepcopy(self.base)
