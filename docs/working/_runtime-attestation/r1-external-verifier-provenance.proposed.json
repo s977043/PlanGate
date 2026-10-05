@@ -1,0 +1,52 @@
+{
+  "description": "Candidate provenance layer for #1468/#1473: bind the merged #1471 result to immutable external verifier workflow identity, exact GitHub Actions OIDC issuer, #1471-bound binary digest, execution id, per-run challenge, and short freshness window without claiming independent administration.",
+  "contract_stage": "r1-external-verifier-provenance-candidate-v1",
+  "inputs": {
+    "external_verifier_result": "absolute external file containing the #1471 result",
+    "provenance_receipt": "absolute external file outside the repository",
+    "expected_verifier_workflow_ref": "external owner/repo/.github/workflows/file.yml@<40-sha>; PlanGate workflow forbidden",
+    "expected_challenge_id": "sha256:<64-hex>; caller policy input only, not replay proof"
+  },
+  "verified_locally": [
+    "external_verifier_result_binding_verified",
+    "upstream_receipt_freshness_reverified",
+    "provenance_receipt_structure_verified",
+    "provenance_receipt_content_addressed",
+    "immutable_verifier_identity_binding_candidate",
+    "run_challenge_binding_candidate",
+    "freshness_window_candidate",
+    "github_actions_oidc_issuer_bound_candidate"
+  ],
+  "negative_controls": [
+    "wrong request/config/provider/platform/capture binding",
+    "wrong exact #1471 result hash or file digest",
+    "wrong verifier issuer",
+    "wrong immutable verifier workflow ref",
+    "wrong verifier binary digest",
+    "wrong run challenge",
+    "stale or malformed upstream #1471 receipt",
+    "expired or overlong provenance receipt",
+    "upstream self-promotion",
+    "raw runtime payload keys",
+    "repository-local provenance receipt",
+    "non-GitHub Actions OIDC issuer",
+    "PlanGate-owned verifier workflow"
+  ],
+  "explicit_non_claims": {
+    "same_challenge_replay_prevented": false,
+    "provenance_receipt_signature_verified": false,
+    "crypto_verifier_binary_verified": false,
+    "receipt_claims_authenticated": false,
+    "gh_attestation_cli_execution_verified": false,
+    "artifact_digest_cryptographically_verified": false,
+    "attestation_signature_cryptographically_verified": false,
+    "independent_admin_boundary_verified": false,
+    "independent_verifier_execution_attested": false,
+    "runtime_probe_attestation_verified": false,
+    "human_rollout_decision_verified": false,
+    "dispatch_ready": false,
+    "dispatch_allowed": false
+  },
+  "reason": "Exact #1471 byte binding, GitHub Actions OIDC issuer pinning, immutable external workflow expectation, #1471-bound binary digest, execution id, per-run challenge, and freshness are candidate provenance only. The provenance receipt is not cryptographically authenticated, and one-time challenge consumption / independent administration remain unverified.",
+  "next_gate": "externally authenticated provenance receipt plus independently administered signer/admin Evidence and external one-time challenge consumption proof"
+}
