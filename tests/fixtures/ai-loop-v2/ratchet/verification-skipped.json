@@ -6,6 +6,9 @@
     "baseline_manifest_ref": "sha256:77364e04fd614edb481bffd4755e0c999add5a8ba46658ed81ffdbf00b8fd3f6",
     "known_bad_fixture_id": "incident-verification-skipped-v1",
     "negative_control_fixture_id": "negative-valid-verification-v1",
+    "known_mutant_fixture_ids": [
+      "incident-verification-skipped-v1"
+    ],
     "fixture_digests": {
       "incident-verification-skipped-v1": "sha256:1e2c75b0d172bede88136d8028beebf251774e19c97656c6e0d71b4f69cea570",
       "negative-valid-verification-v1": "sha256:14aae27cc2cc9f73f819a271e8a106ef402ea8e04b02bb9cb397a0c500a08a2b"
@@ -65,7 +68,7 @@
       "expected_effect": "completion without verification evidence is blocked"
     },
     "baseline_manifest_ref": "sha256:77364e04fd614edb481bffd4755e0c999add5a8ba46658ed81ffdbf00b8fd3f6",
-    "evaluation_plan_digest": "sha256:b777f925ee88d7a15af0bd419a6bca3580e59629ef3899fd6cb1825ef00c2756"
+    "evaluation_plan_digest": "sha256:9a9094ab333385dbe35bb76169c458504026702a89841826760a809e251db780"
   },
   "sources": [
     {
@@ -167,6 +170,13 @@
     "changed_paths": [
       "harness/verifiers/completion-evidence.json"
     ],
+    "known_mutant_detection": {
+      "mutant_count": 1,
+      "baseline_detected_count": 0,
+      "candidate_detected_count": 1,
+      "baseline_detection_rate": 0,
+      "candidate_detection_rate": 1
+    },
     "recurrence": {
       "pattern_classifier_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
       "eligible_run_count": 2,
