@@ -299,6 +299,7 @@ class RatchetVerticalSliceTests(unittest.TestCase):
             [],
             ["pattern:other"],
             ["pattern:verification-skipped", "pattern:verification-skipped"],
+            [{"pattern_id": "pattern:verification-skipped"}],
         ):
             with self.subTest(pattern_refs=pattern_refs):
                 value = copy.deepcopy(self.base)
