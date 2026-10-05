@@ -28,6 +28,8 @@ if python3 -c 'import jsonschema' >/dev/null 2>&1; then
   _t05_intent_invalid="$_t05_root/tests/fixtures/intent-context/invalid/intent-context.json"
   _t05_intent_invalid_format="$_t05_root/tests/fixtures/intent-context/invalid-format/intent-context.json"
   _t05_plan_contract_fixture="$_t05_root/tests/fixtures/plan-contract/valid/plan-contract.json"
+  _t05_deliberation_fixture="$_t05_root/tests/fixtures/plan-deliberation/valid/plan-deliberation.json"
+  _t05_deliberation_invalid="$_t05_root/tests/fixtures/plan-deliberation/invalid/plan-deliberation.json"
 
   if sh "$PLANGATE_BIN" validate-schemas "$_t05_intent_fixture" >/dev/null 2>&1; then
     printf '[PASS] Intent Context Package fixture passes schema mapping/validation\n'
@@ -66,6 +68,23 @@ if python3 -c 'import jsonschema' >/dev/null 2>&1; then
     pass=$((pass + 1))
   else
     printf '[FAIL] Plan Contract fixture — expected schema PASS\n'
+    fail=$((fail + 1))
+  fi
+
+  # 未登録の basename は SKIP（exit 0）になるため、exit code ではなく PASS 件数で判定する
+  if sh "$PLANGATE_BIN" validate-schemas "$_t05_deliberation_fixture" 2>&1 | grep -q '^Summary: PASS=1,'; then
+    printf '[PASS] Plan Deliberation fixture passes schema mapping/validation\n'
+    pass=$((pass + 1))
+  else
+    printf '[FAIL] Plan Deliberation fixture — expected schema PASS (not SKIP)\n'
+    fail=$((fail + 1))
+  fi
+
+  if ! sh "$PLANGATE_BIN" validate-schemas "$_t05_deliberation_invalid" >/dev/null 2>&1; then
+    printf '[PASS] invalid Plan Deliberation fixture (partial cannot converge) fails closed\n'
+    pass=$((pass + 1))
+  else
+    printf '[FAIL] invalid Plan Deliberation fixture produced false green\n'
     fail=$((fail + 1))
   fi
 
