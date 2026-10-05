@@ -2,6 +2,7 @@
 
 > **Status**: ai-loop V2 の責務解釈ガイド。正本は [`north-star.md`](./north-star.md) と companion canon であり、本書はそれらに従属する。
 > **Purpose**: Loop / Graph / Harness の境界を明確にし、二重正本や不要な Graph runtime を作らずに設計判断できるようにする。
+> **Maintainer**: #894（本書全体の保守担当。2026-10-01 Human 決定、記録 #894 issuecomment-5924518240）。§2 の concern ごとの owner とも、§2 の「Canon / Trust Boundary の維持」の行（#1275）とも別。
 > **Derived from**: canon 6 本（`north-star.md` / `taxonomy.md` / `harness-manifest.md` / `evaluation-trust-boundary.md` / `artifact-responsibilities.md` / `phase0-migration.md`）@ `b1217b41`。**本書は canon ではないため `phase0-migration.md` §7 の canon 7 本には加えない。** 下記が `b1217b41` 以外を返したら canon が動いているので、§2 の責務表と §3 の境界規則を読み直すこと。
 >
 > ```sh
@@ -121,6 +122,7 @@ parallel worker 数、context subset、approved template の specialization な�
 runtime が決めてよい対象:
 
 - approved template（WorkItemGraph の `work_item_templates[]`）からの work item instance の specialization。specialization してよい field は allowlist に限り、**新しい AC を追加しない・template / parent の scope を拡大しない**
+- 既存 work item の partition（分割）。parent work item からの instance として event stream に記録し、active な WorkItemGraph は編集しない。新しい AC・権限・scope を追加しない。分割後の所有・join 条件・検証単位は #1385 の WorkItemGraph Contract が定める（2026-10-01 Human 決定、記録 #1385 issuecomment-5924407778）
 - bounded な worker 数と assignment
 - context subset
 - allowed edge 内の branch / join
@@ -165,7 +167,7 @@ graph_decision:
   reason_code: ""
 ```
 
-`action` に終了（terminate）を置かない。Terminal Outcome / Stop Reason の決定は Decision Engine の責務である（[`artifact-responsibilities.md`](./artifact-responsibilities.md)）。Graph は `convergence_decision_ref` が指す決定に従って terminal へ route するだけで、その場合も `action: route` として記録する。ここでの convergence は Loop の収束判断（#894）を指し、RunState の `PR_CONVERGING` や `pr_convergence`（PR の収束観測）とは別の概念である。
+`action` に終了（terminate）を置かない。Terminal Outcome / Stop Reason の決定は Decision Engine の責務である（[`artifact-responsibilities.md`](./artifact-responsibilities.md)）。Graph は `convergence_decision_ref` が指す決定に従って terminal へ route するだけで、その場合も `action: route` として記録する。ここでの convergence は Loop の収束判断（#894）を指し、RunState の `PR_CONVERGING` や `pr_convergence`（PR の収束観測）とは別の概念である（ただし `PR_CONVERGING` の間は、`pr_convergence` が Decision Engine の入力の 1 つになる。#1393）。
 
 原則:
 
