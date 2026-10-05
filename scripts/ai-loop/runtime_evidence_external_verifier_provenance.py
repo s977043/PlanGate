@@ -448,6 +448,11 @@ def _validate_upstream_freshness(
     if expires is None:
         errors.append("external_verifier_result.expires_at: timezone-aware RFC3339 required")
     if issued is not None and expires is not None:
+        upstream_issued = _parse_rfc3339(upstream_value.get("issued_at"))
+        if upstream_issued is not None and issued < upstream_issued:
+            errors.append(
+                "provenance_receipt.issued_at: must not predate #1471 issued_at"
+            )
         if expires <= issued:
             errors.append("external_verifier_result.expires_at: must be after issued_at")
         elif (expires - issued).total_seconds() > upstream.MAX_VALIDITY_SECONDS:
@@ -456,7 +461,7 @@ def _validate_upstream_freshness(
             )
         if issued > now + dt.timedelta(seconds=upstream.MAX_FUTURE_SKEW_SECONDS):
             errors.append("external_verifier_result.issued_at: too far in the future")
-        if now > expires:
+        if now >= expires:
             errors.append("external_verifier_result: stale/expired #1471 result")
     return errors
 
@@ -487,12 +492,18 @@ def _validate_provenance(
     if value.get("contract_stage") != RECEIPT_STAGE:
         errors.append(f"provenance_receipt.contract_stage: {RECEIPT_STAGE} required")
 
-    bindings = {
-        "request_hash": upstream_value.get("request_hash"),
+    bootstrap_bindings = {
         "bootstrap_manifest_result_hash": bootstrap_value.get("result_hash"),
         "bootstrap_manifest_file_sha256": bootstrap_file_sha256,
         "bootstrap_package_content_hash": bootstrap_value.get("package_content_hash"),
         "bootstrap_declared_source_commit": bootstrap_value.get("declared_source_commit"),
+    }
+    for field, expected in bootstrap_bindings.items():
+        if value.get(field) != expected:
+            errors.append(f"provenance_receipt.{field}: exact #1484 binding required")
+
+    upstream_bindings = {
+        "request_hash": upstream_value.get("request_hash"),
         "config_sha": upstream_value.get("config_sha"),
         "provider": upstream_value.get("provider"),
         "platform": upstream_value.get("platform"),
@@ -505,7 +516,7 @@ def _validate_provenance(
         "verifier_version": upstream_value.get("verifier_version"),
         "verifier_binary_sha256": upstream_value.get("verifier_binary_sha256"),
     }
-    for field, expected in bindings.items():
+    for field, expected in upstream_bindings.items():
         if value.get(field) != expected:
             errors.append(f"provenance_receipt.{field}: exact #1471 binding required")
 
