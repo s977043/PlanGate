@@ -23,6 +23,7 @@ import sys
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
+import runtime_evidence_external_verifier_bootstrap_manifest as bootstrap  # noqa: E402
 import runtime_evidence_external_verifier_provenance as prov  # noqa: E402
 import runtime_evidence_external_verifier_receipt as upstream  # noqa: E402
 import runtime_evidence_ingress as ingress  # noqa: E402
@@ -33,6 +34,7 @@ CHALLENGE = "sha256:" + "9" * 64
 WORKFLOW = "trusted/verifier/.github/workflows/verify.yml@" + "a" * 40
 ISSUER = prov.GITHUB_ACTIONS_OIDC_ISSUER
 BINARY = "sha256:" + "b" * 64
+BOOTSTRAP_COMMIT = "c" * 40
 
 
 def _json_bytes(value):
@@ -41,6 +43,62 @@ def _json_bytes(value):
 
 def _file_sha(raw):
     return "sha256:" + hashlib.sha256(raw).hexdigest()
+
+
+def _bootstrap_manifest():
+    files = []
+    total = 0
+    for index, name in enumerate(bootstrap.REQUIRED_FILES, start=1):
+        size = index * 10
+        total += size
+        files.append(
+            {
+                "path": (bootstrap.PACKAGE_RELATIVE_DIR / name).as_posix(),
+                "sha256": "sha256:" + str(index) * 64,
+                "size_bytes": size,
+            }
+        )
+    package_binding = {
+        "domain": bootstrap.DOMAIN,
+        "contract_stage": bootstrap.CONTRACT_STAGE,
+        "declared_source_commit": BOOTSTRAP_COMMIT,
+        "files": files,
+    }
+    value = {
+        "schema_version": "1",
+        "domain": bootstrap.DOMAIN,
+        "contract_stage": bootstrap.CONTRACT_STAGE,
+        "declared_source_commit": BOOTSTRAP_COMMIT,
+        "package_file_count": len(files),
+        "package_total_bytes": total,
+        "files": files,
+        "package_content_hash": ingress._canonical_hash(package_binding),
+        "exact_required_file_set_verified": True,
+        "package_bytes_content_addressed_candidate": True,
+        "declared_source_commit_bound_candidate": True,
+        "bootstrap_contract_semantics_revalidated": False,
+        "source_commit_repository_membership_verified": False,
+        "external_operator_received_package_verified": False,
+        "external_operator_accepted_package_verified": False,
+        "admin_evidence_independently_verified": False,
+        "nonce_one_time_consumption_verified": False,
+        "independent_admin_boundary_verified": False,
+        "independent_verifier_execution_attested": False,
+        "runtime_probe_attestation_verified": False,
+        "human_rollout_decision_verified": False,
+        "dispatch_ready": False,
+        "dispatch_allowed": False,
+        "verification_limit": "candidate only",
+        "authority": {
+            "agent_invoke_allowed": False,
+            "code_write_allowed": False,
+            "approval_write_allowed": False,
+            "merge_allowed": False,
+            "deploy_allowed": False,
+        },
+    }
+    value["result_hash"] = ingress._canonical_hash(value)
+    return value
 
 
 def _upstream():
@@ -101,9 +159,11 @@ def _upstream():
     return value
 
 
-def _receipt(upstream_value=None):
+def _receipt(upstream_value=None, bootstrap_value=None):
     upstream_value = upstream_value or _upstream()
+    bootstrap_value = bootstrap_value or _bootstrap_manifest()
     upstream_raw = _json_bytes(upstream_value)
+    bootstrap_raw = _json_bytes(bootstrap_value)
     value = {
         "schema_version": "1",
         "domain": prov.RECEIPT_DOMAIN,
@@ -113,6 +173,10 @@ def _receipt(upstream_value=None):
         "provider": upstream_value["provider"],
         "platform": upstream_value["platform"],
         "capture_id": upstream_value["capture_id"],
+        "bootstrap_manifest_result_hash": bootstrap_value["result_hash"],
+        "bootstrap_manifest_file_sha256": _file_sha(bootstrap_raw),
+        "bootstrap_package_content_hash": bootstrap_value["package_content_hash"],
+        "bootstrap_declared_source_commit": bootstrap_value["declared_source_commit"],
         "external_verifier_result_hash": upstream_value["result_hash"],
         "external_verifier_result_file_sha256": _file_sha(upstream_raw),
         "external_receipt_file_sha256": upstream_value["external_receipt_file_sha256"],
@@ -131,10 +195,12 @@ def _receipt(upstream_value=None):
     return value
 
 
-def _verify(up=None, receipt=None, **kwargs):
+def _verify(up=None, boot=None, receipt=None, **kwargs):
     up = up or _upstream()
-    receipt = receipt or _receipt(up)
+    boot = boot or _bootstrap_manifest()
+    receipt = receipt or _receipt(up, boot)
     return prov.verify_provenance_bytes(
+        bootstrap_manifest_result_raw=_json_bytes(boot),
         external_verifier_result_raw=_json_bytes(up),
         provenance_receipt_raw=_json_bytes(receipt),
         expected_verifier_workflow_ref=kwargs.get("workflow", WORKFLOW),
@@ -147,6 +213,8 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
     def test_valid_provenance_stays_candidate_only(self):
         result = _verify()
         for field in (
+            "bootstrap_manifest_binding_candidate",
+            "bootstrap_package_content_binding_candidate",
             "external_verifier_result_binding_verified",
             "upstream_receipt_freshness_reverified",
             "provenance_receipt_structure_verified",
@@ -158,6 +226,10 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
         ):
             self.assertTrue(result[field])
         for field in (
+            "bootstrap_contract_semantics_revalidated",
+            "source_commit_repository_membership_verified",
+            "external_operator_received_package_verified",
+            "external_operator_accepted_package_verified",
             "same_challenge_replay_prevented",
             "provenance_receipt_signature_verified",
             "crypto_verifier_binary_verified",
@@ -177,7 +249,53 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
             result["command_candidate_result_hash"],
             _upstream()["command_candidate_result_hash"],
         )
+        self.assertEqual(
+            result["bootstrap_package_content_hash"],
+            _bootstrap_manifest()["package_content_hash"],
+        )
         self.assertFalse(any(result["authority"].values()))
+
+    def test_wrong_bootstrap_package_hash_is_rejected(self):
+        boot = _bootstrap_manifest()
+        boot["package_content_hash"] = "sha256:" + "f" * 64
+        body = dict(boot)
+        body.pop("result_hash")
+        boot["result_hash"] = ingress._canonical_hash(body)
+        with self.assertRaises(prov.ExternalVerifierProvenanceError):
+            _verify(boot=boot, receipt=_receipt(_upstream(), boot))
+
+    def test_receipt_bound_to_other_bootstrap_manifest_is_rejected(self):
+        boot = _bootstrap_manifest()
+        other = copy.deepcopy(boot)
+        other["declared_source_commit"] = "d" * 40
+        package_binding = {
+            "domain": other["domain"],
+            "contract_stage": other["contract_stage"],
+            "declared_source_commit": other["declared_source_commit"],
+            "files": other["files"],
+        }
+        other["package_content_hash"] = ingress._canonical_hash(package_binding)
+        body = dict(other)
+        body.pop("result_hash")
+        other["result_hash"] = ingress._canonical_hash(body)
+        receipt = _receipt(_upstream(), boot)
+        with self.assertRaises(prov.ExternalVerifierProvenanceError):
+            _verify(boot=other, receipt=receipt)
+
+    def test_legacy_receipt_without_bootstrap_binding_is_rejected(self):
+        value = _receipt()
+        for key in (
+            "bootstrap_manifest_result_hash",
+            "bootstrap_manifest_file_sha256",
+            "bootstrap_package_content_hash",
+            "bootstrap_declared_source_commit",
+        ):
+            value.pop(key)
+        body = dict(value)
+        body.pop("provenance_receipt_hash")
+        value["provenance_receipt_hash"] = ingress._canonical_hash(body)
+        with self.assertRaises(prov.ExternalVerifierProvenanceError):
+            _verify(receipt=value)
 
     def test_wrong_challenge_is_rejected(self):
         with self.assertRaises(prov.ExternalVerifierProvenanceError):
@@ -307,6 +425,8 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
             repo.mkdir()
             (repo / "docs").mkdir()
             (repo / "scripts").mkdir()
+            boot_path = root / "bootstrap.json"
+            boot_path.write_bytes(_json_bytes(_bootstrap_manifest()))
             up_path = root / "upstream.json"
             up_path.write_bytes(_json_bytes(_upstream()))
             receipt_path = repo / "receipt.json"
@@ -314,6 +434,7 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
             with self.assertRaises(prov.ExternalVerifierProvenanceError):
                 prov.verify_provenance_files(
                     repo_root=repo,
+                    bootstrap_manifest_result_path=boot_path,
                     external_verifier_result_path=up_path,
                     provenance_receipt_path=receipt_path,
                     expected_verifier_workflow_ref=WORKFLOW,
@@ -328,6 +449,8 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
             external = root / "external"
             repo.mkdir()
             external.mkdir()
+            boot_path = external / "bootstrap.json"
+            boot_path.write_bytes(_json_bytes(_bootstrap_manifest()))
             up_path = external / "upstream.json"
             up_path.write_bytes(_json_bytes(_upstream()))
             real = external / "real-receipt.json"
@@ -340,6 +463,7 @@ class ExternalVerifierProvenanceTests(unittest.TestCase):
             with self.assertRaises(prov.ExternalVerifierProvenanceError):
                 prov.verify_provenance_files(
                     repo_root=repo,
+                    bootstrap_manifest_result_path=boot_path,
                     external_verifier_result_path=up_path,
                     provenance_receipt_path=link,
                     expected_verifier_workflow_ref=WORKFLOW,
