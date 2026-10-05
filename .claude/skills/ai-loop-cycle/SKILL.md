@@ -252,6 +252,438 @@ feedback: <1〜3文>
   （false-fail 連鎖を人間が判断可能にする）
 - grader 出力は decision record と同様、run 記録へ全文貼付する（監査可能性）
 
+## Step 6: RunEvidence + passive PBI live-shadow capture（shadow-only）
+
+terminal RunEvidence が **concrete 40-hex `final_head_sha`** を持つ Evidence 発行時に、
+**repository-visible な observed signal が実際に存在する場合だけ** passive capture を追加してよい。
+signal が無い run にダミー signal / capture を作ってはならない。
+
+```text
+observed repository source
+        ↓
+normalized admission signal
+        ↓
+scripts/ai-loop/pbi_materializer.py --capture-signal
+        ↓
+passive capture artifact
+        ↓
+scripts/ai-loop/run_evidence.py --evidence-ref <source_ref> --evidence-ref <capture_ref>
+        ↓
+RunEvidence
+        ↓
+independent review / live-shadow evaluation
+```
+
+### 6.1 capture（RunEvidence finalize 前）
+
+`pbi_materializer.py --capture-signal` は stdout-only。保存先は呼び出し側が repo 相対 path として決める。
+`captured_at` は run の `started_at..completed_at` 内、`runtime_head_sha` は後続 RunEvidence の
+`final_head_sha` と一致させる。
+
+```sh
+python3 scripts/ai-loop/pbi_materializer.py \
+  --capture-signal "<normalized-signal.json>" \
+  --capture-task-id "TASK-XXXX" \
+  --capture-run-id "<run-id>" \
+  --captured-at "<timezone-aware RFC3339>" \
+  --runtime-head-sha "<40-hex HEAD>" \
+  --capture-ref "<repo-relative capture artifact ref>" \
+  --format json \
+  > "<capture artifact path>"
+```
+
+normalized signal の `source_ref` は capture artifact 自身ではなく、実在する **repository-visible upstream artifact**
+（feedback snapshot / Issue snapshot / delivery record / failure evidence 等）を指すこと。外部URLや一時的なchat本文だけを
+live evidenceとして扱わず、まずrepo-visible evidenceへmaterializeしてから参照する。raw transcript / hidden CoT を signal に入れない。
+
+### 6.2 RunEvidence へ束縛
+
+通常の `scripts/ai-loop/run_evidence.py` 呼び出しに、upstream source と capture artifact の 2 ref を
+`--evidence-ref` で追加する。
+
+```text
+--evidence-ref <signal.source_ref>
+--evidence-ref <capture_ref>
+```
+
+既存 RunEvidence producer / verifier の terminal-state・schema・privacy 契約は変更しない。
+capture のために terminal decision / final_head_sha / completed_at を書き換えてはならない。
+
+### 6.3 capture 後の扱い
+
+- capture 成功だけでは `live_shadow` 評価成立ではない。RunEvidence 保存後に
+  `capture_ref + run_evidence_ref` binding 検証が必要。
+- oracle / expected decision は capture agent が自動付与せず、独立 reviewer / evaluator の
+  review artifact を後段で接続する。
+- `final_head_sha="unavailable"` の run（典型例: delivery record を持たない一部の `BLOCKED`）では passive live capture を作らず、live-shadow evidence として数えない。`source_sha` / `target_sha` を代用しない。
+- capture 失敗は既存 terminal decision を変更しないが、**live-shadow evidence として数えない**。
+- historical/synthetic case を live と再ラベルしない。
+- `no_action` は source Issue/PBI を close / suppress する authority を持たない。
+- 本 Step は shadow Evidence 収集のみで、PBI write / close / merge / Harness live mutation を行わない。
+
+### 6.4 Evidence collector（実runでの推奨経路）
+
+実runでは primitive の stdout を手作業で配置せず、同梱 collector を使って
+`capture -> blind review packet -> reviewed admission case` を create-or-reuse-identical で保存する。
+
+```text
+source artifact
+  -> collector capture
+  -> RunEvidence finalize（source_ref + capture_ref を evidence_refs へ）
+  -> collector packet
+  -> independent reviewer が oracle artifact を別途作成
+  -> collector case
+  -> pbi_materializer --eval-admission-batch
+```
+
+capture:
+
+```sh
+python3 scripts/ai-loop/pbi_live_shadow_collector.py \
+  --repo-root "<repo-root>" capture \
+  --signal "<normalized-signal.json>" \
+  --task-id "TASK-XXXX" \
+  --run-id "<run-id>" \
+  --captured-at "<timezone-aware RFC3339>" \
+  --runtime-head-sha "<40-hex final HEAD>" \
+  --capture-ref "docs/working/TASK-XXXX/evidence/pbi-live-shadow/<run-id>/capture.json"
+```
+
+RunEvidence 保存後:
+
+```sh
+python3 scripts/ai-loop/pbi_live_shadow_collector.py \
+  --repo-root "<repo-root>" packet \
+  --capture-ref "docs/working/TASK-XXXX/evidence/pbi-live-shadow/<run-id>/capture.json" \
+  --run-evidence-ref "docs/working/TASK-XXXX/evidence/pbi-live-shadow/<run-id>/run-evidence.json" \
+  --packet-ref "docs/working/TASK-XXXX/evidence/pbi-live-shadow/<run-id>/review-packet.json"
+```
+
+review packet は maker の actual decision を含まない。Reviewer は `blind_review_source_ref`
+の upstream source から expected admission decision を決め、oracle を **別artifact** として作る。
+collector は reviewer identity / independence を自己証明しない。
+oracle artifact は同じ `TASK-XXXX/evidence/pbi-live-shadow/<run-id>/` 配下へ保存し、
+raw transcript / hidden CoT / session log 等の privacy-forbidden field を含めない。
+
+oracle の最小 contract:
+
+```json
+{
+  "schema_version": 1,
+  "domain": "plangate.pbi-live-shadow-admission-oracle/v1",
+  "case_ref": "LIVE-ADMISSION-...",
+  "packet_ref": "<review-packet-ref>",
+  "packet_hash": "sha256:...",
+  "reviewed_source_ref": "<upstream-source-ref>",
+  "reviewed_source_sha256": "sha256:...",
+  "expected_admission_decision": "materialize | no_action | discover_more",
+  "independent_review_asserted": true,
+  "maker_actual_not_consulted_asserted": true
+}
+```
+
+oracle 作成後:
+
+```sh
+python3 scripts/ai-loop/pbi_live_shadow_collector.py \
+  --repo-root "<repo-root>" case \
+  --packet-ref "<review-packet-ref>" \
+  --oracle-ref "<oracle-ref>" \
+  --case-artifact-ref "docs/working/TASK-XXXX/evidence/pbi-live-shadow/<run-id>/admission-case.json"
+```
+
+collector の保存は同一内容の retry のみ再利用可能。既存artifactの内容が異なる場合は fail closed。
+oracle は `expected.oracle_ref` で束縛し、source `evidence_refs[]` へ混ぜない。
+collector は PBI / Issue / RunState / Harness / merge を変更しない。
+
+### 6.5 Live-shadow inventory（read-only）
+
+tracked live-shadow case が増えたら、repository全体を read-only で再走査する:
+
+```sh
+python3 scripts/ai-loop/pbi_live_shadow_collector.py \
+  --repo-root "<repo-root>" inventory
+```
+
+inventory は次だけを探索する:
+
+```text
+docs/working/TASK-*/evidence/pbi-live-shadow/**/admission-case.json
+```
+
+各caseについて:
+- case artifact / capture / RunEvidence / oracle が同じ TASK live-shadow namespace に属するか再確認する
+- existing admission evaluator contractで再検証する
+- duplicate logical `case_ref` は全件invalidにする
+- invalid caseを集計から黙って除外せず `invalid_case_artifacts[]` に残す
+- historical corpusをliveへ昇格しない
+- synthetic fixtureをtracked live countに含めない
+
+主要出力:
+
+```text
+tracked_live_case_total
+evaluated_case_total
+invalid_case_total
+observed_admission_decisions
+observed_source_kinds
+rollout_quality
+```
+
+0件は0件のまま扱う。未観測を成功率0%やrollout完了へ変換しない。
+
+またinventoryはrepository chainの再検証であり、次は証明しない:
+
+```text
+runtime_execution_verified = false
+source_preexistence_verified = false
+reviewer_identity_verified = false
+representative_coverage_claim_allowed = false
+quality_acceptance_decided = false
+```
+
+したがって `tracked_live_case_total > 0` は「tracked chainが存在する」ことだけを意味し、
+real runtime execution / representative coverage / write-capable rollout の承認には使わない。
+
+### 6.6 Live Materialization review（post-admission）
+
+Admission live case が reviewer expectation と実評価の両方で `materialize` に一致した場合だけ、
+post-admission Materialization shadow へ進む。
+
+collector は payload / existing-work snapshot / oracle を**生成しない**。別工程で repository-visible artifact
+として用意されたものを hash で束縛し、既存 `evaluate_shadow_batch()` 互換caseへ組み立てる。
+
+必要artifact:
+
+```text
+admission-case.json
+materialization-payload.json
+existing-work.json
+materialization-oracle.json
+```
+
+すべて同じ:
+
+```text
+docs/working/TASK-XXXX/evidence/pbi-live-shadow/<run-id>/
+```
+
+配下へ置く。
+
+materialization oracle の最小contract:
+
+```json
+{
+  "schema_version": 1,
+  "domain": "plangate.pbi-live-shadow-materialization-oracle/v1",
+  "case_ref": "LIVE-MATERIALIZATION-...",
+  "admission_case_ref": "<admission-case-ref>",
+  "admission_case_hash": "sha256:...",
+  "payload_ref": "<payload-ref>",
+  "payload_hash": "sha256:...",
+  "existing_work_ref": "<existing-work-ref>",
+  "existing_work_hash": "sha256:...",
+  "expected": {
+    "decision": "create_new | update_existing | link_only",
+    "matched_ref": null,
+    "readiness_status": "ready | blocked",
+    "readiness_route": "<existing readiness route>"
+  },
+  "independent_review_asserted": true,
+  "maker_actual_not_consulted_asserted": true
+}
+```
+
+case assembly:
+
+```sh
+python3 scripts/ai-loop/pbi_live_shadow_collector.py \
+  --repo-root "<repo-root>" materialization-case \
+  --admission-case-ref "<admission-case-ref>" \
+  --payload-ref "<materialization-payload-ref>" \
+  --existing-work-ref "<existing-work-ref>" \
+  --oracle-ref "<materialization-oracle-ref>" \
+  --case-artifact-ref "docs/working/TASK-XXXX/evidence/pbi-live-shadow/<run-id>/materialization-case.json"
+```
+
+collector は以下を再検証する:
+
+- Admission case が reviewer expectation / actual ともに `materialize` で一致
+- admission case / payload / existing-work / oracle の同一TASK namespace
+- oracle が admission case / payload / existing-work の exact hash を束縛
+- oracle が maker actual を保存していない
+- assembled case が既存 `_validate_shadow_batch()` を通る
+- oracle は `expected.oracle_ref` にのみ置き、source `evidence_refs[]` へ混ぜない
+
+tracked Materialization case の再集計:
+
+```sh
+python3 scripts/ai-loop/pbi_live_shadow_collector.py \
+  --repo-root "<repo-root>" materialization-inventory
+```
+
+主要出力:
+
+```text
+observed_materialization_decisions
+missing_materialization_decisions
+duplicate_false_positive_rate
+duplicate_false_negative_rate
+decision_mismatch_count
+readiness_mismatch_count
+```
+
+0分母は `null` のまま扱う。1件の `create_new` だけで duplicate FN が 0% とは判断しない。
+
+また:
+
+```text
+runtime_execution_verified = false
+source_preexistence_verified = false
+reviewer_identity_verified = false
+representative_coverage_claim_allowed = false
+quality_acceptance_decided = false
+```
+
+を維持する。Materialization inventory はduplicate FP/FNを**測るためのread-only projection**であり、
+write-capable rolloutのGateではない。
+
+### 6.7 Live collection plan（read-only / non-quota）
+
+admission / materialization inventory の current gap をまとめて確認する:
+
+```sh
+python3 scripts/ai-loop/pbi_live_shadow_collector.py \
+  --repo-root "<repo-root>" collection-plan
+```
+
+collection plan が使う coverage basis は **reviewed expected decision**。
+maker の actual decision は model behavior の観測であり、ground-truth coverage として数えない。
+
+```text
+admission:
+  reviewed expected = materialize | no_action | discover_more
+
+materialization:
+  reviewed expected = create_new | update_existing | link_only
+```
+
+materialization target は reviewed admission `materialize` が観測済みの場合だけ:
+
+```text
+prerequisites_satisfied = true
+collector_path_available = true
+real_runtime_observation_available = null
+```
+
+となる。これは「そのcaseを作れ」という指示ではなく、自然に実runで遭遇した場合に **collector経路が成立している** ことだけを示す。現在real runtime observationが存在するかは未検証であり、`null` のまま扱う。
+
+必ず次の境界を維持する:
+
+```text
+opportunistic_observation_only = true
+synthetic_case_generation_for_coverage_allowed = false
+historical_relabeling_allowed = false
+decision_coverage_quota_defined = false
+source_kind_coverage_requirement_defined = false
+representative_coverage_claim_allowed = false
+coverage_complete_implies_representative = false
+observation_gap_is_quota = false
+observation_gap_is_case_generation_instruction = false
+coverage_gap_basis = reviewed_expected_decisions
+maker_actual_counts_as_ground_truth_coverage = false
+runtime_execution_verified = false
+quality_acceptance_decided = false
+```
+
+したがって observation gap を埋めるために synthetic case を作成したり、
+historical case を live へ昇格したりしてはならない。
+
+collection-plan の出力を保存して後から再利用する場合は、必ず判断直前に再実行する。
+plan は元になった inventory projection の canonical SHA-256 を持つ。
+
+```text
+inventory_binding.admission_inventory_hash
+inventory_binding.materialization_inventory_hash
+inventory_binding.combined_inventory_hash
+
+plan_reuse_without_reinventory_allowed = false
+runtime_head_bound = false
+repository_commit_verified = false
+inventory_hashes_are_commit_identity = false
+```
+
+hash は「このplanがどのinventory内容から導出されたか」を識別するためのもので、
+Git commit / runtime execution / Evidence時系列真正性の証明ではない。
+保存済みplanのgapをそのまま実行判断に使わず、repository evidenceが変わっていないか
+`collection-plan` を再実行して確認する。
+
+
+### 6.6 Completion status（read-only）
+
+実装を増やす前に、残課題がどの種類かを分類する。
+
+```sh
+python3 scripts/ai-loop/pbi_live_shadow_collector.py \
+  --repo-root "<repo-root>" completion-status \
+  --context "<completion-context.json>"
+```
+
+context は GitHub / Human 側で確認した事実を明示的に渡す:
+
+```json
+{
+  "latest_full_test_green": true,
+  "design_dependency_finalized": false,
+  "generalization_claim_required": false,
+  "representative_live_evidence_review_ref": null,
+  "quality_review_ref": null,
+  "isolated_generalization_review_ref": null
+}
+```
+
+collector はこれらの外部状態を自己検証しないため:
+
+```text
+assertions_independently_verified = false
+latest_full_test_status_verified_by_collector = false
+design_dependency_status_verified_by_collector = false
+```
+
+を維持する。
+
+review ref が指定された場合は repository-visible regular file の実在と byte SHA-256 まで束縛するが、
+内容妥当性 / reviewer identity / independence は証明しない。
+
+```text
+semantic_content_verified = false
+reviewer_identity_verified = false
+independence_verified = false
+```
+
+`next_action` は残課題の分類だけを行う:
+
+```text
+fix_repository_or_evidence_integrity
+finalize_design_dependency
+collect_opportunistic_real_live_evidence
+perform_human_evidence_and_quality_review
+human_rollout_decision
+```
+
+重要:
+
+```text
+rollout_completion_machine_decidable = false
+rollout_complete = false
+automatic_write_activation_allowed = false
+machine_completion_decision_allowed = false
+machine_write_activation_allowed = false
+```
+
+したがって completion-status は **停止条件 / 次行動の整理** 用であり、
+rollout完了・quality acceptance・write activationを自動承認しない。
+
 ## 禁止事項
 
 - lite 宣言の虚偽（判定不能を `true` 側に倒す）

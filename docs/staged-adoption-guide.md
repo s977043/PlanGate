@@ -13,8 +13,31 @@ PlanGate は 5 モード × 10 hook × 23 agent × 多数 skill の組み合わ�
 **全部入りは前提ではない**。導入は「使うものだけを段階的に増やす」。各
 フェーズには **使わなくてよいもの（最小セットの否定形）** を明示する。
 
-| フェーズ | いつ | モード | ゲート | 主目的 |
-|---------|------|--------|--------|--------|
+### 0.1 初見 UI は plain language を優先する
+
+初回利用者に C-X / V-X / WF-XX / EH-X の暗記を要求しない。
+Quickstart・onboarding・CLI の表層では「Plan review」「Human approval」
+「Build」「Verify」のような平易な言葉を先に出し、内部コードは補助表記にする。
+
+**新しい「PlanGate Lite / 1-Gate mode」は作らない。**
+導入手順は本ガイドの Phase 0〜2 から始める。一方、ultra-light / light / standard /
+high-risk / critical は **個々のタスクの risk / complexity を分類する別軸**であり、
+導入 Phase の別名ではない。導入レベル・mode・gate の概念をさらに増やさず、
+必要になった段階で詳細を開示する。
+
+| 用語 | このガイドでの意味 |
+| --- | --- |
+| Phase 0〜3 | 導入タイムライン / 習熟ステップ |
+| Level 1〜5 | capability の段階的採用 |
+| Task Mode | タスクごとの risk / complexity 分類 |
+| C-X / V-X / WF-XX / EH-X | workflow 内の制御点・識別子 |
+
+外部連携を含む成長方針は
+[Adoption UX & Ecosystem Roadmap](./pages/explanation/product/adoption-and-ecosystem-roadmap.md)
+を参照。
+
+| フェーズ | いつ | 推奨初期モード | ゲート | 主目的 |
+|---------|------|----------------|--------|--------|
 | Phase 0 | Day 1 | ultra-light | なし | 体験する |
 | Phase 1 | Week 1 | light | C-1 簡易 | 計画を書く |
 | Phase 2 | Week 2-3 | standard | C-1 + C-3 | ゲートで止める |

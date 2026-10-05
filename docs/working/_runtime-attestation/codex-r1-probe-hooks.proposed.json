@@ -1,0 +1,39 @@
+{
+  "description": "PROPOSAL ONLY — R1 Codex Explorer lifecycle candidate hooks. Do not install automatically.",
+  "contract_stage": "r1-codex-probe-candidate-v1",
+  "security_notes": [
+    "This records lifecycle observations only; it does not establish strong runtime attestation.",
+    "The output file must be outside the repository, typically under RUNNER_TEMP.",
+    "request_hash/config_sha/provider environment values are bindings, not secrets.",
+    "A future trusted execution root plus Codex JSONL correlation is required before runtime_probe_attestation_verified may become true.",
+    "This is a project hook, not a managed hook. Strong attestation may require an independently administered managed-hook root or equivalent external execution root."
+  ],
+  "hooks": {
+    "SubagentStart": [
+      {
+        "matcher": "^explorer_agent$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 scripts/ai-loop/runtime_evidence_codex_probe_candidate.py record-hook --repo-root \"$GITHUB_WORKSPACE\" --output \"$RUNNER_TEMP/r1-codex-hooks.jsonl\" --request-hash \"$PLANGATE_R1_REQUEST_HASH\" --config-sha \"$PLANGATE_R1_CONFIG_SHA\" --provider \"$PLANGATE_R1_PROVIDER\"",
+            "timeout": 10,
+            "statusMessage": "Recording R1 Explorer start candidate"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "^explorer_agent$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 scripts/ai-loop/runtime_evidence_codex_probe_candidate.py record-hook --repo-root \"$GITHUB_WORKSPACE\" --output \"$RUNNER_TEMP/r1-codex-hooks.jsonl\" --request-hash \"$PLANGATE_R1_REQUEST_HASH\" --config-sha \"$PLANGATE_R1_CONFIG_SHA\" --provider \"$PLANGATE_R1_PROVIDER\"",
+            "timeout": 10,
+            "statusMessage": "Recording R1 Explorer stop candidate"
+          }
+        ]
+      }
+    ]
+  }
+}

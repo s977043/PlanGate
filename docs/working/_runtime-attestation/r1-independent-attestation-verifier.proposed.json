@@ -1,0 +1,71 @@
+{
+  "description": "PROPOSAL/CONTRACT — #1468 repository-local verification-command slice. Attestation lookup ownership (`--repo`) and signer authority (`--signer-repo` / `--signer-workflow`) are separate. A successful gh attestation verify invocation under an exact pinned policy is candidate Evidence only; cryptographic promotion requires independently attested verifier binary/execution provenance and an independently administered boundary.",
+  "contract_stage": "r1-independent-attestation-verifier-command-candidate-v1",
+  "execution_policy": {
+    "command": "gh attestation verify",
+    "mutation": false,
+    "required": [
+      "--repo",
+      "--signer-repo",
+      "--signer-workflow",
+      "--source-digest",
+      "--signer-digest",
+      "--source-ref",
+      "--cert-oidc-issuer",
+      "--predicate-type",
+      "--deny-self-hosted-runners",
+      "--format json"
+    ],
+    "predicate_type": "https://slsa.dev/provenance/v1",
+    "oidc_issuer": "https://token.actions.githubusercontent.com",
+    "self_hosted_runner_denied_requested": true,
+    "attestation_repo_and_signer_repo_are_separate": true,
+    "source_digest_and_signer_digest_are_independently_pinned": true,
+    "trust_root_policy": "use GitHub CLI supported default trust roots; no custom trusted-root override in this candidate slice",
+    "public_repository_compatible": true
+  },
+  "candidate_evidence": [
+    "exact_verifier_policy_bound_candidate",
+    "gh_attestation_verify_exit_success_candidate",
+    "capture_manifest_artifact_binding_candidate",
+    "signer_workflow_policy_requested_candidate",
+    "source_digest_policy_requested_candidate",
+    "signer_digest_policy_requested_candidate",
+    "self_hosted_runner_denial_requested_candidate"
+  ],
+  "promotion": {
+    "must_remain_false_until_independent_verifier_proof": [
+      "gh_attestation_cli_execution_verified",
+      "artifact_digest_cryptographically_verified",
+      "attestation_signature_cryptographically_verified",
+      "signer_certificate_identity_verified",
+      "verified_timestamp_cryptographically_verified",
+      "signer_workflow_policy_verified",
+      "source_digest_policy_verified",
+      "self_hosted_runner_denial_verified",
+      "capture_manifest_artifact_attestation_verified",
+      "independent_admin_boundary_verified",
+      "independent_verifier_execution_attested",
+      "managed_hook_root_attested",
+      "same_run_identity_verified",
+      "codex_jsonl_runtime_correlation_verified",
+      "hard_read_only_enforced",
+      "runtime_probe_attestation_verified",
+      "human_rollout_decision_verified",
+      "dispatch_ready",
+      "dispatch_allowed"
+    ]
+  },
+  "trust_notes": {
+    "statement_predicate_is_not_authority": true,
+    "exact_artifact_subject_digest_required": true,
+    "repository_local_gh_success_is_not_crypto_authority": true,
+    "gh_binary_and_execution_provenance_still_required": true,
+    "runtime_text_never_becomes_policy": true,
+    "external_admin_boundary_is_separate_gate": true,
+    "attestation_owner_is_not_signer_authority": true,
+    "reusable_signer_repository_may_differ_from_attestation_repository": true,
+    "public_repository_attestations_may_use_sigstore_public_good": true,
+    "no_public_good_is_not_forced": true
+  }
+}

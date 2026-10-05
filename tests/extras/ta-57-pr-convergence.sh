@@ -693,7 +693,31 @@ PYEOF
   # shape の正本 schemas/plan-contract.schema.json も配布物に含まれない。
   _T57_NONDIST_DECL='corpus_hash.py reason: enforcement scope（scripts/hooks/** 等）が plugin 配布物に含まれず導入先で値が一致しないため上流専用 (#1299)
 test_corpus_hash.py reason: corpus_hash.py が上流専用のため同伴して非配布 (#1299)
-plan_contract.py reason: REPO 相対パス解決が上流レイアウト前提で bundled 配置では導入先の TASK dir を常に拒否するため上流専用 (#1403)'
+plan_contract.py reason: REPO 相対パス解決が上流レイアウト前提で bundled 配置では導入先の TASK dir を常に拒否するため上流専用 (#1403)
+runtime_evidence_dispatch_readiness.py reason: R1 shadow/PoC の上流検証専用で plugin rollout 未承認のため非配布 (#1448)
+runtime_evidence_external_trust.py reason: R1 shadow/PoC の上流検証専用で plugin rollout 未承認のため非配布 (#1448)
+runtime_evidence_ingress.py reason: R0/R1 shadow/PoC の上流検証専用で plugin rollout 未承認のため非配布 (#1448)
+runtime_evidence_investigation.py reason: R1 shadow/PoC の上流検証専用で plugin rollout 未承認のため非配布 (#1448)
+runtime_evidence_request_bound_canary.py reason: request-bound R1 canary はHO workflow未適用の上流検証専用で非配布 (#1448)
+runtime_evidence_codex_probe_candidate.py reason: Codex R1 lifecycle probe はcandidate-onlyの上流検証専用で plugin rollout 未承認のため非配布 (#1448)
+runtime_evidence_codex_jsonl_correlation.py reason: Codex exec JSONL 相関はcandidate-onlyの上流検証専用で plugin rollout 未承認のため非配布 (#1448)
+test_runtime_evidence_dispatch_readiness.py reason: 非配布 runtime_evidence_dispatch_readiness.py の上流検証用 test のため非配布 (#1448)
+test_runtime_evidence_external_trust.py reason: 非配布 runtime_evidence_external_trust.py の上流検証用 test のため非配布 (#1448)
+test_runtime_evidence_ingress.py reason: 非配布 runtime_evidence_ingress.py の上流検証用 test のため非配布 (#1448)
+test_runtime_evidence_investigation.py reason: 非配布 runtime_evidence_investigation.py の上流検証用 test のため非配布 (#1448)
+test_runtime_evidence_request_bound_canary.py reason: 非配布 runtime_evidence_request_bound_canary.py の上流検証用 test のため非配布 (#1448)
+test_runtime_evidence_codex_probe_candidate.py reason: 非配布 runtime_evidence_codex_probe_candidate.py の上流検証用 test のため非配布 (#1448)
+test_runtime_evidence_codex_jsonl_correlation.py reason: 非配布 runtime_evidence_codex_jsonl_correlation.py の上流検証用 test のため非配布 (#1448)
+runtime_evidence_codex_managed_capture_manifest.py reason: Codex managed capture manifest はcandidate-onlyの上流検証専用で plugin rollout 未承認のため非配布 (#1448)
+test_runtime_evidence_codex_managed_capture_manifest.py reason: 非配布 runtime_evidence_codex_managed_capture_manifest.py の上流検証用 test のため非配布 (#1448)
+runtime_evidence_github_attestation_receipt.py reason: GitHub attestation receipt はcandidate-onlyの上流検証専用で plugin rollout 未承認のため非配布 (#1448)
+test_runtime_evidence_github_attestation_receipt.py reason: 非配布 runtime_evidence_github_attestation_receipt.py の上流検証用 test のため非配布 (#1448)
+runtime_evidence_independent_attestation_verifier.py reason: #1468 のcryptographic verifier sliceは独立管理境界の実証前で上流検証専用のため非配布 (#1468)
+test_runtime_evidence_independent_attestation_verifier.py reason: 非配布 runtime_evidence_independent_attestation_verifier.py の上流検証用 test のため非配布 (#1468)
+runtime_evidence_external_verifier_receipt.py reason: #1468 のexternal receipt nonce/freshness binding candidateは独立管理境界の実証前で上流検証専用のため非配布 (#1468)
+test_runtime_evidence_external_verifier_receipt.py reason: 非配布 runtime_evidence_external_verifier_receipt.py の上流検証用 test のため非配布 (#1468)
+runtime_evidence_external_admin_admission.py reason: #1473 のexternal admin admission candidateは独立管理Evidenceの実証前で上流検証専用のため非配布 (#1473)
+test_runtime_evidence_external_admin_admission.py reason: 非配布 runtime_evidence_external_admin_admission.py の上流検証用 test のため非配布 (#1473)'
 
   _t57_audit="$_t57_tmp/allowlist_audit.py"
   cat > "$_t57_audit" <<'PY_T57_AUDIT'

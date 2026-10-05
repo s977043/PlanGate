@@ -1,0 +1,761 @@
+# Evidence Certification View and Risk-Based Evidence / Review Routing
+
+> **Status**: Design guide for issue #1458. Non-canon; existing ai-loop V2 canon takes precedence.
+> **Source**: Anthropic, "How to prepare for AI-driven code modernization projects".
+> **Scope**: Reuse existing ai-loop V2 artifacts and authority. Do not introduce a new authoritative Certificate artifact, lifecycle state, verdict, or promotion authority.
+
+## 1. Why this exists
+
+AI can produce code changes faster than a Human can review every diff in depth. The resulting bottleneck moves from code generation toward proving correctness, selecting the right review depth, and deciding whether a change may advance.
+
+ai-loop V2 already has the core primitives needed for this:
+
+- `VerificationResult`: immutable verifier output bound to the verified target;
+- `RunEvidence`: deterministic per-Run projection used for audit / learning / later evidence composition;
+- Policy Verdict: `AUTO_APPROVED | HUMAN_REQUIRED | DENIED`;
+- `PromotionDecision` for Harness Evolution;
+- Human-owned C-4 / Merge / Production Harness promotion;
+- River Review as an external source of independent review / verification evidence.
+
+The design goal is therefore not to copy Anthropic's vocabulary as another SSoT. It is to add a **composition rule** for existing evidence and policy.
+
+### Terminology mapping
+
+Anthropic uses **Promotion Policy** broadly for deciding how a change advances. In ai-loop V2, `PromotionDecision` is already an Evolution-specific term. To avoid semantic collision, this guide uses:
+
+- **Certification View** for the source concept `Certificate`;
+- **risk-based evidence / review routing** for the Delivery-side part of Anthropic's `Promotion Policy`;
+- existing **Policy Verdict / Decision Engine** for Delivery decisions;
+- existing **PromotionDecision** only for Harness Evolution.
+
+```text
+Anthropic "Promotion Policy"
+  -> Delivery: existing Policy / Decision + evidence/review routing
+  -> Evolution: existing PromotionDecision + Human-owned Production promotion
+```
+
+No shared new "promotion" abstraction is introduced across Delivery and Evolution.
+
+## 2. Core model
+
+Anthropic's `Certificate` maps to a non-authoritative **Certification View**.
+
+```text
+Target / Contract
+  + RunState / run binding
+  + VerificationResult[]
+  + policy-required evidence
+  + eligible external evidence refs
+      |
+      v
+Certification View (projection only)
+      |
+      v
+existing Policy / Decision boundary
+```
+
+The Certification View answers:
+
+> For this exact target and exact revision, which policy-required claims are backed by applicable evidence, which are not, and which remain unresolved?
+
+It does **not** answer "may this change merge?" by itself.
+
+### 2.1 Projection-only rule
+
+The Certification View MUST NOT emit or own:
+
+- Policy Verdict;
+- Lifecycle State;
+- Terminal Outcome;
+- Stop Reason;
+- `PromotionDecision`;
+- C-4 / Merge / Production Harness authority.
+
+It may expose the inputs needed by the existing Policy / Decision boundary, but the projection itself never mints authority.
+
+### 2.2 No new SSoT
+
+The view MUST be reproducible from existing authoritative inputs.
+
+It MUST NOT become:
+
+- a new mutable source of truth;
+- a replacement for `VerificationResult`;
+- a replacement for `RunEvidence`;
+- a replacement for Policy Verdict;
+- a second `PromotionDecision`;
+- a way to bypass C-4 / Merge / Production Harness promotion.
+
+If persisted for debugging or Human-facing projection, it is cache/report material only and is invalid when its bound inputs change.
+
+### 2.3 Composition procedure
+
+A future implementation should remain mechanically simple:
+
+```text
+1. resolve exact target identity
+2. resolve existing policy identity + required evidence set
+3. collect referenced VerificationResult / current run binding / eligible external evidence
+4. discard or mark gaps for evidence that is not eligible for this target
+5. project satisfied claims + unresolved / missing claims + provenance refs
+6. existing Policy / Decision boundary consumes the projection as input
+7. re-check target identity before the resulting action is used
+```
+
+Steps 1-5 are certification composition. Step 6 remains Policy / Decision responsibility. Step 7 remains the consuming action boundary's responsibility.
+
+The Certification View must not implement its own merge, approval, terminal-state, or PromotionDecision logic.
+
+## 3. Certification inputs
+
+A Certification View should project at least the following concerns when they are applicable to the target.
+
+| Concern | Existing evidence owner |
+|---|---|
+| acceptance / behavioral correctness | deterministic / specification `VerificationResult` |
+| build / type / lint / static checks | deterministic `VerificationResult` |
+| security / policy | security verifier / policy evidence |
+| E2E / runtime behavior | bound verifier evidence / external observation |
+| independent review | independent reviewer or River Review evidence |
+| current Run identity / state binding | `RunState` + existing run binding |
+| completed / historical Run provenance | `RunEvidence` / RunEvent projection |
+| Plan / source identity | existing plan hash / source SHA / final head SHA |
+| Harness identity | `harness_manifest_ref` |
+| Evolution evaluation | `HarnessExperimentResult` + `PromotionDecision` |
+
+### 3.1 Active decision vs audit projection
+
+Certification used **during an active Delivery decision** must not require terminal `RunEvidence` as an input to the same decision.
+
+```text
+active decision:
+LoopContract + RunState/binding + VerificationResult[] + policy requirements
+  -> Certification View
+  -> existing Decision Engine / Policy
+  -> RunEvent
+  -> RunEvidence projection
+```
+
+Using a RunEvidence projection that already contains the decision being made as an upstream authority would create circular justification.
+
+`RunEvidence` is still useful for:
+
+- Human-facing post-run audit;
+- Evolution input;
+- later cross-run analysis;
+- reconstructing which evidence and decisions occurred.
+
+If an implementation exposes a partial/current RunEvidence projection, it remains a derived convenience view. The current decision must still be justified by the underlying binding / VerificationResult / policy inputs, not by the projection's own summary.
+
+### 3.2 Required-evidence ownership
+
+The **required evidence set is a LoopContract / existing policy input**, not Builder output and not Certification View output.
+
+Certification MUST NOT widen the active Decision Engine's required-verifier semantics on its own.
+
+For the current Delivery first slice, the Decision Engine plan requires only deterministic verifiers in `required_verifiers`. Results of kind `specification | independent_model | policy` may exist as recorded evidence, but they do not become required decision inputs merely because Certification can display them.
+
+```text
+LoopContract / DecisionInput required_verifiers
+  -> authoritative required set for active Delivery
+
+Certification View
+  -> project that set
+  -> may show additional eligible evidence as supplemental
+  -> MUST NOT promote supplemental evidence into a new required gate
+```
+
+When a future policy/contract revision legitimately adds another required verifier kind, Certification follows that authoritative contract change rather than anticipating it.
+
+A Builder / change author may report target characteristics, but MUST NOT be the sole authority that:
+
+- lowers required verifier coverage;
+- removes independent review;
+- marks a protected surface as low risk;
+- narrows a verifier set;
+- changes the Evaluation Trust Boundary.
+
+Where the required-evidence set is derived dynamically, its derivation rule / LoopContract / policy identity must be traceable. Missing or unverifiable policy input is not permission to use a weaker set.
+
+Conversely, Certification must not invent a stricter required set outside the existing contract. A stricter requirement belongs in the policy / LoopContract change path, with its existing review and authority boundaries.
+
+## 4. Evidence eligibility, binding, and invalidation
+
+Evidence existence alone is insufficient. Evidence is eligible for a certification projection only when the existing system can justify that it applies to the exact claim and target being evaluated.
+
+The projection must preserve existing binding where available:
+
+- Plan / Contract identity;
+- source SHA / final head SHA;
+- artifact or target hash;
+- HarnessManifest identity;
+- verifier identity and kind;
+- evaluation-plan / fixture binding for Evolution;
+- policy / verifier-set identity when it controls required evidence.
+
+A Certification View MUST NOT combine evidence from different revisions merely because the test names or task IDs look similar.
+
+### 4.1 Evidence eligibility dimensions
+
+Without defining a new persisted status vocabulary, certification composition must check the applicable existing guarantees for:
+
+1. **Applicability** — the evidence proves the required claim, not merely an adjacent claim.
+2. **Identity binding** — the evidence is bound to the relevant Plan / source / head / artifact / Harness identity.
+3. **Provenance and integrity** — the evidence source is known and any required hash / attestation / trusted execution property is satisfied.
+4. **Freshness** — no bound input changed in a way that invalidates applicability.
+5. **Independence** — when policy or the Evaluation Trust Boundary requires independent evidence, the supplied review meets that requirement.
+6. **Availability / completeness** — required evidence was actually produced; missing or unavailable verification is not PASS.
+
+These are composition checks over existing contracts. They do not create a new authoritative `evidence_trust` object by themselves.
+
+### 4.2 Aggregation is not voting
+
+Certification composition must not turn multiple verifier outputs into a majority vote or averaged confidence score.
+
+The existing Delivery direction already establishes that a deterministic verifier FAIL remains blocking even when a model-based verifier says PASS. Certification preserves that asymmetry.
+
+```text
+required verifier A: deterministic FAIL
+required verifier B: independent_model PASS
+
+!= "1-1 tie"
+!= averaged PASS
+=> A remains unsatisfied / blocking under existing Decision rules
+```
+
+Rules:
+
+- evaluate each **policy-required verifier / claim** independently;
+- do not let extra optional PASS results cancel a required FAIL;
+- `unavailable` / `inconclusive` on a required item remains unresolved under existing policy;
+- duplicate refs or repeated summaries do not increase source independence;
+- multiple reports derived from the same underlying evidence do not become multiple independent confirmations;
+- a higher-independence requirement cannot be satisfied by relabeling same-context / same-source outputs;
+- Certification View reports the evidence structure; the existing Decision Engine / Policy owns the final continuation behavior.
+
+This keeps certification from becoming a new scoring system.
+
+### 4.3 Stale evidence
+
+The view becomes stale when a bound input changes. Reuse requires re-verification or an existing verifier-specific rule that proves the previous evidence still applies.
+
+```text
+changed bound input
+  -> previous certification projection invalid
+  -> verify applicability / re-run as required
+  -> build a new projection
+```
+
+A timestamp alone does not make evidence current. Freshness is relative to the identity / target that the evidence claims to verify.
+
+### 4.4 Decision-to-use binding
+
+Certification is vulnerable to a time-of-check / time-of-use gap if the target changes after evidence is composed but before the existing promotion / merge decision is used.
+
+Therefore the consuming Policy / Decision path must re-check the relevant target identity at the point where its decision is acted upon.
+
+At minimum:
+
+```text
+certified head / plan / policy identity
+  == identity consumed by the decision/action
+```
+
+A certification projection for head A MUST NOT authorize an action on head B. The view itself does not implement the action; it exposes the binding that the existing decision/action boundary must verify.
+
+## 5. Risk-based evidence / review routing
+
+This section maps the Delivery-side intent of Anthropic's Promotion Policy onto existing ai-loop V2 policy.
+
+The purpose of risk is to select **required evidence and Human attention**, not to create authority or a new Delivery promotion state.
+
+Relevant policy inputs include:
+
+- blast radius;
+- reversibility / irreversibility;
+- security / permission / approval boundary impact;
+- data or privacy impact;
+- uncertainty and evidence quality;
+- whether a protected Gate / Verifier / Policy surface changes;
+- whether independent review is required by existing trust-boundary rules.
+
+An illustrative policy shape is:
+
+| Risk shape | Evidence / review posture |
+|---|---|
+| bounded + reversible + deterministic evidence strong | existing automated path may continue **only when existing policy already permits it** |
+| moderate impact or material uncertainty | require stronger independent evidence and targeted Human attention |
+| high blast radius / irreversible / security-sensitive | existing policy should resolve to Human-required handling |
+| protected authority / Gate / Verifier weakening | existing Human-owned rules apply; risk classification cannot relax them |
+| evidence unavailable / unbound / stale | fail closed; do not treat absence as PASS |
+
+These rows are guidance, not a new persisted risk taxonomy and not a new verdict table.
+
+### 5.1 Risk input is not self-authorizing
+
+A risk label produced by the same Agent that authored the change is a **claim**, not trusted authority.
+
+The policy owner must decide how risk inputs are established, for example through deterministic path/rule classification, protected metadata, or sufficiently independent review. If trustworthy classification is unavailable, the system must not choose a less restrictive path on that basis.
+
+### 5.2 Monotonic safety rule
+
+A lower risk classification MUST NOT remove an invariant already required by canon or protected authority.
+
+```text
+risk classification
+  -> may add evidence / review requirements
+  -> may route Human attention
+  -> MUST NOT weaken protected requirements
+```
+
+### 5.3 Ceremony budget
+
+Certification is **policy-shaped**, not a fixed universal checklist.
+
+A small, bounded change should not be forced to produce security, performance, E2E, independent-review, and runtime evidence when existing policy does not require those claims.
+
+```text
+all possible evidence
+  != required evidence for every change
+
+required evidence
+  = existing policy requirements for this exact target
+```
+
+An inapplicable concern is not a missing verifier result. Conversely, a policy-required verifier that is unavailable must not be relabeled "not applicable" to make the view green.
+
+This prevents Certification View from becoming another heavyweight planning artifact.
+
+## 6. Delivery and Evolution stay separate
+
+### Delivery
+
+Certification supports the existing Delivery contract up to `MERGE_READY`.
+
+```text
+Execute
+  -> Verify
+  -> Evidence
+  -> Certification View
+  -> existing Policy / Decision logic
+  -> MERGE_READY or stop/escalate
+  -> Human C-4 / Merge
+```
+
+`MERGE_READY` keeps its current meaning.
+
+### Evolution
+
+Harness changes use the existing Evaluation Trust Boundary and ratchet flow.
+
+```text
+FailureRecord / RunEvidence
+  -> HarnessImprovementCandidate
+  -> paired evaluation
+  -> HarnessExperimentResult
+  -> PromotionDecision
+  -> Promotion Ready
+  -> Human-owned Production promotion
+```
+
+Delivery certification MUST NOT be reused as proof that a Harness Candidate is safe to promote.
+
+## 7. River Review boundary
+
+River Review can provide independent review / verification evidence **only to the degree that its output is bound and trusted under the consuming policy**.
+
+A PR comment, report URL, or `PASS` string alone is not sufficient independent evidence. The consumer must be able to establish the required target binding (for example the reviewed head / artifact identity) and the independence level required for that decision.
+
+River Review does not own:
+
+- PlanGate Policy Verdict;
+- Delivery terminal state;
+- C-4;
+- Merge;
+- Production Harness promotion.
+
+```text
+River Review
+  -> bound finding / verification evidence
+  -> PlanGate checks applicability / provenance / required independence
+  -> PlanGate policy / decision boundary decides
+```
+
+This keeps review knowledge and independent Quality Control separate from promotion authority.
+
+## 8. Repair the workflow, not only the output
+
+Repeated failures should not be handled only by patching the current output.
+
+```text
+repeated / material failure
+  -> FailureRecord / RunEvidence
+  -> systemic cause hypothesis
+  -> HarnessImprovementCandidate
+  -> independent evaluation
+  -> canary
+  -> Promotion Ready
+```
+
+This is the existing Evolution Loop. No live self-modification is introduced.
+
+A current-Run repair may still be necessary to complete Delivery. The principle is additive:
+
+- repair the current output when the Delivery contract permits it;
+- when the failure reveals a repeated/systemic Harness weakness, create a separate Evolution Candidate;
+- do not mutate the active Harness to fix the current Run.
+
+## 9. Pilot before scale
+
+Adoption should progress through bounded stages.
+
+1. **Shadow projection**
+   - compute/read the evidence composition without changing Gate behavior;
+   - compare projected missing evidence with current Human review findings.
+2. **Human-facing compression**
+   - show required claims, evidence refs, unresolved gaps, and risk drivers;
+   - keep full provenance reachable.
+3. **Policy-assisted routing**
+   - the **existing Policy layer**, not Certification View itself, consumes eligible evidence / risk inputs to select stronger verifier, independent review, or Human attention;
+   - no C-4 or merge authority change.
+4. **Bounded automation**
+   - widen only where existing policy already permits automation and only after paired evaluation;
+   - protected authority remains Human-owned.
+
+Scale is evidence-driven, not based on the number of successful demos.
+
+### 9.1 Shadow consistency oracle
+
+The first shadow implementation needs an oracle that does not depend on subjective Human agreement.
+
+For the same `required_verifiers / verification_results / current_artifact_ref / contract_bound_seq`, the Certification View's required-verifier summary must exactly match the existing Decision Engine `artifact_verdicts(...)` output.
+
+```text
+Decision Engine artifact_verdicts(inputs)
+  ==
+Certification required-verifier projection(inputs)
+```
+
+This is a **consistency oracle**, not a new correctness oracle. The Decision Engine remains authoritative for decision semantics.
+
+The initial fixture set should reuse existing Decision Engine cases where possible, including:
+
+- PASS before `contract_bound_seq` -> unavailable;
+- PASS after the boundary -> pass;
+- deterministic FAIL + later/model PASS -> fail remains blocking;
+- unavailable / inconclusive only -> unavailable;
+- stale / wrong-artifact result -> does not satisfy the current verifier;
+- non-required verifier result -> does not alter the required-verifier map.
+
+Also verify a control invariant:
+
+```text
+Decision output with shadow Certification disabled
+  ==
+Decision output with shadow Certification enabled
+```
+
+for the same authoritative inputs.
+
+A shadow mismatch is a Certification implementation defect or an explicit signal that the upstream Decision contract changed. It must not be "fixed" by silently changing the shadow projection's semantics.
+
+### 9.2 Stage exit conditions
+
+Each stage needs pre-registered exit conditions rather than an informal "looks good" judgment.
+
+**Shadow -> Human-facing compression**
+
+Require at least:
+
+- wrong-head / stale / untrusted / unavailable negative fixtures fail closed;
+- current Gate / verdict behavior is unchanged by shadow execution;
+- projection can always link material claims back to source evidence or explicitly show the gap.
+
+**Human-facing compression -> Policy-assisted routing**
+
+Use the existing Human Attention measurement contract rather than inventing new metrics:
+
+- Decision Extraction Success does not regress;
+- material Visibility Regression = 0;
+- Correctness / Safety are at least baseline;
+- evidence provenance remains reachable;
+- `unavailable` is not converted to zero / PASS.
+
+**Policy-assisted routing -> Bounded automation**
+
+Require at least:
+
+- paired baseline/candidate evaluation under a pre-frozen plan;
+- no critical regression;
+- false-negative / false-positive behavior measured for the target profile;
+- wrong-target / stale-binding negative controls remain fail-closed;
+- Human intervention / attention may improve, but never by weakening correctness, safety, visibility, or protected authority;
+- automation is limited to a surface where existing policy already allows it.
+
+These conditions are evaluation guidance. They do not create a new PromotionDecision or authority level.
+
+### 9.3 Human Attention principle
+
+The purpose of Certification View is to compress evidence for judgment, not hide complexity.
+
+Reuse the existing cross-layer rule:
+
+```text
+Human Attention decreases
+AND
+Correctness / Safety >= baseline
+Critical visibility >= baseline
+No material provenance regression
+No material coverage / verification regression
+```
+
+A shorter review surface is a regression if blockers, uncertainty, incomplete verification, or provenance become harder to discover.
+
+## 10. Minimum verification for this design
+
+Before any runtime implementation, verify at least these negative cases:
+
+- evidence from the wrong head SHA cannot satisfy a requirement;
+- stale evidence after a bound Plan / target change cannot satisfy a requirement;
+- evidence with unknown/untrusted provenance cannot silently become eligible;
+- Builder self-report alone cannot satisfy a requirement;
+- missing / unavailable verifier output cannot become PASS;
+- same-model / same-context review cannot satisfy a higher independence requirement merely because it is labeled "independent";
+- deterministic required FAIL cannot be neutralized by additional model PASS results;
+- duplicate / derived evidence cannot increase independence by count;
+- Builder-supplied risk cannot choose a less restrictive path by itself;
+- risk classification cannot disable protected verification;
+- required verifier-set / policy identity cannot be silently narrowed;
+- a post-certification head change invalidates decision use until rebound / re-verified;
+- River Review output without target binding cannot directly satisfy an independent-review requirement;
+- River Review output cannot directly mint promotion authority;
+- Delivery evidence cannot directly promote a Harness Candidate;
+- Certification projection cannot mutate its authoritative inputs;
+- an inapplicable concern is not forced into a required verifier;
+- a required-but-unavailable verifier cannot be relabeled not-applicable;
+- a shorter Human-facing projection cannot hide blocker / uncertainty / provenance materiality.
+
+## 11. Non-goals
+
+- a new `Certificate.json` SSoT;
+- a new lifecycle state or terminal outcome;
+- a new Policy Verdict;
+- a second PromotionDecision;
+- a new canonical risk taxonomy;
+- a parallel evidence-trust schema invented only for Certification View;
+- automatic C-4 / merge;
+- automatic Production Harness promotion;
+- replacing River Review, Verifier, Decision Engine, or Policy;
+- storing hidden CoT / raw unbounded transcripts.
+
+## 12. Projection semantics
+
+Certification View should not invent a parallel status taxonomy such as `trusted / untrusted / satisfied / unresolved` for required verifier outcomes.
+
+For required Delivery verifiers, reuse the Decision Engine's existing derived `artifact_verdicts` semantics:
+
+```text
+pass
+fail
+unavailable
+```
+
+where the derivation already accounts for current artifact binding and contract-boundary behavior.
+
+The view may preserve the underlying raw VerificationResult statuses (`pass | fail | unavailable | inconclusive`) through refs or detail, but the required-verifier summary used for Delivery consistency should match the existing `artifact_verdicts(...)` result for the same inputs.
+
+An illustrative non-authoritative projection is:
+
+```text
+target_ref
+loop_contract_ref
+required_verifiers:
+  - verifier_id
+    kind
+    artifact_verdict: pass | fail | unavailable
+    supporting_verification_refs[]
+supplemental_evidence_refs[]
+```
+
+This is a semantic example, not a new schema.
+
+Important constraints:
+
+- `inconclusive` is not silently converted to PASS; under the existing artifact-verdict derivation it contributes to `unavailable` when no bound PASS/FAIL decides the verifier;
+- ignored / stale / non-required results may remain reachable for audit, but do not change the required-verifier summary;
+- the view must not create another confidence score;
+- the view must not copy free-form evidence bodies when refs are sufficient;
+- machine and Human presentations must be projections of the same derived verifier state, not separate judgment implementations.
+
+## 13. Implementation seam
+
+A future runtime slice should reuse the contracts already being defined for Delivery V2 rather than invent a Certification schema first.
+
+### 13.1 Dependency maturity / preflight
+
+The current `main` contains a provisional `scripts/ai-loop-v2/decision_core.py`. The #1393 owner plan explicitly intends to rebuild/replace that provisional core and defines a richer `DecisionInput` / `artifact_verdicts(...)` contract.
+
+Therefore the first Certification implementation MUST NOT freeze a dependency on provisional private helpers or copy their current logic as a second implementation.
+
+Preflight before a production-path implementation:
+
+- identify the owner-backed #1393 Decision contract actually present on the implementation base;
+- confirm there is a stable public way to derive the required-verifier artifact verdicts, or add that API through the Decision owner rather than duplicating it in Certification;
+- re-check caller / fixture migration state around `delivery_runtime.py` and `test_delivery_v2.py`;
+- re-check static execution-boundary coverage for the chosen module path;
+- if the owner contract is not yet consumable, keep Certification as a **non-authoritative executable specification / shadow parity test**, not a runtime dependency.
+
+```text
+provisional Decision implementation
+  != stable Certification dependency
+
+owner-backed Decision contract
+  -> stable verdict derivation seam
+  -> Certification runtime projection
+```
+
+Certification must not become the reason an obsolete provisional Decision API survives.
+
+### 13.2 Placement and execution-boundary coverage
+
+A read-only projection can still become unsafe if it is placed in a runtime directory that existing static checks do not actually scan.
+
+Existing V2 planning has already identified a relevant hazard: `scripts/ai-loop-v2/` has not always been covered by the same execution-boundary checks as the older `scripts/ai-loop/` surface. A green check that never scanned the new module is a false green.
+
+Therefore the first implementation must choose one of two explicit modes.
+
+**Mode A — executable specification / shadow fixture**
+
+Use when the owner-backed Decision API or execution-boundary coverage is not ready.
+
+- no production runtime import;
+- no Decision / State / Event write path;
+- test / fixture only;
+- parity against the owner Decision semantics;
+- clearly marked non-authoritative.
+
+**Mode B — runtime shadow projection**
+
+Allowed only when all of the following are demonstrated:
+
+- chosen module path is covered by the relevant static execution-boundary checks;
+- a planted positive control proves the boundary check actually fails on a forbidden operation;
+- the module import surface is allowlisted narrowly;
+- production callers consume projection output for observation only;
+- Decision behavior is byte/semantic equivalent with the shadow projection disabled.
+
+If extending boundary checks touches Human-owned / Hardening Override paths, that extension follows the existing Human-owned process rather than being bypassed to land Certification.
+
+```text
+runtime location
+  + scanner includes location
+  + positive control fails as expected
+  = meaningful boundary evidence
+```
+
+"CI is green" without the path-coverage positive control is not sufficient evidence for Mode B.
+
+Existing `VerificationResult` work already defines the minimum machine-facing shape as:
+
+```text
+verification_ref
+verifier_id
+kind: deterministic | specification | independent_model | policy
+status: pass | fail | unavailable | inconclusive
+bound_artifact_ref
+```
+
+and existing canon binds VerificationResult to artifact / source / head identity.
+
+The first executable Certification slice should therefore be a **pure projection function** over existing inputs, for example:
+
+```text
+composeCertification(
+  loopContract,
+  runStateOrBinding,
+  verificationResults,
+  policyRequirements,
+  externalEvidenceRefs
+) -> human/machine-readable projection
+```
+
+The exact function / field names are illustrative and non-normative. The implementation constraints are normative:
+
+- no write path;
+- deterministic for identical authoritative inputs;
+- no network fetch inside the pure projection step;
+- no majority-vote / confidence-averaging decision logic;
+- no widening or narrowing of `required_verifiers`;
+- unknown / missing required input stays unresolved rather than defaulting to PASS;
+- no Policy Verdict / Terminal Outcome generation;
+- no merge / approval / PromotionDecision side effect;
+- output carries refs back to the authoritative source records rather than copying unbounded evidence bodies;
+- active Delivery composition does not use its own downstream RunEvidence / decision summary as authority.
+
+This gives a small first vertical slice that can be shadow-evaluated before any routing behavior changes.
+
+Recommended first implementation order:
+
+```text
+0. dependency preflight: owner-backed Decision verdict API consumable?
+   NO  -> executable-spec / parity fixtures only
+   YES -> continue
+1. pure composeCertification projection
+2. unit fixtures reusing Decision Engine artifact-verdict cases
+3. shadow parity check: certification map == artifact_verdicts
+4. no-behavior-change E2E control
+5. Human-facing projection evaluation
+6. only then consider policy-assisted routing
+```
+
+Do not implement routing and projection in the same first slice; otherwise a parity defect can immediately alter control flow.
+
+### 13.3 Stop and rollback contract
+
+The first shadow slice should be cheap to remove and should not require state migration.
+
+**Mode A — executable specification**
+
+Rollback is simply reverting/removing the non-authoritative test/spec change. There is no runtime state, authority, or persisted Certification SSoT to migrate.
+
+**Mode B — runtime shadow projection**
+
+The projection remains observational. A mismatch or failure must not fall back to "best effort" and must not alter Decision behavior.
+
+Stop the rollout / revert the shadow integration when any of these occur:
+
+- Certification required-verifier map differs from owner Decision `artifact_verdicts(...)` for identical inputs;
+- enabling shadow changes Decision output, event ordering, state transition, or terminal outcome;
+- target / contract binding cannot be established;
+- static execution-boundary coverage or its positive control fails;
+- owner-backed Decision contract changes and parity has not been re-established;
+- Human-facing compression hides a material blocker, uncertainty, or provenance reference.
+
+Rollback requirements:
+
+- no data migration;
+- no rewrite of RunEvent / RunEvidence history;
+- no downgrade of existing verifier evidence;
+- revert/disable only the shadow projection consumer;
+- existing Decision / State / Event path remains the fallback because it was never replaced.
+
+```text
+shadow failure
+  -> stop observing / revert shadow integration
+  -> existing Decision path unchanged
+```
+
+The first slice should not add a new global feature-flag/configuration system solely for Certification. If a later policy-assisted routing slice needs staged activation, it must define that activation and rollback through the existing policy/autonomy mechanisms or justify a new mechanism separately.
+
+**Policy-assisted routing is a separate change class.** It requires a separate Issue / Plan / review because it can change which verifier/reviewer/Human attention path is selected. Its rollback cannot be inferred from the read-only shadow slice.
+
+## 14. Relationship to existing V2 docs
+
+This guide is subordinate to:
+
+- `north-star.md` — Human Attention, Evidence before judgment, Delivery/Evolution boundaries;
+- `artifact-responsibilities.md` — `VerificationResult`, `RunEvidence`, Decision responsibility;
+- `evaluation-trust-boundary.md` — independent evaluation, protected authority, `INCONCLUSIVE`;
+- `ratchet-traceability.md` — evidence-backed Harness improvement and promotion handoff.
+
+If this guide conflicts with canon, canon wins.
