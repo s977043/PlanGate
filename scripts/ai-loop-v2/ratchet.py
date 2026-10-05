@@ -408,6 +408,12 @@ def evaluate_verification_skipped(bundle, sealed_plan):
     known_id = sealed_plan.get("known_bad_fixture_id")
     negative_id = sealed_plan.get("negative_control_fixture_id")
     mutant_ids = sealed_plan.get("known_mutant_fixture_ids")
+    critical_conditions = sealed_plan.get("critical_regression_conditions")
+    required_critical_conditions = {
+        "known_bad_not_stopped",
+        "negative_control_blocked",
+        "baseline_detection_power_regression",
+    }
     if (
         not known_id
         or not negative_id
@@ -422,6 +428,8 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             for fixture_id in mutant_ids
         )
         or len(set(mutant_ids)) != len(mutant_ids)
+        or not isinstance(critical_conditions, list)
+        or not required_critical_conditions.issubset(critical_conditions)
         or sealed_plan.get("required_activation", "influenced_decision")
         not in ACTIVATION
     ):
