@@ -523,6 +523,18 @@ class RatchetVerticalSliceTests(unittest.TestCase):
                     result, "INCONCLUSIVE", "EVALUATION_PLAN_INCOMPLETE"
                 )
 
+    def test_detection_power_regression_must_be_pre_registered(self):
+        value = copy.deepcopy(self.base)
+        plan = value["sealed_evaluation_plan"]
+        plan["critical_regression_conditions"].remove(
+            "baseline_detection_power_regression"
+        )
+        value["candidate"]["evaluation_plan_digest"] = canonical_digest(plan)
+        result = self.evaluate_bound(value)
+        self.assertResult(
+            result, "INCONCLUSIVE", "EVALUATION_PLAN_INCOMPLETE"
+        )
+
     def test_known_mutant_set_must_be_sealed_and_unique(self):
         for case in ("missing", "empty", "duplicate", "unsealed"):
             with self.subTest(case=case):
