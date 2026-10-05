@@ -37,7 +37,7 @@
       "failure_instance_refs": [
         {
           "run_id": "run:verification-skipped:source-1",
-          "event_ref": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "event_ref": "sha256:d8b4b2e729af6af3a2a6c7e08183a1e6808ebf718a8d4a181ecb837c5d834c4b",
           "failure_record_ref": "sha256:98f79f2951db220899cd1f11621825881000725dcab8c1c7f01bc4932da6cf7c",
           "run_evidence_ref": "sha256:6851f598a8e176e1be1285029a243592b78ae4cc13ce4a40ffd2493e6544fb68"
         }
@@ -46,7 +46,7 @@
         "pattern_id": "pattern:verification-skipped",
         "pattern_version": 1,
         "classifier_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-        "source_set_digest": "sha256:bff15ed7e1e2416509a5676b4c9696a188f9e0273257fb2fbf9cf9c9d1836a4b",
+        "source_set_digest": "sha256:581d6bbca56f2bcb282be5f56bd6cb6a936884452e676d5957fc19a9818a9ca7",
         "fingerprint": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
         "occurrence_count": 1,
         "scope": "project"
@@ -74,7 +74,32 @@
   "sources": [
     {
       "run_id": "run:verification-skipped:source-1",
-      "event_ref": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "event_ref": "sha256:d8b4b2e729af6af3a2a6c7e08183a1e6808ebf718a8d4a181ecb837c5d834c4b",
+      "event": {
+        "schema_version": "1",
+        "run_id": "run:verification-skipped:source-1",
+        "event_seq": 1,
+        "revision": 1,
+        "event_type": "failure_recorded",
+        "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "plan_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "source_sha": "3333333333333333333333333333333333333333",
+        "payload": {
+          "failure": {
+            "id": "failure:verification-skipped:1",
+            "observation": "completion attempted without required verification evidence",
+            "fingerprint": "verification-required-but-missing",
+            "evidence_refs": [
+              "verification:missing",
+              "completion:attempted"
+            ],
+            "cause_hypothesis": "completion gate did not require verification evidence",
+            "repairability": "repairable",
+            "result": "observed"
+          }
+        },
+        "event_ref": "sha256:d8b4b2e729af6af3a2a6c7e08183a1e6808ebf718a8d4a181ecb837c5d834c4b"
+      },
       "failure_record": {
         "id": "failure:verification-skipped:1",
         "observation": "completion attempted without required verification evidence",

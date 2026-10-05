@@ -47,7 +47,9 @@ failure_record_ref: sha256:...
 run_evidence_ref: sha256:...
 ```
 
-`failure_record_ref` and `run_evidence_ref` are recomputed from canonical payloads by the evaluator.
+`event_ref`, `failure_record_ref`, and `run_evidence_ref` are evaluator-verified bindings. The evaluator reuses the owner RunEvent validator to recompute the RunEvent digest, requires a `failure_recorded` event for the same `run_id`, binds its FailureRecord payload to `failure_record`, and requires the RunEvent / RunEvidence `harness_manifest_ref` to agree. It independently recomputes the FailureRecord and RunEvidence content refs.
+
+This does not make Ratchet a second RunEvent-stream validator: stream ordering and cross-event reference rules remain owned by the RunEvent spine. Ratchet consumes one already-materialized content-addressed source event to prove failure-instance identity.
 
 `failure_fingerprint` is a classifier/search hint, not primary identity.
 
@@ -186,6 +188,8 @@ INCONCLUSIVE
 
 - no source failure instance (`SOURCE_INSTANCE_BINDING`)
 - a repeated failure-instance tuple (`SOURCE_INSTANCE_BINDING`)
+- a source `event_ref` that does not match the recomputed RunEvent ref (`SOURCE_FAILURE_BINDING`)
+- a source RunEvent that is not `failure_recorded`, has a different `run_id`, carries a different FailureRecord payload, or disagrees with RunEvidence on `harness_manifest_ref` (`SOURCE_FAILURE_BINDING`)
 - a source `run_id` that differs from its RunEvidence `run_id` (`SOURCE_FAILURE_BINDING`)
 - a pattern snapshot missing `pattern_id` / `pattern_version` / `classifier_digest` / `source_set_digest` (`PATTERN_SNAPSHOT_INCOMPLETE`)
 - a sealed plan that does not pin the digests of the known-bad, negative-control, and known-mutant fixtures (`EVALUATION_PLAN_INCOMPLETE`)
@@ -272,7 +276,7 @@ Raw conversation transcript, hidden CoT, credentials, and unbounded session memo
 The vertical slice verifies:
 
 - evaluator-owned plan digest
-- immutable source provenance
+- immutable source provenance, including owner-validated RunEvent content binding
 - source-set digest
 - evaluator-observed delta
 - sealed fixture integrity
