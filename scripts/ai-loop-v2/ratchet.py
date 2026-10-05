@@ -702,6 +702,7 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             changed_paths=changed_paths,
             paired=paired,
             activation=activation,
+            known_mutants=known_mutants,
         )
     # A control that already fails on the baseline cannot show that the
     # Candidate preserved valid completions.
