@@ -10,31 +10,41 @@ PlanGate の主要リリース履歴。
 
 feat: Intent Context Package v1 と Context Lifecycle を導入し、ai-loop V2 の Delivery runtime と Ratchet を最初の縦切りとして実装する
 
-v8.22.0 タグ以降に main へ蓄積した **33 コミット**を反映する（実測: `git rev-list --count v8.22.0..db91ed16` は 34。
-このうち 1 件は本リリースの準備 commit #1432 / `5ce69a9a` で、収録内容としては数えない）。
+v8.22.0 タグ以降に main へ蓄積した **182 コミット**を反映する（実測: `git rev-list --count v8.22.0..4e4c27b1` は 184。
+このうち 2 件は本リリースの準備 commit #1432 / `5ce69a9a` と #1434 / `d63d3444` で、収録内容としては数えない。
+184 には merge commit 9 件と、merge commit で取り込まれたブランチ上の commit を含む。
+`git rev-list --count --first-parent v8.22.0..4e4c27b1` は 50）。
 主題は **Context の受け渡しを「会話の持ち越し」から「正本 artifact の参照」へ移すこと**と、
-**ai-loop V2 の runtime を最初に動かすこと**。
+**ai-loop V2 の runtime を最初に動かすこと**。2026-10-04 に main へ入った分（`d63d3444..4e4c27b1`）で、
+**AI が feedback / RunEvidence から PBI を起こす経路**（shadow のみ）と、**Runtime Evidence Feedback Loop の
+R0 / R1 candidate**（すべて non-authoritative）が加わった。
 
-- 配布物（`plugin/`）の変更は **12 ファイル・追加 964 行・削除 7 行**
-  （実測: `git diff --shortstat v8.22.0..db91ed16 -- plugin/`）。内訳は SKILL.md 2 本
+- 配布物（`plugin/`）の変更は **24 ファイル・追加 11314 行・削除 24 行**
+  （実測: `git diff --shortstat v8.22.0..4e4c27b1 -- plugin/`）。内訳は SKILL.md 2 本
   （`context-packager` / `working-context`。+56/-0）、#1405 による `ai-loop-cycle` / `ai-dev-exec` /
   `ai-dev-verify` の scripts・references・schema 7 ファイル（+905/-4）、#1432 の version bump 3 ファイル
-  （`plugin.json` 2 本と `README.md`）
-- **`bin/plangate` は変更ゼロ**（実測: `git diff --numstat v8.22.0..db91ed16 -- bin/plangate` が 0 行）
+  （`plugin.json` 2 本と `README.md`）、#1441 / #1443 の rule・references・`ai-loop-cycle` SKILL.md 6 ファイル
+  （+491/-12）、#1443 の PBI materializer / live-shadow collector と test 4 ファイル（+9601/-0）、
+  #1466 / #1470 の `gh_exec.py` と test 2 ファイル（+258/-5）
+  （後半 3 群の実測: `git diff --numstat d63d3444..4e4c27b1 -- plugin/`）
+- **`bin/plangate` は #1481 の 1 件のみ・追加 10 行・削除 3 行**（実測: `git diff --numstat v8.22.0..4e4c27b1 -- bin/plangate`）。
+  `exec` が止まったときの stderr の案内文と `status` の「次の一手」の文言だけで、**gate の判定と exit code は不変**
 - `schemas/` は**追加のみ**（削除行 0）: `context-manifest.schema.json` に任意フィールド `intent_context`、
   **新規** `intent-context-package.schema.json`、`model-profile.schema.json` に任意フィールド `model_id` と
   enum 値 `gpt-6-*`、**新規** `plan-contract.schema.json`、**新規** `plan-deliberation.schema.json`（#1412 / PR #1433）
-  （実測: `git diff --numstat v8.22.0..db91ed16 -- schemas/` → 26/0・328/0・11/0・54/0・737/0。
-  `--name-status` は M・A・M・A・A）
-- 破壊的変更を宣言した commit は **0 件**（実測: `v8.22.0..db91ed16` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
+  （実測: `git diff --numstat v8.22.0..4e4c27b1 -- schemas/` → 26/0・328/0・11/0・54/0・737/0。
+  `--name-status` は M・A・M・A・A。`db91ed16..4e4c27b1` の `schemas/` の差分は 0 行）
+- 破壊的変更を宣言した commit は **0 件**（実測: `v8.22.0..4e4c27b1` の件名 `type!:` と本文 `BREAKING CHANGE` の検索。
+  件名の正規表現は陽性入力 `feat!:` / `fix(a)!:` で 2 件を検出することを確認済み）
 
-（数値はいずれも **基点 `db91ed16` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない）
+（数値はいずれも **基点 `4e4c27b1` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない）
 **PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。
 
 ### ⚠️ 更新前に必ずお読みください
 
-> **対象: `plangate` プラグインを導入している利用者**（1.）と、**ai-loop（`ai-loop-cycle` skill）を
-> 使っている利用者**（2.）。いずれも既存の hook・CLI・schema の必須項目は変えていません。
+> **対象: `plangate` プラグインを導入している利用者**（1. / 3.）、**ai-loop（`ai-loop-cycle` skill）を
+> 使っている利用者**（2. / 4.）、**`bin/plangate` の stderr を機械的に読んでいる利用者**（5.）。
+> いずれも既存の hook・schema の必須項目と、CLI の判定・exit code は変えていません。
 
 #### 1. `working-context` skill に「checkpoint してから fresh context で再開する」規則が加わります（#1411）
 
@@ -55,6 +65,33 @@ C-3' は AUTO_APPROVED を出さずに fail-closed で止まります**。同梱
 `plugin/plangate/skills/ai-loop-cycle/` の scripts / references / schemas と、`ai-dev-exec` / `ai-dev-verify` の
 `references/c3-prime-contract.md` も変わります。
 
+#### 3. PBI INPUT PACKAGE（`pbi-input.md`）を AI も作成・更新できる、と規則が変わります（#1441）
+
+`working-context` rule と `ai-dev-plan` / `ai-dev-brainstorm` の references で、フェーズ A の作成者が
+「人間」から **「AI / 人間のどちらも可」**に変わります。AI は user feedback / Issue / RunEvidence /
+FailureRecord などから `pbi-input.md` を生成・更新してよく、作成者そのものを authority の根拠にせず
+provenance / Evidence / uncertainty を残します。`pbi-input.md` テンプレートには expanded discovery 用の
+任意セクション（Bounded Discovery / Source Provenance / Existing Work Check / Requirement Discovery Trace。
+material な場合だけ使う）、`plan-template.md` には REQ / AC 参照の欄が加わります。
+**Human 判断が要る範囲は既存の mode / risk / conflict の policy のままで、C-3 / C-4 は変わりません**。
+
+#### 4. `ai-loop-cycle` skill に shadow-only の PBI live-shadow capture（Step 6）が加わり、`gh_exec.py` の許可範囲が広がります（#1443 / #1466 / #1470）
+
+- Step 6 は RunEvidence に passive capture を束縛するだけの **shadow Evidence 収集**です。PBI / Issue の
+  作成・更新・close、merge、Harness の live mutation は行いません。capture の失敗は既存の terminal decision を
+  変えません。同梱 scripts に `pbi_materializer.py` / `pbi_live_shadow_collector.py`（と test）が加わります
+- `gh_exec.py` の allowlist に **read-only** の API endpoint（repository / issue / issue comment /
+  Actions run・jobs / 特定 workflow の contents）と、強い policy に束縛した `gh attestation verify`
+  （`--format json`・SLSA provenance v1・GitHub Actions OIDC issuer・`--signer-repo` / `--signer-workflow` /
+  digest / ref の完全一致・`--deny-self-hosted-runners` 必須）を追加しました。書き込み系の許可は増えていません
+
+#### 5. `plangate exec` が止まったときの stderr に「次の一手」が出ます（#1481）
+
+C-3 未承認・c3-prime の HEAD 解決失敗・`plan_hash` 不一致で `exec` が止まったとき、`Next: plangate validate <TASK>` /
+`plangate status <TASK>` と Human が取るべき行動を stderr に追加で出します。**`c3.json` の `plan_hash` を手で
+書き換える案内は削除しました**（承認は Human-owned のまま）。`plangate status` の C-3 待ちの「次の一手」は
+`plangate approve <TASK>` を案内します。**gate の判定・exit code・stdout は不変**です。
+
 ### Context（Intent Context / Dynamic Context Engine / Context Lifecycle）
 
 - **Intent Context Package v1 の契約を実装**（#1396。ownership は #1390 で確定）。
@@ -74,6 +111,50 @@ C-3' は AUTO_APPROVED を出さずに fail-closed で止まります**。同梱
 - plan の確定（exec 前）: RunEvent / RunEvidence（#1391）・RunState CAS / atomic snapshot（#1392 / PR #1406）・
   Verification / Failure / Decision core（#1393 / PR #1407）・Work Item Graph の field ownership（#1385 / PR #1386）・
   AI Execution Readiness（#1416 / PR #1417）
+
+### ai-loop V2: Requirement Discovery と AI による PBI 作成（2026-10-04）
+
+- **bounded requirement discovery を Delivery の前段へ統合**（#1440 / PR #1441）。新しい state / Gate / artifact を
+  増やさず、North Star に Bounded Discovery / Traceability Chain を追加し、depth を uncertainty / impact /
+  irreversibility / evidence quality で調整する。配布物を含む（上記 ⚠️ 3.）
+- **feedback / RunEvidence から PBI を起こす shadow materializer**（#1442 / PR #1443 / `ta-94`）。
+  決定論的な shadow / read-only primitive で、**PBI / Issue の自動書き込みは無効のまま**。
+  provenance の循環・捏造された authority 参照は fail-closed。配布物を含む（上記 ⚠️ 4.）
+
+### ai-loop V2: Runtime Evidence Feedback Loop（R0 / R1 candidate。2026-10-04）
+
+> いずれも **non-authoritative な candidate** で、promotion・dispatch・Human 判断の代替にはならない。
+> `scripts/ai-loop/runtime_evidence_*.py` は upstream のみで、**plugin 配布物には含まれない**
+> （配布物に入るのは上記 ⚠️ 4. の `gh_exec.py` の変更だけ）。
+
+- **設計**: provider-neutral な Production Feedback ガイド（`docs/ai/ai-loop-v2/production-feedback-loop.md`）と
+  ingress / trust / verification の RFC（`docs/rfc/runtime-evidence-feedback-loop.md`）を current main に正規化（PR #1447）
+- **R0 external runtime ingress と R1 read-only investigation shadow**（#1448 / PR #1466。
+  `ta-95`〜`ta-101` / `ta-103` / `ta-104`）。stack を main 上に作り直した PR で、CodeQL の clear-text 出力の指摘は
+  閉じた CLI status projection で構造的に是正
+- **R1 の独立 attestation verifier（verification-command candidate）**（#1468 / PR #1470 / `ta-105`）。
+  repository 内の `gh attestation verify` の成功を暗号学的な authority として扱わない
+- **external verifier receipt**（PR #1471 / `ta-106`）: candidate への完全一致の束縛・content addressing・
+  one-time nonce・15 分の有効期限
+- **external admin boundary の admission candidate**（#1473 / PR #1475 / `ta-107`）と、その強化:
+  Evidence URI の正規化による自己参照の迂回の封鎖（PR #1478）・nonce と provenance の契約（PR #1479）
+- **独立運用される verifier の bootstrap handoff package**（PR #1483 / `ta-108`）。proposal-only・非活性で、
+  PlanGate による self-provisioning / self-certification を禁止する
+
+### ai-loop V2: 評価とハーネスの見方（2026-10-04）
+
+- **Harness composition / health lens**（#1444 / PR #1445）。non-canon の棚卸し lens で、Evidence 不足は
+  `INCONCLUSIVE`、aggregate の Harness Health Score は既定にしない
+- **Evidence Certification と risk-based review routing**（#1458 / PR #1459）。Certificate を新しい authoritative
+  artifact にせず、VerificationResult / RunEvidence の non-authoritative な Certification View として扱う
+- **Certification View の shadow 実行可能仕様**（#1460 / PR #1462 / `ta-102`）。runtime の Decision flow には接続しない
+
+### CLI とプロダクト文書（2026-10-04）
+
+- **`plangate exec` の blocker に実行可能な回復手順を表示**（#1480 / PR #1481）。上記 ⚠️ 5.
+- **導入 UX とエコシステム拡大の境界を明文化**（#1476 / PR #1477。docs のみ）。初回利用者向けの Progressive
+  Disclosure、「PlanGate Lite / 1-Gate mode」を作らないこと、MCP は adapter であって authority ではないこと、
+  GitHub 連携は merge authority ではないこと（`docs/pages/explanation/product/adoption-and-ecosystem-roadmap.md`）
 
 ### レビューとモデル
 
