@@ -15,6 +15,8 @@ ai-loop V2 は、検証可能な開発成果と、次の判断に使える Evide
 - **価値仮説**: 変更がユーザー・事業にもたらす効果についての、まだ検証されていない想定。Product 側の語。
 - **学習条件**: 価値仮説を検証したと言えるために必要な観測条件（何を・どの母集団で・どの水準で観測するか）。Product 側の語であり、Harness 改善の評価成立条件（§14 の evaluation plan）とは別物として扱う。
 - **妥当な Evidence**: 出所と取得条件が辿れ、主張の範囲を超えて一般化していない Evidence。自己申告のみに依拠しない（§6）。
+- **Bounded Discovery**: Request から Plan に入る前に、必要な範囲だけ Goal / Actor / Problem / Assumptions / Constraints / Unknowns / Requirement candidate と根拠を明らかにする活動。Product Discovery 全体を V2 に内包する意味ではなく、新しい Lifecycle State / Gate / authoritative artifact でもない。
+- **Traceability Chain**: Goal / Problem から Requirement、Acceptance Criteria、Plan decision、Work Item / Task、Verification / Evidence までを既存 artifact の ID / ref で相互に辿れる関係。新しい Knowledge Graph / DB を意味しない。
 - **基礎的な安全境界**: 事故の観測を待たずに設置する最低限の防護。Human-owned 境界の保護、不可逆操作の停止、承認境界の保護を指す。
 
 > **AI が開発を実行し、その結果を検証し、失敗と成功を振り返り、自らの Skill / Agent / Flow / Verifier を改善し、その改善が本当に有効かを独立検証したうえで、次の Harness version を作れる開発システムを構築する。**
@@ -72,6 +74,11 @@ Harness N
 
 ```text
 Request
+  -> Bounded Discovery (adaptive depth; may be minimal)
+       - Goal / Actor / Problem / Job
+       - Assumptions / Constraints / Unknowns
+       - Evidence / Questions
+       - Requirement candidates
   -> Plan
   -> Plan Verification
        - Requirements Review
@@ -84,6 +91,46 @@ Request
 ```
 
 Initial Plan も Plan Verification を通る。Replan 時だけ Plan Review する構造にしない（§9）。
+
+Bounded Discovery は全 Task に同じ ceremony を要求しない。depth はコード変更量ではなく、少なくとも **uncertainty / impact / irreversibility / evidence quality** を材料に調整する。単純で十分に既知な変更は Goal / Constraints / Acceptance Criteria の確認で足りる一方、曖昧・高影響・不可逆な変更では As-Is / stakeholder evidence / alternatives / requirement mapping まで広げてよい。RDRA は利用可能な手段の 1 つであり、必須フレームワークにはしない。
+
+AI は Discovery で正解の Requirement を創作する主体ではないが、**PBI / Requirement candidate の作成者にはなれる**。AI は user feedback / Issue / RunEvidence / FailureRecord / operational observation / stakeholder input などから hypothesis generation / question generation / evidence-gap detection / structuring を行い、`pbi-input.md` を新規作成・更新してよい。PBI の信頼性は author identity ではなく、provenance / Evidence / uncertainty / policy によって判断する。
+
+AI-generated PBI は claim provenance を失ってはならない。少なくとも問題設定に使う material claim を **observed**（artifact / measurement / verifier で直接確認）、**reported**（Human / external source から受領した未独立検証の報告）、**inferred**（source から導出した仮説・解釈）に分ける。要約・再記述・別 Agent による再生成は source の独立性を増やさず、`inferred` を `observed` に昇格させない。PBI 自身や、その PBI から生成した Plan / Review を upstream claim の独立 Evidence として循環参照しない。
+
+`pbi-input.md` を Goal / Problem / Requirement semantics の authority とするが、これは **Human-authored を意味しない**。Author / Evidence / Authority / Approval を分離する。AI-generated PBI でも、根拠が追跡可能で必要な policy / review を満たせば authoritative input になりうる。Human は stakeholder input、意味・優先順位・trade-off、high-impact / irreversible / conflicting requirements など **policy が Human decision を要求する箇所**の authority を保持する。低リスクで既知の変更に一律の Human authoring / interview / review を要求しない。Evidence が不足する場合は Unknown として残し、もっともらしい Requirement で埋めない。accepted Requirement は、author ではなく **evidence / explicit decision / policy rule のどれを acceptance basis としたか**を辿れるようにする。
+
+Discovery の結果は既存 Plan Package に保持し、Goal / Problem -> Requirement -> Acceptance Criteria -> Plan decision -> Work Item / Task (when applicable) -> Verification / Evidence の Traceability Chain を既存 ID / ref で構成する。新しい Lifecycle State / Gate / top-level artifact / mutable graph store をこのためだけに追加しない。
+
+AI が feedback / Evidence から PBI を materialize する場合、**PBI Admission と PBI Materialization を分離する**。
+
+```text
+signal
+  -> Admission: materialize | no_action | discover_more
+  -> materialize の場合のみ
+     Materialization: update_existing | link_only | create_new
+```
+
+Admission は「この signal を PBI work として扱うか」の判断であり、Materialization は「PBI work として扱うと決めた signal を既存 work へどう接続するか」の判断である。両者を 1 enum / 1 authority に混ぜない。
+
+- `materialize`: PBI work として materialization に進む
+- `no_action`: 現時点で新しい PBI work を materialize しないという **proposal**。source Issue / PBI の close / resolve / suppress authority を持たない
+- `discover_more`: Evidence / semantic certainty が不足しているため Bounded Discovery に戻す。Human review 固定を意味せず、既存 policy に従って追加 Evidence / question / verification を行う
+
+reported / inferred / ambiguous な signal を、根拠なく `no_action` に落として false negative を隠さない。Harness-target signal の Admission は Delivery 側に第 2 の Evolution trigger を作らず、既存 #874 / #869 の Candidate / Evolution boundary に委譲する。
+
+Admission を通過した PBI work には **Reuse / Update Before Create** を適用する。新規 PBI を作る前に、既存の open Issue / PBI を source refs と Goal / Problem / AC の意味で照合し、`update_existing / link_only / create_new` のいずれかを選ぶ。類似しているという LLM 判断だけで別 PBI を自動 close / merge しない。既存 PBI が Plan / approval と binding 済みで Goal / Requirement / AC の semantic change が必要なら、重複解消として silent update せず §9 の Replan / policy boundary に従う。
+
+AI-generated PBI の **作成時点と適用時点を分離する**。Active Run 中に feedback から PBI を作成してよいが、PBI は **application timing** と **target layer** を別軸で扱う。
+
+- application timing: `follow_up | replan_current`
+- target layer: `delivery | harness`
+
+`follow_up` は future Run 向けであり current LoopContract / Plan / Harness identity を変更しない。`replan_current` は current delivery の Goal / Requirement / AC を変更する場合にだけ使い、§9 の Replan -> Plan Verification -> Plan Gate を通す。
+
+`target layer = harness` は North Star §10 のため **常に `follow_up`** とし、Active Run の Harness identity を変更する `replan_current` は許可しない。Harness / Skill / Agent / Flow / Verifier / Routing / Eval を変更する PBI は、draft 自体は feedback から先に作成してよいが、Plan / implementation へ進む前に North Star §13–§15 / #869 の HarnessImprovementCandidate ref を持つ。PBI は Candidate contract / evaluation plan / independent evaluation を置き換えない。
+
+> **Do not optimize a solution before validating the problem enough for the risk at hand.**
 
 Delivery は合意した Contract のもとで実行する。探索を支える実装では、実装の受入基準と価値仮説の学習条件を区別し、必要な観測条件と Evidence の返却先を明確にする。`MERGE_READY` は必須の検証・PR 収束を含む Delivery 契約全体を満たし、C-4 / merge（Human-owned）待ちで停止した終端である（[`taxonomy.md`](./taxonomy.md) §3）。これは価値仮説の検証完了を意味しない（本 North Star が置く区別であり、taxonomy 側の規定ではない）。Product Discovery 全体やリリース後の観測・意思決定を V2 に内包せず、それらへ Evidence を接続する。
 
@@ -116,7 +163,7 @@ Pattern -> Hypothesis -> Skill / Agent / Flow / Verifier Candidate
 Request -> Plan -> C-1 -> C-2 -> Human C-3 -> Execute -> Verify -> PR_CREATED
 ```
 
-V2 は ai-dev command を内側から直接チェーンすることを前提とせず、必要な既存能力を共通 primitive / adapter として利用する。
+V2 は ai-dev command を内側から直接チェーンすることを前提とせず、必要な既存能力を共通 primitive / adapter として利用する。Bounded Discovery は V2 内部の準備責務として扱い、この stable public contract に新しい必須 phase を追加しない。V2 は feedback / evidence から `pbi-input.md` を生成して既存 plan contract へ渡してよく、PBI authoring を Human-only boundary にしない。
 
 ### Human-owned authority remains human-owned
 
@@ -131,6 +178,24 @@ V2 は ai-dev command を内側から直接チェーンすることを前提と�
 - Production Harness への最終 Promotion
 
 AI は proposal / patch / evidence / experiment / promotion-ready PR までは作れる。不可逆な Production 適用の最終権限は Human が持つ。
+
+### Review readiness / Quality acceptance / Mutation authority are separate
+
+PBI materialization の自律度を上げる場合でも、次の 3 つを同じ boolean / Gate にまとめない。
+
+```text
+Evidence readiness
+  != Quality acceptance
+  != Mutation authorization
+```
+
+- **Evidence / review readiness**: Admission / Materialization の評価に必要な Evidence・review・provenance が揃い、Human / policy が次の判断をできる状態
+- **Quality acceptance**: false-positive / false-negative / decision mismatch / readiness mismatch 等を、明示した policy / threshold / Human judgment に照らして許容できると判断した状態
+- **Mutation authorization**: 実際に PBI / Issue 等の外部状態を書き換えてよい authority。policy version / activation decision / target precondition / rollback・reconciliation 契約を別途必要とする
+
+`review_ready=true` 相当の projection があっても、write / close / suppress / merge authority を暗黙に付与しない。評価器は quality metric を示してよいが、threshold が定義されていなければ PASS/FAIL を創作しない。
+
+write-capable behavior を導入する場合、**policy definition / quality acceptance / rollout activation / mutation execution** を分離する。policy 文書が存在するだけで activation 済みと扱わず、byte / version drift 後に以前の activation を暗黙継承しない。
 
 ## 4. Delivery Loop and Evolution Loop are separate
 
@@ -178,6 +243,39 @@ Verifier は安価で決定論的なものを優先する。
 5. loop decision
 
 決定論的 FAIL を LLM の PASS で上書きしない。
+
+### Evidence class / live-shadow trust boundary
+
+PBI Admission / Materialization の評価では、Evidence の出所を少なくとも次の class で分離し、名前だけを書き換えて trust を昇格させない。
+
+```text
+synthetic_fixture
+  != historical_replay
+  != live_shadow
+```
+
+- **synthetic_fixture**: contract / regression / executable-path の検証用。実運用で観測した分布の根拠にはしない
+- **historical_replay**: 過去に保存済みの run / artifact を現在の evaluator で再生した Evidence。現在の live capture 契約を後付けして `live_shadow` に昇格しない
+- **live_shadow**: 実行中の対象 run で、upstream source / capture identity / RunEvidence binding を保持し、後段の reviewed expectation と分離できる Evidence
+
+live-shadow の trust は「artifact が repository に存在する」だけでは成立しない。少なくとも、capture が対象 RunEvidence の finalize より前の実行文脈に属し、source / capture / RunEvidence の対応を辿れ、reviewed oracle が maker actual と別 authority で与えられる構造を持つ。
+
+```text
+maker actual
+  != reviewer expected
+```
+
+独立 review を主張する場合、reviewer に maker actual を先に開示して expected を決めさせない。blind review packet / separate context / separate reviewer 等の実装手段は選べるが、**repository 上で別ファイルにしただけで reviewer independence を証明したことにはしない**。
+
+同様に、tracked live-shadow chain が repository に存在しても、それだけで以下を証明しない。
+
+- runtime execution が本当にその経路で起きたこと
+- upstream source が capture より前から存在したこと
+- reviewer identity / authorship independence
+- representative coverage
+- quality acceptance
+
+これらを必要とする claim は、それぞれ別の Evidence / policy / Human judgment を要求する。検証不能を PASS 側へ倒さない。
 
 ## 7. Failure is an artifact
 
@@ -227,7 +325,7 @@ Verify FAIL
        NO  -> Replan -> Plan Verification -> Plan Gate
 ```
 
-Delivery の Plan / Contract に含まれる目的・受入基準・学習条件の変更が必要な場合は、暗黙に書き換えず、変更提案を明示して Replan / Plan Verification / Plan Gate を通す。判断主体と承認権限は既存の境界に従い、合格させるために条件を緩めない。
+Delivery の Plan / Contract に含まれる **Goal / Problem / Requirement semantics / 目的 / 受入基準 / 学習条件** の変更が必要な場合は、通常の repair で暗黙に書き換えず、変更提案を明示して Replan / Plan Verification / Plan Gate を通す。判断主体と承認権限は既存の境界に従い、合格させるために条件を緩めない。
 
 この Replan は、Evolution Candidate の実装前に固定した評価計画・採用閾値を同じ Candidate の評価中に変更する権限を与えない。評価条件そのものの変更は別 Candidate・別評価として扱い、§14 と Evaluation Trust Boundary の保護・Human-owned 規則に従う。
 
@@ -295,6 +393,30 @@ Harness の進化を Component 数の増加と定義しない。
 
 簡素化は、必要な能力・検出力・安全条件を維持できることを Evidence で確かめて採用する。読まれない警告も範囲調整・統合・廃止の検討対象とするが、Gate・Verifier の削除・緩和・適用範囲縮小の権限はいずれも §15 に従う（範囲調整・統合が適用範囲の縮小を伴う場合を含む）。
 
+### Model / Runtime change is a re-evaluation trigger
+
+Model / Runtime の major update は、既存 Harness の前提が変わったことを示す **再評価 Trigger** として扱う。能力向上そのものを、Skill / Agent / Flow / Verifier / Prompt / Context の削除・無効化・適用範囲縮小を許可する Permission にはしない。
+
+```text
+Capability change
+  -> Re-evaluation trigger
+  != Simplification permission
+```
+
+強い基盤 Model が、以前は Harness component で補っていた能力を吸収する場合がある。その可能性を検証するときは、同じ更新後 Model / Runtime / Effort と同じ task / fixture を固定し、対象 component の **WITH / WITHOUT paired ablation** を行う。
+
+```text
+same updated Model / Runtime / Effort / task
+  ├─ baseline: existing Harness WITH target component
+  └─ candidate: simplified Harness WITHOUT target component
+       ↓
+compare quality / safety / evidence / cost
+```
+
+旧 Model + component と新 Model - component の比較だけでは、Model 変更と Harness 簡素化が同時に変わるため限界寄与を帰属しない。component の material update では、同じ実行条件で旧版 baseline と candidate を比較する。
+
+activation 未確認、paired case 不足、sample 不足、必要 Evidence の欠測がある場合は `INCONCLUSIVE` とし、簡素化の根拠へ昇格させない。再評価後も approval / permission / security policy、Protected Gate、Human-owned boundary は独立した authority として維持し、緩和・削除は §15 の Human Gate に従う。
+
 ## 13. Improvement Candidate contract principle
 
 Harness 変更を直接始めない。
@@ -319,7 +441,7 @@ Candidate は最低限以下を持つ。
 
 ## 14. Evolution evaluation
 
-Harness 改善は baseline と candidate を同一 fixture / task で比較する。
+Harness 改善は baseline と candidate を同一 fixture / task で比較する。Model / Runtime の能力変化を契機に簡素化を評価する場合も、baseline / candidate の双方で更新後の Model / Runtime / Effort を固定する。
 
 ```text
 Same Fixture
@@ -460,6 +582,7 @@ Product 側と Harness 側の学習を混同せず、V2 が直接観測できる
 - Human authority の撤廃
 - PlanGate 全体を巨大な AI OS / control plane にすること
 - Product Discovery 全体やリリース後の価値検証の orchestration
+- RDRA / Event Storming など特定の要求分析フレームワークを全 Task に必須化すること
 
 ## 20. Decision priority
 
@@ -487,6 +610,9 @@ Product 側と Harness 側の学習を混同せず、V2 が直接観測できる
 - 新 Component を増やす必要が本当にあるか
 - Human が実際に判断すべき情報は何か。process log / raw output を判断面へ転嫁していないか
 - compression / handoff によって blocker・不確実性・Evidence provenance・Human-owned decision requirement が見えなくなっていないか
+- 解くべき Goal / Problem は、この変更の risk に対して十分な Evidence で確かめられているか
+- Unknown を Requirement として創作していないか。追加 Evidence / Human judgment が必要な箇所は明示されているか
+- Goal / Problem -> Requirement -> Acceptance Criteria -> Plan decision -> Task / Verification の trace が既存 ID / ref で辿れるか
 
 ### Verification
 

@@ -313,6 +313,62 @@ def _c_body_file_wrapper_temp(ctx: Ctx) -> None:
                          f"{value!r}")
 
 
+def _c_attestation_verify_policy(ctx: Ctx) -> None:
+    """Artifact attestation verificationを強いread-only policyへ束縛する。"""
+    repo_values = _values(ctx, "--repo")
+    if repo_values != [ctx.repo]:
+        raise Denied(REASON_CONSTRAINT,
+                     "--repo は verifier repo にちょうど1回束縛されること")
+
+    if _values(ctx, "--format") != ["json"]:
+        raise Denied(REASON_CONSTRAINT, "--format json が必須")
+    if _values(ctx, "--predicate-type") != ["https://slsa.dev/provenance/v1"]:
+        raise Denied(REASON_CONSTRAINT,
+                     "SLSA provenance v1 predicate の完全一致が必須")
+    if _values(ctx, "--cert-oidc-issuer") != ["https://token.actions.githubusercontent.com"]:
+        raise Denied(REASON_CONSTRAINT,
+                     "GitHub Actions OIDC issuer の完全一致が必須")
+    signer_repo_values = _values(ctx, "--signer-repo")
+    if len(signer_repo_values) != 1 or re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*",
+        signer_repo_values[0],
+    ) is None:
+        raise Denied(REASON_CONSTRAINT,
+                     "--signer-repo は owner/repo 形式でちょうど1回必要")
+    signer_repo = signer_repo_values[0]
+
+    workflow_values = _values(ctx, "--signer-workflow")
+    if len(workflow_values) != 1:
+        raise Denied(REASON_CONSTRAINT, "--signer-workflow はちょうど1回必要")
+    workflow_re = re.compile(
+        rf"{re.escape(signer_repo)}/\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml"
+    )
+    if workflow_re.fullmatch(workflow_values[0]) is None:
+        raise Denied(REASON_CONSTRAINT,
+                     "--signer-workflow は signer repo のworkflowへ固定すること")
+
+    source_values = _values(ctx, "--source-digest")
+    signer_values = _values(ctx, "--signer-digest")
+    if len(source_values) != 1 or re.fullmatch(r"[0-9a-f]{40}", source_values[0]) is None:
+        raise Denied(REASON_CONSTRAINT,
+                     "--source-digest は40桁lowercase git SHAが必須")
+    if len(signer_values) != 1 or re.fullmatch(r"[0-9a-f]{40}", signer_values[0]) is None:
+        raise Denied(REASON_CONSTRAINT,
+                     "--signer-digest は40桁lowercase git SHAが必須")
+
+    ref_values = _values(ctx, "--source-ref")
+    if len(ref_values) != 1:
+        raise Denied(REASON_CONSTRAINT, "--source-ref はちょうど1回必要")
+    ref = ref_values[0]
+    if ".." in ref or re.fullmatch(
+        r"refs/(?:heads|tags)/[A-Za-z0-9][A-Za-z0-9._/-]*", ref
+    ) is None:
+        raise Denied(REASON_CONSTRAINT,
+                     "--source-ref は bounded heads/tags ref が必須")
+
+    if _values(ctx, "--deny-self-hosted-runners") != [None]:
+        raise Denied(REASON_CONSTRAINT,
+                     "--deny-self-hosted-runners はちょうど1回必須")
 def _c_api_method_get(ctx: Ctx) -> None:
     methods = _values(ctx, "--method")
     if len(methods) > 1:
@@ -351,7 +407,7 @@ API_GET_CONDITION_NAMES = tuple(name for name, _ in API_GET_CONDITIONS)
 
 
 def api_endpoint_patterns(repo: str) -> tuple:
-    """4 本の endpoint 正規表現を **呼び出し時の repo 実値で束縛**して返す。
+    """R1 external-trustを含む read-only endpoint を repo 実値で束縛して返す。
 
     `{owner}` プレースホルダや自由変数は使わない（配布先で壊れる repo 固有 id を
     埋め込まないため、ruleset 一覧 / `rulesets/{id}` も載せない）。
@@ -361,7 +417,18 @@ def api_endpoint_patterns(repo: str) -> tuple:
     r = re.escape(name)
     query = r"(?:\?per_page=[0-9]{1,3})?"
     ref = r"[A-Za-z0-9][A-Za-z0-9._/-]*"
+    sha40 = r"[0-9a-f]{40}"
+    canary_path = (
+        r"\.github/workflows/"
+        r"runtime-r1-request-bound-canary\.yml"
+    )
     return (
+        re.compile(rf"repos/{o}/{r}"),
+        re.compile(rf"repos/{o}/{r}/issues/[0-9]+"),
+        re.compile(rf"repos/{o}/{r}/issues/comments/[0-9]+"),
+        re.compile(rf"repos/{o}/{r}/actions/runs/[0-9]+"),
+        re.compile(rf"repos/{o}/{r}/actions/runs/[0-9]+/jobs{query}"),
+        re.compile(rf"repos/{o}/{r}/contents/{canary_path}\?ref={sha40}"),
         re.compile(rf"repos/{o}/{r}/commits/[0-9a-f]{{7,40}}/check-runs{query}"),
         re.compile(rf"repos/{o}/{r}/pulls/[0-9]+{query}"),
         re.compile(rf"repos/{o}/{r}/pulls/[0-9]+/reviews{query}"),
@@ -376,6 +443,7 @@ def api_endpoint_patterns(repo: str) -> tuple:
 _PR_SELECTOR = Slot("pr", r"(?:[0-9]+|[A-Za-z0-9][A-Za-z0-9._/-]*)")
 _PR_NUMBER = Slot("pr", r"[0-9]+")
 _ENDPOINT = Slot("endpoint", r"[^\s]+")
+_ATTESTATION_ARTIFACT = Slot("artifact", r"[^\x00\r\n]+")
 
 GH_RULES = (
     GhRule(
@@ -408,6 +476,26 @@ GH_RULES = (
         conditions=(("repo_bound", _c_repo_bound),
                     ("body_file_once", _c_body_file_once),
                     ("body_file_wrapper_temp", _c_body_file_wrapper_temp)),
+    ),
+    GhRule(
+        name="attestation verify",
+        verbs=("attestation", "verify", _ATTESTATION_ARTIFACT),
+        flags=(
+            ("--repo", ARITY_VALUE),
+            ("--signer-repo", ARITY_VALUE),
+            ("--signer-workflow", ARITY_VALUE),
+            ("--source-digest", ARITY_VALUE),
+            ("--signer-digest", ARITY_VALUE),
+            ("--source-ref", ARITY_VALUE),
+            ("--cert-oidc-issuer", ARITY_VALUE),
+            ("--predicate-type", ARITY_VALUE),
+            ("--deny-self-hosted-runners", ARITY_NONE),
+            ("--format", ARITY_VALUE),
+        ),
+        conditions=(
+            ("repo_bound", _c_repo_bound),
+            ("attestation_verify_policy", _c_attestation_verify_policy),
+        ),
     ),
     GhRule(
         # body パラメータ 3 種は **flags に載せたうえで条件で deny** する。
@@ -550,6 +638,38 @@ def run_gh(args, *, repo: str, cwd=None, rules=GH_RULES):
 def run_git(args, *, cwd=None, rules=GIT_READ_RULES):
     """allowlist を通過した **読み取り系** git コマンドのみ実行する。"""
     return _spawn(authorize_git(args, rules=rules), cwd=cwd)
+
+
+MAX_API_JSON_BYTES = 4 * 1024 * 1024
+
+
+def get_api_json(endpoint: str, *, repo: str, cwd=None):
+    """Allowlisted `gh api --method GET` を実行し JSON を返す。
+
+    外部作用は `run_gh()` の allowlist を必ず通す。レスポンスは 4 MiB 上限。
+    """
+    result = run_gh(
+        ["api", endpoint, "--method", "GET"],
+        repo=repo,
+        cwd=cwd,
+    )
+    if result.returncode != 0:
+        raise Denied(
+            REASON_PRECHECK,
+            f"gh api GET に失敗（rc={result.returncode}）: {result.stderr!r}",
+        )
+    raw = result.stdout
+    if not isinstance(raw, str):
+        raise Denied(REASON_PRECHECK, "gh api GET stdout must be text")
+    if len(raw.encode("utf-8")) > MAX_API_JSON_BYTES:
+        raise Denied(REASON_PRECHECK, "gh api GET response exceeds 4 MiB")
+    try:
+        return json.loads(raw)
+    except (ValueError, TypeError) as exc:
+        raise Denied(
+            REASON_PRECHECK,
+            f"gh api GET output is not valid JSON: {exc}",
+        ) from exc
 
 
 # ---------------------------------------------------------------------------

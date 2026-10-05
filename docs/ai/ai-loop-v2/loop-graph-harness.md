@@ -282,6 +282,138 @@ What makes execution reliable and safe? -> Harness
 
 そのうえで、要件を満たせる**最小の既存 owner**へ実装責務を置く。
 
+## 11. Harness composition lens
+
+外部の Harness 設計で見かける「N 層」は、PlanGate では **固定 taxonomy や成熟度モデルとして採用しない**。層数や名称を正本にすると、既存の Loop / Graph / Harness owner と二重管理になり、モデルや runtime の進化に追随しにくくなるためである。
+
+代わりに、Harness を設計・棚卸しするときは「その部品が何の責務を担うか」という lens で見る。複数の責務を同じファイルや runtime component が担っていてもよいが、責務と authority は分離して説明できなければならない。
+
+| Responsibility lens | 例示 surface（owner の定義ではない） | 見ること |
+|---|---|---|
+| Governing instructions | Prompt / policy / repository instructions | 何を必須・禁止・推奨としているか。Human-owned authority を変更していないか |
+| Context & steering | context selection / retrieval / compression / handoff | 必要な情報だけを適切な鮮度・provenance で渡しているか |
+| Capabilities | Skill / Agent / tool | どの能力を再利用可能な単位として提供しているか |
+| Coordination | Flow / Routing / Graph | 誰が次に動くか、branch / join / wait / resume をどう表現するか |
+| Enforcement | Verifier / Gate / Hook / permission | 自己申告ではなく、どの条件を機械的・独立に確認するか |
+| State & memory | RunState / event stream / evidence / retained learning | 中断・再開・振り返りに必要な事実を conversation 外へ残せているか |
+| Evaluation & observability | RunEvidence / eval / metrics / activation evidence | 実際に発火し、Evidence を生み、判断へ影響し、改善効果を比較できるか |
+
+この表は owner の新設でも、surface と責務の 1:1 対応表でもない。1 component が複数責務を担う場合も、1 責務が複数 component に分散する場合もある。**owner の対応は §2 の表だけを正とする。** Verifier / Gate の identity と activation は [`harness-manifest.md`](./harness-manifest.md)、改善候補・評価・簡素化・Promotion authority は [`north-star.md`](./north-star.md) §11〜15 が正である。
+
+### Harness Health: 5 つを分離して見る
+
+Harness の棚卸しでは、次の 5 つを別の問いとして扱う。存在確認だけで効果を主張しない。これらを単一の `Harness Health Score` に集約することは既定としない。異なる性質の Evidence と authority を 1 数値へ潰すと、弱い軸を他の高得点で相殺できてしまうためである。
+
+| Dimension | Question | Evidence / authority |
+|---|---|---|
+| Identity / Presence | 何が、どの内容で存在しているか | HarnessManifest の content identity / `installed` / `registered` |
+| Runtime Activation | その Run で本当に選択・実行されたか | `selected` / `fired` / `produced_evidence` / `influenced_decision`。定義は [`harness-manifest.md`](./harness-manifest.md) §4 |
+| Effectiveness | 発火した結果、期待した品質・安全性・効率を改善したか | baseline vs candidate、critical regression、false positive / false negative、time / token / cost 等。正本は [`north-star.md`](./north-star.md) §14 / §18 |
+| Governance | その component が authority / approval / permission / protected boundary を正しく維持しているか | Human-owned boundary、policy / permission、Evaluation Trust Boundary。維持コストを理由に弱体化しない |
+| Maintainability | 重複・競合・旧 workaround・context burden を増やさず維持できるか | maintenance cost、duplication / conflict / legacy debt。Instruction Debt は `instruction-debt-audit` を利用 |
+
+判定の順序は次を基本とする。
+
+    present?
+      no  -> missing / intentionally absent を区別。missing なら CREATE candidate を検討
+      yes -> activated?
+               no  -> dead / unreachable / wrong routing の可能性
+               yes -> effectiveness evidence sufficient?
+                        no  -> INCONCLUSIVE / gather evidence
+                        yes -> effective?
+                                 no  -> UPDATE / MERGE / DEPRECATE / REMOVE_FROM_FLOW / SIMPLIFY candidate
+                                 yes -> KEEP candidate
+    then check Governance and Maintainability independently before promotion
+
+特に `installed` / `registered` は **availability evidence** であって **effectiveness evidence** ではない。`fired` も「動いた」証拠であり、「良くした」証拠ではない。Effectiveness は同一条件の比較や regression evidence で別途評価する。測定不能・サンプル不足・activation 不成立は `INCONCLUSIVE` とし、効果なしと扱わない。
+
+### Lightweight operational audit
+
+Harness Health を実務で使うときも、repository 全体を無条件に棚卸ししない。まず監査対象と期待責務を絞る。
+
+1. **Scope**: 対象 component / surface / workflow を限定する。
+2. **Expected responsibility**: その対象が担うべき責務と、担わなくてよい責務を明示する。
+3. **Evidence window**: どの Run / fixture / period / model profile を根拠にするかを固定する。
+4. **Identity / Presence**: 実体・content identity・registration を確認する。
+5. **Runtime Activation**: 選択・発火・Evidence 生成・判断影響を、必要な activation level まで確認する。
+6. **Effectiveness**: baseline / candidate または同等条件の比較で、期待効果と regression を確認する。
+7. **Governance**: protected authority / permission / approval / trust boundary を弱めていないか確認する。
+8. **Maintainability**: 重複・競合・旧 workaround・context burden・maintenance cost を確認する。
+9. **Disposition**: Evidence が十分なものだけを KEEP / CREATE / UPDATE / SPLIT / MERGE / DEPRECATE / REMOVE_FROM_FLOW / SIMPLIFY の Candidate 入力にする。不足は `INCONCLUSIVE` のまま残す。
+
+監査結果は新しい SSoT や persisted schema を要求しない。既存の issue / review / retrospective / Evolution Candidate へ必要な Evidence refs と rationale を渡せればよい。
+
+`instruction-debt-audit` は Instruction / Skill / Agent / Hook / Permission 等の **instruction surface の Maintainability 監査**に再利用できるが、Harness 全体の Runtime Activation / Effectiveness / Governance 判定を代替しない。
+
+#### Comparability rule
+
+Effectiveness は「変更前後で数字が違った」だけで判定しない。North Star §14 の Same Fixture 原則に従い、Harness 変更以外の主要条件を揃えるか、Candidate scope に含めて明示する。
+
+最低限、比較時に次を確認する。
+
+- baseline / candidate の `harness_manifest_ref` が取得でき、差分対象を説明できる
+- fixture / task profile / acceptance contract が同等である
+- model / reasoning effort / routing / verifier set / policy profile の差が Candidate scope 外なら固定されている
+- trial count / critical regression condition / threshold が Candidate 実装前に固定されている
+
+Candidate scope 外の主要条件が同時に変わり、影響を分離できない場合は `INCONCLUSIVE` とする。
+
+複数 component を意図的に 1 Candidate としてまとめること自体は禁止しない。ただしその場合に主張できるのは **bundle 全体の効果**までであり、追加の比較 Evidence なしに個別 component の寄与へ因果帰属しない。
+
+#### Expected activation and negative evidence
+
+`fired` が観測されなかったことだけで、component を dead / ineffective と判定しない。rare-path safety guard、failure-only verifier、rollback / recovery path は、通常 Run で発火しないこと自体が正常な場合がある。
+
+Activation を評価する前に、その component の **expected activation condition** を明示する。
+
+| Observation | Interpretation | Next action |
+|---|---|---|
+| expected trigger が観測されていない + non-fired | no observation。dead の証拠ではない | 必要なら targeted fixture / replay で確認 |
+| expected trigger が観測された + non-fired | routing / registration / trigger defect の強い finding | activation path を診断 |
+| fired したが evidence / decision に接続されない | activation は成立、integration / effectiveness が未成立 | produced_evidence / influenced_decision を追跡 |
+| activation 自体を観測できない | `INCONCLUSIVE` | observability gap を先に補う |
+
+rare-path component の確認では、production で危険条件を意図的に発生させることを既定としない。isolated test / sealed fixture / historical replay / safe fault injection など、authority と安全境界を維持できる検証手段を優先する。
+
+とくに Verifier / Gate の変更は [`harness-manifest.md`](./harness-manifest.md) §4 と [`north-star.md`](./north-star.md) §14 に従い、単なる発火ではなく必要な activation level（原則 `influenced_decision`）まで確認する。
+
+#### Redundancy safety check
+
+重複して見える component を MERGE / DEPRECATE / REMOVE_FROM_FLOW 候補にする前に、その重複が **defense-in-depth / independent failure mode / platform fallback / compatibility boundary** として意図的に存在していないか確認する。
+
+同じ目的を持つ 2 つの guard があっても、片方が runtime enforcement、もう片方が CI regression detection を担うなら単純な duplicate ではない。削減候補は、片方を外しても required detection / authority / fallback が維持される Evidence がある場合に限る。
+
+### Audit disposition は候補であり、権限ではない
+
+棚卸し結果は、実装を直接変更する命令ではなく Evolution Candidate の入力として扱う。
+
+| Disposition | 意味 | 次の扱い |
+|---|---|---|
+| KEEP | 現時点の Evidence では変更理由がない | 現状維持。必要なら継続観測 |
+| CREATE | 既存 component で表せない具体的な責務 gap が Evidence 付きで確認された | Reuse Before Create を再確認してから Candidate 化 |
+| UPDATE | 責務は必要だが内容・trigger・routing 等に改善余地がある | North Star §13 の Candidate 化 |
+| SPLIT | 1 component に複数責務が過密に集中している | Candidate 化して独立評価 |
+| MERGE | 重複 component を統合できる可能性がある | activation / regression を比較して Candidate 化 |
+| DEPRECATE | 利用停止候補。即削除ではない | replacement / migration / rollback を含めて Candidate 化 |
+| REMOVE_FROM_FLOW / SIMPLIFY | component 自体を消さず経路や複雑性を減らす候補 | baseline 比較後に Candidate 化 |
+| INCONCLUSIVE | 判断に必要な Evidence が不足 | 変更せず、観測・fixture・activation evidence を補う |
+
+これらは audit disposition であり、Production Harness を直接変更する authority を持たない。とくに Gate / Verifier の削除・緩和・適用範囲縮小、Hook / Permission / Approval boundary 等は [`north-star.md`](./north-star.md) §15 の Human Gate を維持する。
+
+### Composition rule
+
+Harness の設計判断では、部品数や layer 数を増やすことを進化とみなさない。
+
+    Observed need
+      -> responsibility is already covered?
+           YES -> reuse / adjust / simplify
+           NO  -> add the smallest missing capability
+      -> verify activation
+      -> verify effectiveness
+      -> promote only within existing authority boundary
+
+したがって、外部事例から新しい「層」を取り込む場合も、まず既存 primitive へ写像し、**既存責務で表せない具体的な gap がある場合だけ**新しい component / artifact / owner を検討する。これは North Star §11 の Reuse Before Create と §12 の simplification を、Harness 全体の構成判断へ適用するための解釈である。
+
 ## References
 
 Informative only. Repository canon takes precedence.
