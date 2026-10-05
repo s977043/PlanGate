@@ -47,7 +47,9 @@ failure_record_ref: sha256:...
 run_evidence_ref: sha256:...
 ```
 
-`failure_record_ref` and `run_evidence_ref` are recomputed from canonical payloads by the evaluator.
+`event_ref`, `failure_record_ref`, and `run_evidence_ref` are evaluator-verified bindings. The evaluator reuses the owner RunEvent validator to recompute the RunEvent digest, requires a `failure_recorded` event for the same `run_id`, binds its FailureRecord payload to `failure_record`, and requires the RunEvent / RunEvidence `harness_manifest_ref` to agree. It independently recomputes the FailureRecord and RunEvidence content refs.
+
+This does not make Ratchet a second RunEvent-stream validator: stream ordering and cross-event reference rules remain owned by the RunEvent spine. Ratchet consumes one already-materialized content-addressed source event to prove failure-instance identity.
 
 `failure_fingerprint` is a classifier/search hint, not primary identity.
 
@@ -80,6 +82,7 @@ The sealed plan fixes at least:
 - baseline HarnessManifest ref
 - known-bad fixture ID + digest
 - negative-control fixture ID + digest
+- known-mutant fixture IDs + digests
 - required activation level
 - protected evaluation paths
 - critical regression conditions
@@ -143,6 +146,10 @@ candidate
   -> MERGE_READY
 ```
 
+Known-mutant detection power is evaluated by the stable Ratchet evaluator, not by the Candidate verifier itself. The sealed plan pins the mutant IDs and their fixture digests. Baseline and Candidate run the exact same mutant set; if the Candidate detects fewer mutants than the baseline, the result is `FAIL / BASELINE_DETECTION_POWER_REGRESSION`. Duplicate or unsealed mutant IDs make the evaluation `INCONCLUSIVE`.
+
+For the current `verification-skipped` vertical slice, the incident fixture is also the first known mutant. This keeps the contract narrow while proving the non-regression rule before adding a larger mutant corpus.
+
 The Candidate is not considered active merely because the component is installed or registered.
 
 For this verifier/gate improvement the required activation is:
@@ -163,6 +170,7 @@ PASS
 FAIL
   known-bad is not stopped
   negative control regresses
+  Candidate known-mutant detection power falls below baseline
   actual delta exceeds allowed scope
   protected authority is changed
 
@@ -180,9 +188,12 @@ INCONCLUSIVE
 
 - no source failure instance (`SOURCE_INSTANCE_BINDING`)
 - a repeated failure-instance tuple (`SOURCE_INSTANCE_BINDING`)
+- a source `event_ref` that does not match the recomputed RunEvent ref (`SOURCE_FAILURE_BINDING`)
+- a source RunEvent that is not `failure_recorded`, has a different `run_id`, carries a different FailureRecord payload, or disagrees with RunEvidence on `harness_manifest_ref` (`SOURCE_FAILURE_BINDING`)
 - a source `run_id` that differs from its RunEvidence `run_id` (`SOURCE_FAILURE_BINDING`)
 - a pattern snapshot missing `pattern_id` / `pattern_version` / `classifier_digest` / `source_set_digest` (`PATTERN_SNAPSHOT_INCOMPLETE`)
-- a sealed plan that does not pin the digests of both the known-bad and the negative-control fixture (`EVALUATION_PLAN_INCOMPLETE`)
+- a sealed plan that does not pin the digests of the known-bad, negative-control, and known-mutant fixtures (`EVALUATION_PLAN_INCOMPLETE`)
+- a missing, empty, duplicate, or unsealed known-mutant set (`EVALUATION_PLAN_INCOMPLETE`)
 
 The simulated delivery artifact's change set is part of each sealed fixture (`changed_paths`), so it is covered by the fixture digest.
 
@@ -259,18 +270,21 @@ Raw conversation transcript, hidden CoT, credentials, and unbounded session memo
 - `scripts/ai-loop-v2/ratchet.py`
 - `scripts/ai-loop-v2/test_ratchet.py`
 - `tests/fixtures/ai-loop-v2/ratchet/verification-skipped.json`
+- `tests/fixtures/ai-loop-v2/ratchet/evolution-input-non-success.json`
 - `tests/extras/ta-92-ai-loop-v2-ratchet.sh`
 
 The vertical slice verifies:
 
 - evaluator-owned plan digest
-- immutable source provenance
+- immutable source provenance, including owner-validated RunEvent content binding
 - source-set digest
 - evaluator-observed delta
 - sealed fixture integrity
 - protected-surface fail-closed
 - paired baseline/candidate behavior
 - negative control
+- sealed known-mutant baseline detection power
+- non-success Evolution inputs: `HUMAN_ESCALATED`, `BLOCKED`, crash/partial, and `NO_PROGRESS`
 - influenced-decision activation
 - PASS / FAIL / INCONCLUSIVE
 - reverse promotion provenance

@@ -1,0 +1,36 @@
+{
+  "schema_version": "1",
+  "kind": "ratchet_evolution_input_non_success_cases",
+  "cases": [
+    {
+      "case_id": "human-escalated",
+      "outcome": "HUMAN_ESCALATED",
+      "stop_reasons": [
+        "HUMAN_REJECTED"
+      ],
+      "evidence_status": "ready"
+    },
+    {
+      "case_id": "blocked",
+      "outcome": "BLOCKED",
+      "stop_reasons": [
+        "VERIFIER_UNAVAILABLE"
+      ],
+      "evidence_status": "ready"
+    },
+    {
+      "case_id": "crash-partial",
+      "outcome": null,
+      "stop_reasons": [],
+      "evidence_status": "partial"
+    },
+    {
+      "case_id": "no-progress",
+      "outcome": "HUMAN_ESCALATED",
+      "stop_reasons": [
+        "NO_PROGRESS"
+      ],
+      "evidence_status": "ready"
+    }
+  ]
+}
