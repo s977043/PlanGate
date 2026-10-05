@@ -340,15 +340,32 @@ def _validate_bootstrap_manifest(value: Any) -> list[str]:
             errors.append(
                 f"bootstrap_manifest_result.files[{index}].size_bytes: nonnegative integer required"
             )
+        elif size > bootstrap.MAX_FILE_BYTES:
+            errors.append(
+                f"bootstrap_manifest_result.files[{index}].size_bytes: exceeds #1484 file limit"
+            )
+            total_bytes += size
         else:
             total_bytes += size
 
     if actual_paths != required_paths:
         errors.append("bootstrap_manifest_result.files: exact reviewed file order/path required")
-    if value.get("package_file_count") != len(required_paths):
-        errors.append("bootstrap_manifest_result.package_file_count: 4 required")
-    if value.get("package_total_bytes") != total_bytes:
-        errors.append("bootstrap_manifest_result.package_total_bytes: exact sum required")
+    file_count = value.get("package_file_count")
+    if (
+        not isinstance(file_count, int)
+        or isinstance(file_count, bool)
+        or file_count != len(required_paths)
+    ):
+        errors.append("bootstrap_manifest_result.package_file_count: integer 4 required")
+    package_total = value.get("package_total_bytes")
+    if (
+        not isinstance(package_total, int)
+        or isinstance(package_total, bool)
+        or package_total != total_bytes
+    ):
+        errors.append("bootstrap_manifest_result.package_total_bytes: exact integer sum required")
+    elif package_total > bootstrap.MAX_PACKAGE_BYTES:
+        errors.append("bootstrap_manifest_result.package_total_bytes: exceeds #1484 package limit")
 
     package_binding = {
         "domain": value.get("domain"),
@@ -603,7 +620,7 @@ def verify_provenance_bytes(
     current = now or dt.datetime.now(dt.timezone.utc)
     if current.tzinfo is None or current.utcoffset() is None:
         errors.append("now: timezone-aware datetime required")
-    elif isinstance(upstream_value, dict):
+    elif isinstance(bootstrap_value, dict) and isinstance(upstream_value, dict):
         current_utc = current.astimezone(dt.timezone.utc)
         errors.extend(_validate_upstream_freshness(upstream_value, current_utc))
         errors.extend(
