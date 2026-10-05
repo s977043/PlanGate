@@ -296,6 +296,13 @@ def simulate_completion(manifest, fixture):
     }
 
 
+def _verification_skipped_detected(result):
+    return (
+        result.get("outcome") == "BLOCKED"
+        and "VERIFIER_UNAVAILABLE" in result.get("stop_reasons", [])
+    )
+
+
 def measure_recurrence(observations, classifier_digest):
     eligible = [
         item for item in observations
@@ -323,6 +330,7 @@ def _finish(
     changed_paths=None,
     paired=None,
     activation=None,
+    known_mutants=None,
 ):
     baseline = bundle.get("baseline_manifest")
     candidate_manifest = bundle.get("candidate_manifest")
@@ -349,6 +357,11 @@ def _finish(
         "activation": activation or {},
         "metrics": {
             "recurrence_observation": recurrence,
+            **(
+                {"known_mutant_detection": known_mutants}
+                if known_mutants is not None
+                else {}
+            ),
         },
         "result": result_value,
         "reason_codes": list(reason_codes),
@@ -394,11 +407,21 @@ def evaluate_verification_skipped(bundle, sealed_plan):
     fixture_digests = sealed_plan.get("fixture_digests") or {}
     known_id = sealed_plan.get("known_bad_fixture_id")
     negative_id = sealed_plan.get("negative_control_fixture_id")
+    mutant_ids = sealed_plan.get("known_mutant_fixture_ids")
     if (
         not known_id
         or not negative_id
         or known_id not in fixture_digests
         or negative_id not in fixture_digests
+        or not isinstance(mutant_ids, list)
+        or not mutant_ids
+        or not all(
+            isinstance(fixture_id, str)
+            and fixture_id
+            and fixture_id in fixture_digests
+            for fixture_id in mutant_ids
+        )
+        or len(set(mutant_ids)) != len(mutant_ids)
         or sealed_plan.get("required_activation", "influenced_decision")
         not in ACTIVATION
     ):
@@ -590,6 +613,45 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             changed_paths=changed_paths,
         )
 
+    mutant_trials = {}
+    baseline_detected = 0
+    candidate_detected = 0
+    for mutant_id in mutant_ids:
+        baseline_trial = simulate_completion(baseline, fixtures[mutant_id])
+        candidate_trial = simulate_completion(
+            candidate_manifest, fixtures[mutant_id]
+        )
+        baseline_hit = _verification_skipped_detected(baseline_trial)
+        candidate_hit = _verification_skipped_detected(candidate_trial)
+        baseline_detected += int(baseline_hit)
+        candidate_detected += int(candidate_hit)
+        mutant_trials[mutant_id] = {
+            "baseline": {**baseline_trial, "detected": baseline_hit},
+            "candidate": {**candidate_trial, "detected": candidate_hit},
+        }
+
+    mutant_count = len(mutant_ids)
+    known_mutants = {
+        "fixture_ids": list(mutant_ids),
+        "mutant_count": mutant_count,
+        "baseline_detected_count": baseline_detected,
+        "candidate_detected_count": candidate_detected,
+        "baseline_detection_rate": baseline_detected / mutant_count,
+        "candidate_detection_rate": candidate_detected / mutant_count,
+        "trials": mutant_trials,
+    }
+    if candidate_detected < baseline_detected:
+        return _finish(
+            bundle,
+            sealed_plan,
+            "FAIL",
+            ["BASELINE_DETECTION_POWER_REGRESSION"],
+            policy_verdict="HUMAN_REQUIRED",
+            deltas=deltas,
+            changed_paths=changed_paths,
+            known_mutants=known_mutants,
+        )
+
     paired = {
         "known_bad": {
             "baseline": simulate_completion(
@@ -627,6 +689,7 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             changed_paths=changed_paths,
             paired=paired,
             activation=activation,
+            known_mutants=known_mutants,
         )
 
     if paired["known_bad"]["baseline"]["outcome"] != "MERGE_READY":
@@ -652,6 +715,7 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             changed_paths=changed_paths,
             paired=paired,
             activation=activation,
+            known_mutants=known_mutants,
         )
 
     if not (
@@ -667,6 +731,7 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             changed_paths=changed_paths,
             paired=paired,
             activation=activation,
+            known_mutants=known_mutants,
         )
 
     if (
@@ -682,6 +747,7 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             changed_paths=changed_paths,
             paired=paired,
             activation=activation,
+            known_mutants=known_mutants,
         )
 
     return _finish(
@@ -692,9 +758,11 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             "KNOWN_BAD_STOPPED",
             "NEGATIVE_CONTROL_PASSED",
             "ACTIVATION_CONFIRMED",
+            "BASELINE_DETECTION_POWER_PRESERVED",
         ],
         deltas=deltas,
         changed_paths=changed_paths,
         paired=paired,
         activation=activation,
+        known_mutants=known_mutants,
     )
