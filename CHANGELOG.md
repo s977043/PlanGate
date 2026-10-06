@@ -6,35 +6,43 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
-## v8.23.0 - 2026-10-01
+## v8.23.0 - TBD
 
-feat: Intent Context Package v1 と Context Lifecycle を導入し、ai-loop V2 の Delivery runtime と Ratchet を最初の縦切りとして実装する
+feat: Intent Context Package v1 と Context Lifecycle を導入し、ai-loop V2 の Delivery runtime・Ratchet・Runtime Evidence を縦切りで実装し、`bin/plangate` の C-3 判定を共通化する
 
-v8.22.0 タグ以降に main へ蓄積した **33 コミット**を反映する（実測: `git rev-list --count v8.22.0..db91ed16` は 34。
-このうち 1 件は本リリースの準備 commit #1432 / `5ce69a9a` で、収録内容としては数えない）。
-主題は **Context の受け渡しを「会話の持ち越し」から「正本 artifact の参照」へ移すこと**と、
-**ai-loop V2 の runtime を最初に動かすこと**。
+v8.22.0 タグ以降、収録範囲の締め切り `4f81588f`（#1494 の merge commit）までに main へ蓄積した変更に、
+締め切り後に merge された #1493（`13bb8875`）を加えて反映する。#1495 は次リリース。
+tag は main の先頭（tag-main parity）に打つため、merge 済みの #1493 は必ず本リリースに入る。
+主題は **Context の受け渡しを「会話の持ち越し」から「正本 artifact の参照」へ移すこと**、
+**ai-loop V2 の runtime / Runtime Evidence を最初に動かすこと**、
+**`bin/plangate` の C-3 判定を status / validate / exec で 1 本に共通化すること**。
 
-- 配布物（`plugin/`）の変更は **12 ファイル・追加 964 行・削除 7 行**
-  （実測: `git diff --shortstat v8.22.0..db91ed16 -- plugin/`）。内訳は SKILL.md 2 本
-  （`context-packager` / `working-context`。+56/-0）、#1405 による `ai-loop-cycle` / `ai-dev-exec` /
-  `ai-dev-verify` の scripts・references・schema 7 ファイル（+905/-4）、#1432 の version bump 3 ファイル
-  （`plugin.json` 2 本と `README.md`）
-- **`bin/plangate` は変更ゼロ**（実測: `git diff --numstat v8.22.0..db91ed16 -- bin/plangate` が 0 行）
-- `schemas/` は**追加のみ**（削除行 0）: `context-manifest.schema.json` に任意フィールド `intent_context`、
-  **新規** `intent-context-package.schema.json`、`model-profile.schema.json` に任意フィールド `model_id` と
-  enum 値 `gpt-6-*`、**新規** `plan-contract.schema.json`、**新規** `plan-deliberation.schema.json`（#1412 / PR #1433）
-  （実測: `git diff --numstat v8.22.0..db91ed16 -- schemas/` → 26/0・328/0・11/0・54/0・737/0。
+- 収録範囲は **v8.22.0..`13bb8875` の 195 commit・PR 61 件**
+  （実測: `git rev-list --count v8.22.0..13bb8875`。PR は件名の `(#NNNN)` / `Merge pull request #NNNN` を全数抽出し、
+  件名に番号の無い #1419 / #1397 を `gh api repos/s977043/plangate/commits/<sha>/pulls` で補った。
+  61 件のうち #1432 / #1433 / #1434 はリリース準備の PR）
+- 配布物（`plugin/`）の変更は **24 ファイル・追加 11314 行・削除 24 行**
+  （実測: `git diff --shortstat v8.22.0..13bb8875 -- plugin/`）。`plugin.json` は 8.23.0 に bump 済み
+- **`bin/plangate` は +152 / −75 行**（実測: `git diff --numstat v8.22.0..13bb8875 -- bin/plangate`）。
+  C-3 判定の共通化と `exec` の復旧ガイダンス追加（下記 ⚠️ 4.）
+- `schemas/` は**追加と任意フィールド・enum 値の追加のみ**（削除行 0）: `context-manifest.schema.json` に任意フィールド
+  `intent_context`、**新規** `intent-context-package.schema.json`、`model-profile.schema.json` に任意フィールド
+  `model_id` と enum 値 `gpt-6-*`、**新規** `plan-contract.schema.json`、**新規** `plan-deliberation.schema.json`
+  （実測: `git diff --numstat v8.22.0..13bb8875 -- schemas/` → 26/0・328/0・11/0・54/0・737/0。
   `--name-status` は M・A・M・A・A）
-- 破壊的変更を宣言した commit は **0 件**（実測: `v8.22.0..db91ed16` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
+- 破壊的変更を宣言した commit は **0 件**（実測: `v8.22.0..13bb8875` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
+- **semver は minor**（Human 決定 2026-10-05）。CLI の出力・入力契約は変えないが、`validate-schemas` の検証対象拡大と
+  C-3 判定の fail-closed 化は**従来通っていた入力が止まりうる挙動変更**であり、patch ではなく minor で告知する
 
-（数値はいずれも **基点 `db91ed16` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない）
+（数値はいずれも **基点 `13bb8875` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない）
 **PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。
 
 ### ⚠️ 更新前に必ずお読みください
 
-> **対象: `plangate` プラグインを導入している利用者**（1.）と、**ai-loop（`ai-loop-cycle` skill）を
-> 使っている利用者**（2.）。いずれも既存の hook・CLI・schema の必須項目は変えていません。
+> **対象: `plangate` プラグインを導入している利用者**（1.）、**ai-loop（`ai-loop-cycle` skill）を
+> 使っている利用者**（2.）、**`plangate validate-schemas` を CI 等で使っている利用者**（3.）、
+> **`bin/plangate` の status / validate / exec を使っている利用者**（4.）。
+> hook・schema の必須項目は変えていません。
 
 #### 1. `working-context` skill に「checkpoint してから fresh context で再開する」規則が加わります（#1411）
 
@@ -55,6 +63,26 @@ C-3' は AUTO_APPROVED を出さずに fail-closed で止まります**。同梱
 `plugin/plangate/skills/ai-loop-cycle/` の scripts / references / schemas と、`ai-dev-exec` / `ai-dev-verify` の
 `references/c3-prime-contract.md` も変わります。
 
+#### 3. `plangate validate-schemas` の検証対象が増え、従来 SKIP だったファイルが検証されます（#1396 / #1405 / #1412）
+
+検証対象のファイル名に **`intent-context.json` / `plan-contract.json` / `plan-deliberation.json`** が加わりました
+（`scripts/schema_mapping.py`）。従来は schema マッピングが無く **SKIP（exit 0）** だったものが、
+**schema に照らして検証され、違反があれば FAIL（exit 1）**になります。`intent-context.json` は schema に加えて
+参照・provenance の意味検証（`scripts/intent_context_contract.py`）も通ります。
+**これらと同名で別の目的のファイルを `docs/working/` 等に置いている場合、更新後に新たに FAIL しうる**ため、
+CI で `validate-schemas` を実行している場合は更新前に `plangate validate-schemas --dir <path>` で確認してください。
+
+#### 4. `status` / `validate` / `exec` の C-3 判定が共通化され、不正な承認記録は fail-closed で止まります（#1481 / #1492）
+
+C-3 の read-only 評価を 1 つの関数（`_plangate_c3_evaluate`）に集約し、3 コマンドで同じ判定を使います。
+従来 `status` は `c3.json` の**存在**だけでフェーズを導出し、`exec` の legacy 判定は `grep` による文字列抽出でした。
+今後は実際の決定・検証結果で判定し、**壊れた legacy `c3.json`（JSON として読めない・`c3_status` が `APPROVED` 以外・
+`plan_hash` 不一致）や、c3-prime の dispatch が想定外の戻り値（0 でも 10 でもない）を返した場合は、
+承認済みとは扱わず止まります（fail-closed）**。従来 `exec` は dispatch の想定外 rc を受理側へ落としていました。
+`exec` が止まったときは stderr に次の一手（read-only）を出します（終了コードと承認権限は不変。#1481）。
+`status` は読めない承認記録を `plangate validate` へ誘導します。
+minor の理由: 入出力のインターフェースは変えないが、従来通っていた不正な承認記録が停止側に倒れる**挙動変更**を含むため。
+
 ### Context（Intent Context / Dynamic Context Engine / Context Lifecycle）
 
 - **Intent Context Package v1 の契約を実装**（#1396。ownership は #1390 で確定）。
@@ -68,10 +96,22 @@ C-3' は AUTO_APPROVED を出さずに fail-closed で止まります**。同梱
 
 ### ai-loop V2
 
-- **Delivery の E2E 実行可能仕様**（#1383 / `ta-87`）と、**owner-backed Delivery runtime**（#1402 / `ta-93`）
-- **verification-skipped Ratchet の縦切り**（#1409 / `ta-92`）
-- **Runtime Graph の境界と選択規則**を canon に明記（#1379）
-- plan の確定（exec 前）: RunEvent / RunEvidence（#1391）・RunState CAS / atomic snapshot（#1392 / PR #1406）・
+- **Delivery の E2E 実行可能仕様**（#1383 / PR #1387 / `ta-87`）と、**owner-backed Delivery runtime**（#1402 / `ta-93`）
+- **verification-skipped Ratchet の縦切り**（#1409 / `ta-92`）。**検出力の保護**（#1488）と、
+  Ratchet の source failure を RunEvent へ束縛（#1491）
+- **Runtime Graph の境界と選択規則**を canon に明記（#1379）。loop-graph-harness に partition 許可と
+  保守担当を記載（#1438）、harness の構成と health lens（#1445）、scaffolding の再評価（#1487）
+- **Runtime Evidence スタックを main へ正規化**（#1466）。Certification View の shadow 実行可能仕様（#1462 / `ta-102`）、
+  evidence certification とリスクに応じたレビュー経路の設計（#1459）、Runtime Evidence RFC と Production Feedback
+  ガイドの収束（#1447）
+- **R1 の独立した attestation verifier**（#1470）。外部 verifier の receipt candidate 境界（#1471）、
+  external admin の境界 admission candidate（#1475。URI の正規化 #1478 / provenance 契約の強化 #1479）、
+  external verifier の bootstrap handoff package（#1483。content-address 化 #1484 / provenance candidate の復元 #1485）、
+  verifier provenance を bootstrap package の identity へ束縛（#1493）。**candidate として扱い、
+  repo 内からの自己昇格を許さない設計**（テストで固定）
+- **shadow PBI materializer**（#1443）: feedback と RunEvidence から PBI 候補を shadow で生成する
+- **bounded requirement discovery** を Delivery 前段へ統合（#1441）
+- plan の確定（exec 前）: RunEvent / RunEvidence（#1391 / PR #1397）・RunState CAS / atomic snapshot（#1392 / PR #1406）・
   Verification / Failure / Decision core（#1393 / PR #1407）・Work Item Graph の field ownership（#1385 / PR #1386）・
   AI Execution Readiness（#1416 / PR #1417）
 
@@ -80,8 +120,12 @@ C-3' は AUTO_APPROVED を出さずに fail-closed で止まります**。同梱
 - **外部レビュー結果の正規化境界**を決定論的に実装（#1413 / `ta-91`）。`scripts/reviewer_normalize.py`
 - **GPT-6 のモデルプロファイルを実行経路へ接続**（`e5587226`）。`scripts/ai-dev-workflow` に
   opt-in の `--profile=` / `--mode=` を追加（**指定しなければ従来どおり**）
-- **Plan Deliberation schema の契約を用意**（#1412 / `ta-89`）。schema 本体は HO パスのため
-  `scripts/apply-task-1353-plan-deliberation-schema.sh` で Human が tag の前に適用した（PR #1433 / `db91ed16`）
+- **Plan Deliberation schema を追加**（#1412 / `ta-89`）。schema 本体は HO パスのため bootstrap 用の generator と
+  apply スクリプトで Human が tag の前に適用した（PR #1433 / `db91ed16`）。**適用後の #1494 で、その bootstrap 用の
+  `scripts/generate-plan-deliberation-schema.py` と `scripts/apply-task-1353-plan-deliberation-schema.sh` を削除した**
+  （削除前に generator 出力と main の schema の byte 一致を確認済み）。`ta-89` は `schemas/plan-deliberation.schema.json`
+  を直接検証する。`plan-deliberation.json` は `validate-schemas` の対象になった（上記 ⚠️ 3.）
+- **`bin/plangate` の C-3 判定の共通化と `exec` の復旧ガイダンス**（#1481 / #1492 / `ta-111`。上記 ⚠️ 4.）
 
 ### 承認境界の運用（文面）
 
@@ -97,7 +141,9 @@ C-3' は AUTO_APPROVED を出さずに fail-closed で止まります**。同梱
   fail-closed の証跡で強化（#1400）
 - `#1337` の読み取り隔離 preflight を具体化（#1371）し、TASK-1359 への runtime handoff を用意（#1418）。
   TASK-1359 の計画を確定（#1360）
-- `chore(deps)`: `codeql-action` 4.38.1 → 4.38.2（#1425。SHA ピンは維持）
+- `chore(deps)`: github-actions グループの 4 件の更新（#1425。SHA ピンは維持）
+- 採用 UX とエコシステム成長の境界を整理（#1477）。リリース準備 PR の merge タイミングと open PR 間の衝突検出の
+  方法を `AGENT_LEARNINGS.md` に追記（#1489）。TASK-1359 のフェーズ履歴を原文に戻した（#1436）
 - `sync-plugin-plangate` workflow の `paths:` に `scripts/intent_context_contract.py` を追加（#1405 の HO patch を
   PR #1433 で Human が適用。main の `Test` で FAIL していた `ta-71` TC-20 / TC-22・`ta-61` TC-12 の原因）
 
