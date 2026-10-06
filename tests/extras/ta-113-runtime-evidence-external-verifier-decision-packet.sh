@@ -32,7 +32,7 @@ _T113_ADR="$_T113_ROOT/docs/decisions/adr-007-external-runtime-verifier-boundary
 
 printf 'TA-113: external verifier P0 decision packet (#1473)\n'
 
-_t113_status=$(sed -n 's/^\\*\\*Status\\*\\*: \\([^ ]*\\).*/\\1/p' "$_T113_ADR" | head -1)
+_t113_status=$(sed -n 's/^\*\*Status\*\*: \([^ ]*\).*/\1/p' "$_T113_ADR" | head -1)
 _t113_record=$(sed -n '/^### Human Decision Record$/,/^### Decision-state transition contract$/p' "$_T113_ADR")
 _t113_record_fields=0
 _t113_undecided=0
@@ -86,7 +86,7 @@ fi
 
 if grep -Fq 'AI/automation MUST NOT satisfy items 1–6 on behalf of the Human owner.' "$_T113_ADR" \
   && grep -Fq 'External provisioning may start only after this ADR is `Accepted` by a Human' "$_T113_ADR" \
-  && grep -Fq 'the Human Decision Record has no `UNDECIDED` values.' "$_T113_ADR"; then
+  && grep -Fq 'Record has no `UNDECIDED` values.' "$_T113_ADR"; then
   printf '  [PASS] activation: automation cannot accept or provision before Human decision\n'; pass=$((pass + 1))
 else
   printf '  [FAIL] activation: Human acceptance gate is incomplete\n' >&2; fail=$((fail + 1))
