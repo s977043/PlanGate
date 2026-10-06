@@ -164,7 +164,22 @@ else
   fail=$((fail + 1))
 fi
 
-# 9. CLI-root fallback remains available outside a git repository.
+# 9. doctor --fix --dry-run reads canonical hooks from CLI root but plans writes in target.
+_t112_before_count=$(find "$_t112_b" -type f 2>/dev/null | wc -l | tr -d ' ')
+_t112_rc=0
+_t112_out=$(sh "$_T112_BIN" --project-root "$_t112_b" doctor --fix --dry-run 2>&1) || _t112_rc=$?
+_t112_after_count=$(find "$_t112_b" -type f 2>/dev/null | wc -l | tr -d ' ')
+if [ "$_t112_rc" -eq 0 ] \
+  && printf '%s' "$_t112_out" | grep -Fq 'settings.json hooks (via doctor_fix.py --dry-run)' \
+  && printf '%s' "$_t112_out" | grep -Fq 'plan: create .claude/settings.json with PlanGate hook blocks' \
+  && [ "$_t112_before_count" = "$_t112_after_count" ]; then
+  printf '  [PASS] doctor --fix dry-run separates CLI source from downstream target\n'; pass=$((pass + 1))
+else
+  printf '  [FAIL] doctor --fix dry-run source/target split (rc=%s before=%s after=%s)\n%s\n' "$_t112_rc" "$_t112_before_count" "$_t112_after_count" "$_t112_out" >&2
+  fail=$((fail + 1))
+fi
+
+# 10. CLI-root fallback remains available outside a git repository.
 _t112_fallback="TASK-962FALLBACK"
 _t112_fallback_dir="$_T112_ROOT/docs/working/$_t112_fallback"
 mkdir -p "$_t112_fallback_dir/approvals"
