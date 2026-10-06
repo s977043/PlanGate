@@ -126,6 +126,34 @@ as PlanGate.
 
 **Decision status**: REJECTED unless an independently reviewable admin-separation model is established.
 
+## Evaluation Matrix
+
+| Criterion | Option A: separate repository | Option B: external service |
+| --- | --- | --- |
+| Admin separation | Must be proven by effective admin/control separation, not repo name | Must be proven by service/account ownership and access policy |
+| Issuer identity | GitHub Actions OIDC is a concrete candidate | Service-specific issuer / trust root |
+| Immutable execution identity | Workflow path + commit SHA / pinned binary | Versioned verifier identity / pinned binary |
+| Nonce ownership | Separate external ledger/service required | May be native to the service if independently controlled |
+| Auditability | GitHub org/repo audit evidence + policy evidence | Service audit/access logs + policy evidence |
+| Integration cost | Lower with current #1470/#1471 model | Higher; may require an adapter |
+| Independence failure mode | Same effective admin controls both repositories | Same effective account/admin controls PlanGate and service |
+
+This matrix is decision support only. It does not select an option.
+
+### Minimum independence Evidence expected at P1/P2
+
+Regardless of the selected option, later promotion needs independently reviewable Evidence for:
+
+1. **effective administrator separation** — who can change verifier policy, signer identity, and trust configuration;
+2. **immutable execution identity** — exact workflow/binary/version that produced the receipt;
+3. **issuer / trust-root ownership** — why the claimed issuer is trusted for this boundary;
+4. **nonce authority separation** — who can issue, consume, and reject reuse;
+5. **least privilege** — verifier credentials cannot write PlanGate code, approvals, merges, or deployments;
+6. **policy enforcement** — signer/source/runner restrictions were actually enforced, not only documented.
+
+A separate repository name, organization membership, workflow file, or repository-authored statement is
+not sufficient by itself.
+
 ## Decision
 
 **Decision state: NOT_MADE.**
@@ -154,10 +182,34 @@ This ADR may move from **Proposed** to **Accepted** only when all of the followi
 
 AI/automation MUST NOT satisfy items 1–6 on behalf of the Human owner.
 
+### Human Decision Record
+
+When the Human owner makes P0, update this block explicitly. Until then every value remains a
+placeholder.
+
+```text
+selected_option = UNDECIDED
+external_verifier_location = UNDECIDED
+external_verifier_admin = UNDECIDED
+nonce_ledger_owner = UNDECIDED
+trusted_issuer = UNDECIDED
+decision_recorded_by = UNDECIDED
+decision_recorded_at = UNDECIDED
+decision_evidence_ref = UNDECIDED
+```
+
+Rules:
+
+- `selected_option` must identify Option A, Option B, or a separately reviewed equivalent.
+- `decision_recorded_by` must identify the Human decision maker; an AI/automation identity is invalid.
+- `decision_recorded_at` must be an explicit timestamp/date.
+- `decision_evidence_ref` must point to the Human-owned auditable record.
+- Filling this block records the **choice**; it does not prove the external boundary is already independent.
+
 ### P1 activation gate
 
-External provisioning may start only after this ADR is `Accepted` by a Human and all four values above
-are non-placeholder values.
+External provisioning may start only after this ADR is `Accepted` by a Human and the Human Decision
+Record has no `UNDECIDED` values.
 
 Until then:
 
