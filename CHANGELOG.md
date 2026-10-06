@@ -6,7 +6,7 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
-## v8.23.0 - TBD
+## v8.23.0 - 2026-10-07
 
 feat: Intent Context Package v1 と Context Lifecycle を導入し、ai-loop V2 の Delivery runtime・Ratchet・Runtime Evidence を縦切りで実装し、`bin/plangate` の C-3 判定を共通化して既定の対象 repo を cwd の git root にする
 

@@ -16,7 +16,7 @@
 #
 # リリース日は下の RELEASE_DATE で持つ。TBD のままでは --apply を拒否する
 # （v8.22.0 では準備日 2026-09-11 のまま apply し、実リリース日 2026-09-23 へ
-# 直す追加スクリプトが要った。その再発を防ぐ）。tag を切る日に Human が確定する。
+# 直す追加スクリプトが要った。その再発を防ぐ）。v8.23.0 は tag を切る日 2026-10-07 に確定した。
 #
 # Usage:
 #   sh scripts/apply-claude-md-v8230.sh --dry-run   # 差分プレビュー（書込なし）
@@ -28,7 +28,7 @@
 set -eu
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 F="${PLANGATE_APPLY_FILE:-$ROOT/CLAUDE.md}"
-RELEASE_DATE="TBD"
+RELEASE_DATE="2026-10-07"
 [ $# -eq 1 ] || { echo "usage: $0 --dry-run|--apply|--verify" >&2; exit 1; }
 case "$1" in --dry-run|--apply|--verify) ;; *) echo "usage: $0 --dry-run|--apply|--verify" >&2; exit 1 ;; esac
 MODE="$1"
