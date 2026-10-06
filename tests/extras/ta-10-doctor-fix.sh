@@ -235,7 +235,7 @@ _ta10_mkroot() {
 # TC-1: 未配線環境で doctor が Hook Wiring セクション出力 + FAIL + exit 1
 # ---------------------------------------------------------------------------
 root="$(_ta10_mkroot)"
-out="$(sh "$root/bin/plangate" doctor 2>&1)" && rc=0 || rc=$?
+out="$(sh "$root/bin/plangate" --project-root "$root" doctor 2>&1)" && rc=0 || rc=$?
 wiring_block="$(printf '%s\n' "$out" | awk '/^=== Hook Enforcement Wiring ===$/{f=1;next} /^=== /{f=0} f')"
 if [ "$rc" -eq 1 ] \
    && printf '%s\n' "$out" | grep -q '^=== Hook Enforcement Wiring ===$' \
@@ -275,7 +275,7 @@ if ! [ -e "$shimbin/python3" ]; then
   _py="$(command -v python3 || true)"
   [ -n "$_py" ] && ln -s "$_py" "$shimbin/python3" 2>/dev/null || true
 fi
-out="$(PATH="$shimbin" sh "$root/bin/plangate" doctor --fix --yes 2>&1)" && rc=0 || rc=$?
+out="$(PATH="$shimbin" sh "$root/bin/plangate" --project-root "$root" doctor --fix --yes 2>&1)" && rc=0 || rc=$?
 rm -rf "$shimbin"
 if printf '%s\n' "$out" | grep -q 'gh (GitHub CLI) not installed' \
    && printf '%s\n' "$out" | grep -q 'codex (Codex CLI) not installed' \

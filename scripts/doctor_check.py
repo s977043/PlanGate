@@ -37,7 +37,16 @@ import sys
 from pathlib import Path
 
 import sys as _phsys; from pathlib import Path as _phP; _phsys.path.insert(0, str(_phP(__file__).resolve().parent))
-from _paths import REPO_ROOT as REPO  # noqa: E402
+from _paths import REPO_ROOT as SOURCE_REPO  # noqa: E402
+
+_target_root = os.environ.get("PLANGATE_PROJECT_ROOT")
+if _target_root:
+    REPO = Path(_target_root).expanduser().resolve()
+    if not REPO.is_dir():
+        print(f"[error] PLANGATE_PROJECT_ROOT is not a directory: {REPO}", file=sys.stderr)
+        raise SystemExit(2)
+else:
+    REPO = SOURCE_REPO
 
 V860_FILE_CHECKS: list[tuple[str, str]] = [
     ("schemas/plangate-event.schema.json", "fail"),
@@ -56,7 +65,7 @@ V860_FILE_CHECKS: list[tuple[str, str]] = [
 
 
 def check_file(path_rel: str, level: str) -> dict:
-    p = REPO / path_rel
+    p = SOURCE_REPO / path_rel
     return {
         "name": path_rel,
         "ok": p.is_file(),
@@ -66,7 +75,7 @@ def check_file(path_rel: str, level: str) -> dict:
 
 
 def check_eh8_executable() -> dict:
-    p = REPO / "scripts/hooks/check-metrics-privacy.sh"
+    p = SOURCE_REPO / "scripts/hooks/check-metrics-privacy.sh"
     ok = p.is_file() and os.access(p, os.X_OK)
     return {
         "name": "EH-8 hook is executable",
@@ -163,7 +172,9 @@ def _load_json(path: Path):
 
 
 def check_hooks_wired() -> dict:
-    example = REPO / ".claude/settings.example.json"
+    # Expected wiring is a CLI implementation asset; actual settings belong to
+    # the selected target project (#962).
+    example = SOURCE_REPO / ".claude/settings.example.json"
     settings = REPO / ".claude/settings.json"
 
     if not example.is_file():
@@ -238,7 +249,7 @@ def check_w6_introduction() -> dict:
     AutonomousApproveRecordExists: docs/working/TASK-*/status.md のいずれかに
     "C-3 Gate: AUTONOMOUS APPROVED" 文字列が存在する。
     """
-    wc = REPO / ".claude" / "rules" / "working-context.md"
+    wc = SOURCE_REPO / ".claude" / "rules" / "working-context.md"
     heading_marker = "C-3 Autonomous APPROVE"
     introduced = False
     if wc.is_file():
@@ -283,7 +294,7 @@ def check_skill_collisions() -> dict:
     exit code 1 (衝突あり) を WARN として報告する。優先順位規約は
     docs/ai/skill-collision-detection.md を参照 (repo-local 優先)。
     """
-    script = REPO / "scripts" / "check-skill-name-collisions.py"
+    script = SOURCE_REPO / "scripts" / "check-skill-name-collisions.py"
     name = "skill/command/agent name collisions (#721)"
     if not script.is_file():
         return {
@@ -469,6 +480,9 @@ def main(argv: list[str]) -> int:
         return 2
 
     result = runner()
+    # #962: machine-readable target identity without contaminating JSON stdout.
+    result["project_root"] = str(REPO)
+    result["project_root_source"] = os.environ.get("PLANGATE_PROJECT_ROOT_SOURCE", "script-root")
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0 if result["passed"] else 1
 
