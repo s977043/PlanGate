@@ -38,30 +38,33 @@ description: "PlanGate 初期セットアップを対話的に進めるための
 
 ## CLI 前提（doctor が何を検査するか）
 
-> **前提（Human 決定 #1144）**: plugin / `install.sh --claude` / Codex が導入先へ配るのは
-> **読み物層（`skills` / `rules` / `agents` / `commands`）だけ**であり、**CLI（PlanGate CLI 本体）も
-> enforcement 層（`scripts/hooks/`）も配布物に含まれない**。`doctor` を実行できるのは
-> **上流リポジトリ（`s977043/plangate`）の clone がある環境だけ**である。導入先の
-> セットアップ検証で `doctor` に到達したら「CLI が無いため実行できない／上流リポジトリの
-> clone が必要」と**明示して停止する**か、下記「5 要素対応」表の「検証」列を導入先の
-> ファイルを直接見て手動確認へ置き換える。**CLI が無いことを理由に検証を黙って省略し、
-> 「doctor PASS」と読める記録を残してはならない。**
+> **配布と対象 project root は別の問題（#962 / #1144）**: plugin / `install.sh --claude` / Codex は
+> `bin/plangate` と enforcement scripts を導入先へ配布しない。そのため CLI を使うには
+> PlanGate の clone と、その `bin/plangate` への PATH または絶対パスが必要。
+> ただし #1497 以降、CLI が利用できる場合の対象 project root は全コマンド共通で
+> **`--project-root` → `PLANGATE_PROJECT_ROOT` → cwd の git root → CLI root fallback**
+> の順に解決される。導入先の git repo で PATH 上の `plangate` を実行すれば、その導入先が
+> 既定の対象になる。CLI が無いことを理由にゲートや検証を黙って省略してはならない。
+>
+> #1497 で downstream 契約を明示検証したのは `status` / `validate` / `approve` /
+> read-only `doctor`（および work-dir を明示する `render`）。`doctor --fix` は #1144 の
+> enforcement 配布が解決するまで downstream では **rc=2 / no-write** で fail-closed。
+> script-relative helper に委譲するコマンドは、root resolver が存在しても自動的に
+> downstream 対応になるとは扱わず、下表・フォールバックの個別契約に従う。
 
-本 skill は `doctor` を単一検証源とするが、**`doctor` は cwd ではなく CLI 本体の位置を基準に
-検査する**。`bin/plangate` は自身のパスから `plangate_root`（= `bin/` の親）を求め、
-`doctor` / `doctor --json` / `doctor --check-settings` はいずれも
-`<CLI の repo root>` 配下（`.claude/settings.json` / `.claude/rules/` / `docs/working/` /
-`schemas/` 等）を対象にする。`--dir` 相当のオプションも無い。
+本 skill は `doctor` を単一検証源とする。CLI が利用できる場合、read-only doctor は
+selected project root の settings / rules / `docs/working/` 等を検査し、実装資産・schema は
+CLI clone 側の正本を使う。
 
 | 実行環境 | doctor の可否 | 対象 |
 |---------|--------------|------|
-| 上流リポジトリの cwd | `bin/plangate doctor [--json] [--check-settings]` | その clone 自身（＝意図どおり） |
-| 導入先 + PATH に `plangate` あり | 実行はできるが**セットアップ検証には使えない** | 別の場所にある上流 clone |
-| 導入先 + PATH に無い（**既定**） | 実行不可（`bin/` は配布されない） | — |
+| 上流リポジトリの cwd | `bin/plangate doctor [--json] [--check-settings]` | その clone |
+| 導入先 + PATH に `plangate` あり | `plangate doctor [--json] [--check-settings]` | cwd の導入先 git root |
+| 任意 cwd + 明示指定 | `plangate --project-root <dir> doctor [--json] [--check-settings]` | `<dir>` |
+| 導入先 + PATH に無い（**既定**） | 実行不可（CLI は未配布） | 手動確認へ degrade |
 
-**導入先プロジェクトのセットアップを検証する用途では、doctor の結果を根拠にしてはならない。**
-その場合は下記「5 要素対応」表の「検証」列を**導入先のファイルを直接見て**手動で確認し、
-手動確認である旨を `status.md` に記録する（**未検証を「doctor PASS」と書かない**）。
+> **修復境界**: downstream `doctor --fix` / `--fix --dry-run` は #1144 解決まで rc=2 で拒否され、
+> targetへ書き込まない。read-only inspection の利用可否と enforcement 配布の有無を混同しない。
 
 ## Setup の 5 要素対応
 
@@ -128,13 +131,13 @@ doctor FAIL が環境制約等で解消困難な場合、以下のいずれか�
 
 ## 完了条件
 
-setup が完了したと判定する条件（**doctor が導入先を対象にできる環境＝上流リポジトリの cwd の場合**）:
+setup が完了したと判定する条件（**CLI が利用でき、doctor が selected project root を検査できる場合**）:
 
 - `doctor --json` で `overall_pass == true`（`level=fail` の `ok=false` ゼロ）
 - かつ `doctor --check-settings` の出力が `^\[check-settings\] PASS:` で始まる
 - ユーザーが対話内で完了を確認
 
-**doctor が使えない / 別 repo を見てしまう環境**（「CLI 前提」節の 2・3 行目）では、上記 2 条件を
+**CLI 自体が使えない環境**では、上記 2 条件を
 以下の手動確認で代替する。判定根拠が doctor ではなく手動確認であることを `status.md` に明記する:
 
 - 「5 要素対応」表の各行を導入先のファイルで直接確認（存在確認・`.claude/settings.json` の
@@ -158,13 +161,8 @@ setup が完了したと判定する条件（**doctor が導入先を対象に�
   - C-3 承認: `plangate approve <task_id>`（v8.14.0〜: Human ワンアクション承認）
 ```
 
-> **CLI 行の表記は実行環境に合わせて書き換える**。上流リポジトリの cwd では `bin/plangate render`
-> / `bin/plangate approve`、導入先で PATH を通しているなら `plangate ...`。ただし
-> `render` / `approve` の `<task_id>` 位置引数も **CLI 本体の位置**を基準に
-> `<CLI の repo root>/docs/working/<task_id>` へ解決され、**どちらのサブコマンドも
-> パスを明示するオプションを公開していない**ため、**導入先の TASK は対象にできない**
-> （上流 clone があれば `python3 scripts/render_review.py --task <id> --work-dir <パス>` で
-> render だけは外部ディレクトリを描画できるが、`approve` に同等の逃げ道は無い）。
-> CLI が導入先を見られない環境では、この 2 行を
-> 「`plan.md` / `review-self.md` を直接読んでレビューし、`approvals/c3.json` を人間が発行」
-> に置き換えて記載する。
+> **CLI 行の表記は実行環境に合わせる**。上流 clone の cwd では `bin/plangate`、
+> 導入先で PATH を通しているなら `plangate`。別repoを明示する場合は
+> `plangate --project-root <dir> ...` を使う。#1497 以降、`render` / `approve` も selected
+> project root の TASK を対象にできる（`approve` の Human-presence gate は不変）。
+> CLI が無い環境では従来どおりファイル直接確認へ degrade し、未検証を PASS と書かない。
