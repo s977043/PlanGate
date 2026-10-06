@@ -422,6 +422,17 @@ cmd_doctor() {
     shift
   done
 
+  # #962 / #1144: downstream inspection is supported, but downstream repair is
+  # not safe until enforcement scripts are actually distributed to the target.
+  # Writing settings alone would create hook commands that point at missing
+  # ${CLAUDE_PROJECT_DIR}/scripts/... files.
+  if [ "$doctor_fix" -eq 1 ] && [ "$plangate_project_root" != "$plangate_root" ]; then
+    printf 'plangate doctor --fix: downstream repair is not supported for %s\n' "$plangate_project_root" >&2
+    printf '  reason: enforcement scripts are not distributed to the target yet (#1144).\n' >&2
+    printf '  use: plangate --project-root %s doctor --json (read-only inspection)\n' "$plangate_project_root" >&2
+    return 2
+  fi
+
   if [ "$doctor_json" -eq 0 ]; then
     if [ "$doctor_check_settings" -eq 1 ]; then
       printf 'PlanGate Doctor target: %s (source=%s)\n' "$plangate_project_root" "$plangate_project_root_source" >&2
@@ -721,7 +732,7 @@ PYEOF
       # Dry-run: 全修復対象を非書込で計画表示のみ。
       printf '  [PLAN] dry-run — no files will be modified\n'
       printf '  [PLAN] settings.json hooks (via doctor_fix.py --dry-run):\n'
-      dry_run_output=$(python3 "$fix_py" --project-dir "$plangate_project_root" --source-dir "$plangate_root" --dry-run) || {
+      dry_run_output=$(python3 "$fix_py" --project-dir "$plangate_project_root" --dry-run) || {
         printf '  [FAIL] doctor_fix.py --dry-run failed\n' >&2
         return 2
       }
@@ -766,7 +777,7 @@ PYEOF
     fix_rc=0
 
     # 1. settings.json: doctor_fix.py --apply（merge-only / backup / 冪等）
-    if python3 "$fix_py" --project-dir "$plangate_project_root" --source-dir "$plangate_root" --apply; then
+    if python3 "$fix_py" --project-dir "$plangate_project_root" --apply; then
       printf '  [DONE] settings.json hooks merged (doctor_fix.py --apply)\n'
     else
       printf '  [FAIL] doctor_fix.py --apply failed\n' >&2
