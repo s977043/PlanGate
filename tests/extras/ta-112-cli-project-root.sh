@@ -154,9 +154,13 @@ _t112_json="$_t112_tmp/doctor.json"
 _t112_err="$_t112_tmp/doctor.err"
 _t112_rc=0
 sh "$_T112_BIN" --project-root "$_t112_b" doctor --json --scope hooks >"$_t112_json" 2>"$_t112_err" || _t112_rc=$?
-if python3 -m json.tool "$_t112_json" >/dev/null 2>&1 \
-  && grep -Fq "PlanGate Doctor target: $_t112_b (source=flag)" "$_t112_err" \
-  && [ "$_t112_rc" -eq 1 ]; then
+if python3 - "$_t112_json" "$_t112_b" <<'PY' \
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+assert d["project_root"] == sys.argv[2]
+assert d["project_root_source"] == "flag"
+PY
+  [ "$_t112_rc" -eq 1 ] && [ ! -s "$_t112_err" ]; then
   printf '  [PASS] doctor --json keeps machine-readable stdout and selected target\n'; pass=$((pass + 1))
 else
   printf '  [FAIL] doctor --json target contract (rc=%s)\n' "$_t112_rc" >&2
