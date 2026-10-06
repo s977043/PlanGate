@@ -221,18 +221,18 @@ else
   fail=$((fail + 1))
 fi
 
-# 12. doctor --fix --dry-run reads canonical hooks from CLI root but plans writes in target.
+# 12. downstream doctor --fix fails closed until enforcement is distributed (#1144).
 _t112_before_count=$(find "$_t112_b" -type f 2>/dev/null | wc -l | tr -d ' ')
 _t112_rc=0
 _t112_out=$(sh "$_T112_BIN" --project-root "$_t112_b" doctor --fix --dry-run 2>&1) || _t112_rc=$?
 _t112_after_count=$(find "$_t112_b" -type f 2>/dev/null | wc -l | tr -d ' ')
-if [ "$_t112_rc" -eq 0 ] \
-  && printf '%s' "$_t112_out" | grep -Fq 'settings.json hooks (via doctor_fix.py --dry-run)' \
-  && printf '%s' "$_t112_out" | grep -Fq 'plan: create .claude/settings.json with PlanGate hook blocks' \
+if [ "$_t112_rc" -eq 2 ] \
+  && printf '%s' "$_t112_out" | grep -Fq 'downstream repair is not supported' \
+  && printf '%s' "$_t112_out" | grep -Fq '#1144' \
   && [ "$_t112_before_count" = "$_t112_after_count" ]; then
-  printf '  [PASS] doctor --fix dry-run separates CLI source from downstream target\n'; pass=$((pass + 1))
+  printf '  [PASS] downstream doctor --fix fails closed without writes\n'; pass=$((pass + 1))
 else
-  printf '  [FAIL] doctor --fix dry-run source/target split (rc=%s before=%s after=%s)\n%s\n' "$_t112_rc" "$_t112_before_count" "$_t112_after_count" "$_t112_out" >&2
+  printf '  [FAIL] downstream doctor --fix boundary (rc=%s before=%s after=%s)\n%s\n' "$_t112_rc" "$_t112_before_count" "$_t112_after_count" "$_t112_out" >&2
   fail=$((fail + 1))
 fi
 
