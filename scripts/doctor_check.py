@@ -37,7 +37,16 @@ import sys
 from pathlib import Path
 
 import sys as _phsys; from pathlib import Path as _phP; _phsys.path.insert(0, str(_phP(__file__).resolve().parent))
-from _paths import REPO_ROOT as REPO  # noqa: E402
+from _paths import REPO_ROOT as SOURCE_REPO  # noqa: E402
+
+_target_root = os.environ.get("PLANGATE_PROJECT_ROOT")
+if _target_root:
+    REPO = Path(_target_root).expanduser().resolve()
+    if not REPO.is_dir():
+        print(f"[error] PLANGATE_PROJECT_ROOT is not a directory: {REPO}", file=sys.stderr)
+        raise SystemExit(2)
+else:
+    REPO = SOURCE_REPO
 
 V860_FILE_CHECKS: list[tuple[str, str]] = [
     ("schemas/plangate-event.schema.json", "fail"),
@@ -163,7 +172,9 @@ def _load_json(path: Path):
 
 
 def check_hooks_wired() -> dict:
-    example = REPO / ".claude/settings.example.json"
+    # Expected wiring is a CLI implementation asset; actual settings belong to
+    # the selected target project (#962).
+    example = SOURCE_REPO / ".claude/settings.example.json"
     settings = REPO / ".claude/settings.json"
 
     if not example.is_file():
