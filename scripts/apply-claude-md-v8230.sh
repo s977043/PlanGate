@@ -1,19 +1,22 @@
 #!/bin/sh
-# DRAFT (未 commit): scripts/apply-claude-md-v8230.sh として置く想定。
-# repo への Write が EH-3（SKIP_REASON 未設定）で block されたため scratchpad に退避した。
-#
 # apply-claude-md-v8230.sh -- CLAUDE.md「最新リリース」節を v8.23.0 へ更新
 #
 # CLAUDE.md は Hardening Override (HO) 対象（self-mod guard）。AI は --dry-run と
 # --verify のみ実行可。--apply の実行は Human-owned（.claude/rules/responsibility-classes.md）。
 #
 # 背景: v8.23.0（Intent Context Package v1 / Context Lifecycle / ai-loop V2 の
-# Delivery runtime と Ratchet）のリリースに伴う「最新リリース」節の同期。
-# 文面の出典: CHANGELOG.md の v8.23.0 節。
+# Delivery runtime・Ratchet・Runtime Evidence / bin/plangate の C-3 判定の共通化と
+# 対象 repo の解決）のリリースに伴う「最新リリース」節の同期。
+# 文面の出典: CHANGELOG.md の v8.23.0 節（収録範囲 v8.22.0..61d3f14b）。
+# 本文の commit 数・PR 数・行数は 61d3f14b 時点の測定値であり、契約値ではない。
+#
+# 置き換え対象: 「最新リリース」節が v8.22.0 の見出しのもの、または旧い値
+# （33 コミット / db91ed16）で書かれた v8.23.0 の見出しのもの（PR #1439 が先に
+# merge された場合）。どちらでもなければ形式変更とみなして止まる。
 #
 # リリース日は下の RELEASE_DATE で持つ。TBD のままでは --apply を拒否する
 # （v8.22.0 では準備日 2026-09-11 のまま apply し、実リリース日 2026-09-23 へ
-# 直す追加スクリプトが要った。その再発を防ぐ）。
+# 直す追加スクリプトが要った。その再発を防ぐ）。tag を切る日に Human が確定する。
 #
 # Usage:
 #   sh scripts/apply-claude-md-v8230.sh --dry-run   # 差分プレビュー（書込なし）
@@ -25,7 +28,7 @@
 set -eu
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 F="${PLANGATE_APPLY_FILE:-$ROOT/CLAUDE.md}"
-RELEASE_DATE="2026-10-01"
+RELEASE_DATE="TBD"
 [ $# -eq 1 ] || { echo "usage: $0 --dry-run|--apply|--verify" >&2; exit 1; }
 case "$1" in --dry-run|--apply|--verify) ;; *) echo "usage: $0 --dry-run|--apply|--verify" >&2; exit 1 ;; esac
 MODE="$1"
@@ -46,10 +49,12 @@ f, tmp, mode, date = os.environ["F"], os.environ["TMP"], os.environ["MODE"], os.
 OLD_HEAD = "## v8.22.0 承認境界ガードの判定精度（最新リリース機能）"
 NEW_HEAD = "## v8.23.0 Intent Context と Context Lifecycle（最新リリース機能）"
 NEW_BODY = (
-    "> 最新リリース: **v8.23.0**（" + date + "）v8.22.0 タグ以降に main へ蓄積した 33 コミットを反映"
-    "（実測: `git rev-list --count v8.22.0..db91ed16` は 34。リリース準備 commit #1432 を除く）。"
-    "主題は **Context の受け渡しを「会話の持ち越し」から「正本 artifact の参照」へ移すこと**と、"
-    "**ai-loop V2 の runtime を最初に動かすこと**。主要変更: "
+    "> 最新リリース: **v8.23.0**（" + date + "）v8.22.0 タグ以降に main へ蓄積した 198 コミット・PR 64 件を反映"
+    "（`61d3f14b` 時点の測定値。実測: `git rev-list --count v8.22.0..61d3f14b`。"
+    "PR 64 件のうち #1432 / #1433 / #1434 / #1498 はリリース準備）。"
+    "主題は **Context の受け渡しを「会話の持ち越し」から「正本 artifact の参照」へ移すこと**・"
+    "**ai-loop V2 の runtime / Runtime Evidence を最初に動かすこと**・"
+    "**`bin/plangate` の C-3 判定を共通化し、導入先の repo を対象にできるようにすること**。主要変更: "
     "**Intent Context Package v1 の契約**（#1396。新規 schema `intent-context-package.schema.json`）・"
     "**Dynamic Context Engine からの参照**（#1404。`context-manifest.schema.json` に任意フィールド `intent_context`）・"
     "**Context Lifecycle の fresh-context 方針**（#1411。worker / model / runtime の切り替え・独立レビューの開始・"
@@ -57,15 +62,27 @@ NEW_BODY = (
     "standard 以上で必須・ultra-light / light では任意。**plugin の `working-context` / `context-packager` skill を含む**）・"
     "**Plan Contract と Intent Context の意味上の束縛**（#1405。authoritative な情報源の矛盾が未解消なら "
     "C-3' は AUTO_APPROVED を出さず fail-closed）・"
-    "**ai-loop V2 の Delivery runtime と verification-skipped Ratchet**（#1402 / #1409。E2E 実行可能仕様は #1383）・"
+    "**ai-loop V2 の Delivery runtime・verification-skipped Ratchet・Runtime Evidence**（#1402 / #1409 / #1466。"
+    "E2E 実行可能仕様は #1383 / PR #1387。外部 verifier の境界は candidate のまま repo 内からの自己昇格を許さず、"
+    "Human が決める P0 decision packet は ADR-007 として Proposed（#1499））・"
     "**外部レビュー結果の正規化境界**（#1413）・**GPT-6 モデルプロファイルの実行経路への接続**"
-    "（`--profile=` / `--mode=` は opt-in）・**AI 運用 4 原則の文面の平易化**（#1414。承認が必要な範囲は不変）・"
-    "**Plan Deliberation schema の正本化**（#1412。新規 schema `plan-deliberation.schema.json`。#1414 と合わせて HO は #1433 で適用）。"
-    "**`bin/plangate` は変更ゼロ**、`schemas/` は追加のみ（削除行 0）。破壊的変更の commit は 0 件。"
-    "semver は **Human 裁定により minor**。"
+    "（`--profile=` / `--mode=` は opt-in）・"
+    "**`bin/plangate` の C-3 判定を status / validate / exec で共通化**（#1481 / #1492。壊れた legacy `c3.json` と "
+    "dispatch の想定外 rc を fail-closed で止める）・"
+    "**`bin/plangate` の既定の対象 repo を cwd の git root に**（#1497。決定順は `--project-root` > "
+    "`PLANGATE_PROJECT_ROOT` > cwd の git root > CLI 本体の root。clone の外の git repo で実行すると対象が変わり、"
+    "clone の外を対象にした `doctor --fix` は rc=2。従来の挙動は `--project-root <clone>`）・"
+    "**`validate-schemas` の対象拡大**（`intent-context.json` / `plan-contract.json` / `plan-deliberation.json` が "
+    "SKIP から検証へ）・**AI 運用 4 原則の文面の平易化**（#1414。承認が必要な範囲は不変）・"
+    "**Plan Deliberation schema の正本化**（#1412 / #1494。新規 schema `plan-deliberation.schema.json`。"
+    "#1414 と合わせて HO は #1433 で適用）。"
+    "**`bin/plangate` は +279 / −106 行**、`schemas/` は追加と任意フィールド・enum 値の追加のみ（削除行 0）。"
+    "破壊的変更を宣言した commit は 0 件。semver は **Human 裁定により minor**"
+    "（#1497 は規約 §2.4 の major 候補だったが、#962 の不具合修正として minor）。"
     "**PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。"
     "リリース履歴の正本は [`CHANGELOG.md`](CHANGELOG.md)。"
 )
+NEW_SECTION = NEW_HEAD + "\n\n" + NEW_BODY + "\n"
 KEEP = [
     "<law>",
     "</law>",
@@ -83,13 +100,14 @@ def verify(text):
         ng.append("新見出しが 1 個ではない")
     if OLD_HEAD in text:
         ng.append("旧見出しが残っている")
-    if len(PAT.findall(text)) != 1:
+    found = PAT.findall(text)
+    if len(found) != 1:
         ng.append("「最新リリース」節が 1 個ではない")
-    i = text.find(NEW_HEAD)
-    body = text[i:text.find("\n", i + len(NEW_HEAD) + 2)] if i >= 0 else ""
-    if "**v8.23.0**" not in body:
-        ng.append("本文に **v8.23.0** が無い")
-    if "（TBD）" in body:
+    elif found[0] != NEW_SECTION:
+        ng.append("「最新リリース」節の本文が本スクリプトの本文と一致しない（旧い値のままの可能性）")
+    if "61d3f14b" not in NEW_BODY or "#1497" not in NEW_BODY:
+        ng.append("本文に収録範囲の基点 61d3f14b / #1497 が無い")
+    if "（TBD）" in "".join(found):
         ng.append("リリース日が TBD のまま")
     for w in KEEP:
         if w not in text:
@@ -102,20 +120,25 @@ if mode == "--verify":
         print("  NG  " + m, file=sys.stderr)
     if ng:
         sys.exit(1)
-    print("  ok  最新リリース節は v8.23.0（1 個）・旧見出し 0・日付確定・承認境界の節 %d 件を確認" % len(KEEP))
+    print("  ok  最新リリース節は v8.23.0（1 個・本文一致）・旧見出し 0・日付確定・承認境界の節 %d 件を確認" % len(KEEP))
     sys.exit(0)
 
-if s.count(NEW_HEAD) == 1 and OLD_HEAD not in s:
-    print("SKIP: 適用済み（新見出しが既に存在）")
+found = PAT.findall(s)
+if len(found) != 1:
+    print("FAIL: 「最新リリース」節が 1 個ではない（形式変更の可能性）", file=sys.stderr)
+    sys.exit(1)
+if found[0] == NEW_SECTION:
+    print("SKIP: 適用済み（本文まで一致）")
     sys.exit(3)
-if s.count(OLD_HEAD) != 1:
-    print("FAIL: 旧見出しが 1 個ではない（形式変更の可能性）", file=sys.stderr)
-    sys.exit(1)
 m = PAT.search(s)
-if not m or not m.group(0).startswith(OLD_HEAD):
-    print("FAIL: 旧本文パターン不一致", file=sys.stderr)
+cur = m.group(0)
+if not (cur.startswith(OLD_HEAD + "\n") or cur.startswith(NEW_HEAD + "\n")):
+    print("FAIL: 置き換え対象の見出しではない（v8.22.0 / v8.23.0 のどちらでもない）: " + cur.split("\n", 1)[0], file=sys.stderr)
     sys.exit(1)
-out = s[:m.start()] + NEW_HEAD + "\n\n" + NEW_BODY + "\n" + s[m.end():]
+if s.count(OLD_HEAD) + s.count(NEW_HEAD) != 1:
+    print("FAIL: v8.22.0 / v8.23.0 の見出しが合わせて 1 個ではない", file=sys.stderr)
+    sys.exit(1)
+out = s[:m.start()] + NEW_SECTION + s[m.end():]
 if mode == "--apply" and date == "TBD":
     print("FAIL: RELEASE_DATE が TBD のまま。スクリプト冒頭の RELEASE_DATE を実リリース日（YYYY-MM-DD）へ直してから --apply する", file=sys.stderr)
     sys.exit(1)
