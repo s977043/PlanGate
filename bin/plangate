@@ -7,9 +7,57 @@ set -eu
 PLANGATE_VERSION="0.2.0"
 
 plangate_bin_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# CLI implementation root: scripts / schemas / bundled templates live here.
 plangate_root=$(CDPATH= cd -- "$plangate_bin_dir/.." && pwd)
-plangate_working_dir="$plangate_root/docs/working"
-plangate_templates_dir="$plangate_root/docs/working/templates"
+
+# Target project root is resolved once for every command (#962). Keep it
+# separate from plangate_root: a PATH-installed CLI may operate on a downstream
+# repository that does not contain PlanGate's implementation assets.
+plangate_project_root=""
+plangate_project_root_source=""
+plangate_working_dir=""
+plangate_templates_dir=""
+
+plangate_resolve_project_root() {
+  _pgpr_explicit="${1:-}"
+  _pgpr_candidate=""
+
+  if [ -n "$_pgpr_explicit" ]; then
+    _pgpr_candidate=$(CDPATH= cd -- "$_pgpr_explicit" 2>/dev/null && pwd) || {
+      printf 'error: --project-root is not an accessible directory: %s\n' "$_pgpr_explicit" >&2
+      return 2
+    }
+    plangate_project_root_source="flag"
+  elif [ -n "${PLANGATE_PROJECT_ROOT:-}" ]; then
+    _pgpr_candidate=$(CDPATH= cd -- "$PLANGATE_PROJECT_ROOT" 2>/dev/null && pwd) || {
+      printf 'error: PLANGATE_PROJECT_ROOT is not an accessible directory: %s\n' "$PLANGATE_PROJECT_ROOT" >&2
+      return 2
+    }
+    plangate_project_root_source="env"
+  elif command -v git >/dev/null 2>&1; then
+    _pgpr_candidate=$(git -C "${PWD:-.}" rev-parse --show-toplevel 2>/dev/null || true)
+    if [ -n "$_pgpr_candidate" ] && [ -d "$_pgpr_candidate" ]; then
+      _pgpr_candidate=$(CDPATH= cd -- "$_pgpr_candidate" && pwd)
+      plangate_project_root_source="cwd-git"
+    else
+      _pgpr_candidate="$plangate_root"
+      plangate_project_root_source="cli-root"
+    fi
+  else
+    _pgpr_candidate="$plangate_root"
+    plangate_project_root_source="cli-root"
+  fi
+
+  plangate_project_root="$_pgpr_candidate"
+  plangate_working_dir="$plangate_project_root/docs/working"
+  if [ -d "$plangate_project_root/docs/working/templates" ]; then
+    plangate_templates_dir="$plangate_project_root/docs/working/templates"
+  else
+    plangate_templates_dir="$plangate_root/docs/working/templates"
+  fi
+  PLANGATE_PROJECT_ROOT="$plangate_project_root"
+  export PLANGATE_PROJECT_ROOT
+}
 
 # ── utilities ────────────────────────────────────────────────────────────────
 
@@ -116,7 +164,7 @@ PYEOF
 # PyYAML 未インストール・不正 YAML・不正 mode 値 -> stderr WARN + 'cli'
 _read_plangate_config() {
   _rpc_key="${1:-c3_approval.mode}"
-  _rpc_cfg="$plangate_root/.plangate.yml"
+  _rpc_cfg="$plangate_project_root/.plangate.yml"
   if [ ! -f "$_rpc_cfg" ]; then
     printf 'cli'
     return 0
@@ -162,7 +210,10 @@ cmd_help() {
   printf '%s\n' \
     "PlanGate CLI v$PLANGATE_VERSION" \
     "" \
-    "Usage: plangate <command> [args]" \
+    "Usage: plangate [--project-root <dir>] <command> [args]" \
+    "" \
+    "Global options:" \
+    "  --project-root <dir>            Target repository (flag > PLANGATE_PROJECT_ROOT > cwd git root > CLI root)" \
     "" \
     "Commands:" \
     "  init <TASK-XXXX>               Create task folder and template files" \
@@ -370,6 +421,12 @@ cmd_doctor() {
     shift
   done
 
+  if [ "$doctor_json" -eq 1 ] || [ "$doctor_check_settings" -eq 1 ]; then
+    printf 'PlanGate Doctor target: %s (source=%s)\n' "$plangate_project_root" "$plangate_project_root_source" >&2
+  else
+    printf 'PlanGate Doctor target: %s (source=%s)\n' "$plangate_project_root" "$plangate_project_root_source"
+  fi
+
   # TASK-0080 S1b: --check-settings は settings wiring 契約検証へ委譲
   # （既存 doctor ロジック非破壊。単独フラグとして早期 return）。
   if [ "$doctor_check_settings" -eq 1 ]; then
@@ -378,7 +435,7 @@ cmd_doctor() {
       printf 'plangate doctor --check-settings: %s not found\n' "$csw" >&2
       return 2
     fi
-    sh "$csw" --target user
+    PLANGATE_PROJECT_ROOT="$plangate_project_root" sh "$csw" --target user
     return $?
   fi
 
@@ -390,7 +447,7 @@ cmd_doctor() {
       printf '{"error": "scripts/doctor_check.py not found"}\n' >&2
       return 2
     fi
-    python3 "$py" --scope "$doctor_scope"
+    PLANGATE_PROJECT_ROOT="$plangate_project_root" python3 "$py" --scope "$doctor_scope"
     return $?
   fi
 
@@ -424,7 +481,7 @@ cmd_doctor() {
     printf '  [INFO] plugin/plangate/ exists (Option A)\n'
     has_plugin=1
   fi
-  if [ -d "$HOME/.claude/commands" ] || [ -d "$plangate_root/.claude/commands" ]; then
+  if [ -d "$HOME/.claude/commands" ] || [ -d "$plangate_project_root/.claude/commands" ]; then
     printf '  [INFO] .claude/commands/ exists (Option B)\n'
     has_claude_dir=1
   fi
@@ -452,13 +509,13 @@ cmd_doctor() {
   printf '=== Required Workflow Files ===\n'
   plangate_check "docs/working/ directory exists" test -d "$plangate_working_dir" || failures=$((failures + 1))
   plangate_check_file "docs/working/templates/handoff.md" "$plangate_templates_dir/handoff.md" || failures=$((failures + 1))
-  plangate_check_file "CLAUDE.md" "$plangate_root/CLAUDE.md" || failures=$((failures + 1))
+  plangate_check_file "CLAUDE.md" "$plangate_project_root/CLAUDE.md" || failures=$((failures + 1))
   plangate_check "docs/working/ writable" test -w "$plangate_working_dir" || failures=$((failures + 1))
   printf '\n'
 
   printf '=== Rules ===\n'
   for rule in working-context review-principles mode-classification; do
-    plangate_check_file "$rule.md" "$plangate_root/.claude/rules/$rule.md" || failures=$((failures + 1))
+    plangate_check_file "$rule.md" "$plangate_project_root/.claude/rules/$rule.md" || failures=$((failures + 1))
   done
   printf '\n'
 
@@ -475,14 +532,14 @@ cmd_doctor() {
   else
     printf '  [WARN] scripts/hooks/check-metrics-privacy.sh is not executable\n'
   fi
-  if grep -q '_metrics/events.ndjson' "$plangate_root/.gitignore" 2>/dev/null; then
+  if grep -q '_metrics/events.ndjson' "$plangate_project_root/.gitignore" 2>/dev/null; then
     printf '  [PASS] docs/working/_metrics/events.ndjson is .gitignore-d (privacy §8)\n'
   else
     printf '  [FAIL] events.ndjson missing from .gitignore — privacy §8 not enforced\n'
     failures=$((failures + 1))
   fi
-  if [ -f "$plangate_root/docs/working/_metrics/events.ndjson" ]; then
-    if git -C "$plangate_root" check-ignore docs/working/_metrics/events.ndjson >/dev/null 2>&1; then
+  if [ -f "$plangate_project_root/docs/working/_metrics/events.ndjson" ]; then
+    if git -C "$plangate_project_root" check-ignore docs/working/_metrics/events.ndjson >/dev/null 2>&1; then
       printf '  [PASS] events.ndjson exists locally and is git-ignored\n'
     else
       printf '  [FAIL] events.ndjson exists but is NOT git-ignored\n'
@@ -503,7 +560,7 @@ cmd_doctor() {
   # するため）。ブロック単位で同一 event 配下に同一 matcher/type/command を要求。
   # privacy: presence の真偽のみ。settings 内容・パス値は出力しない。
   doctor_example="$plangate_root/.claude/settings.example.json"
-  doctor_settings="$plangate_root/.claude/settings.json"
+  doctor_settings="$plangate_project_root/.claude/settings.json"
   if [ ! -f "$doctor_example" ]; then
     printf '  [WARN] .claude/settings.example.json not found — cannot evaluate hook wiring\n'
   else
@@ -605,7 +662,7 @@ PYEOF
 
   printf '=== C-3 Approval Mode ===\n'
   _c3mode_doctor=$(_read_plangate_config c3_approval.mode || echo 'cli')
-  if [ -f "$plangate_root/.plangate.yml" ]; then
+  if [ -f "$plangate_project_root/.plangate.yml" ]; then
     printf '  [INFO] .plangate.yml found: c3_approval.mode=%s\n' "$_c3mode_doctor"
   else
     printf '  [INFO] .plangate.yml not found (default: c3_approval.mode=cli)\n'
@@ -626,7 +683,7 @@ PYEOF
   printf '\n'
 
   printf '=== Cursor Provider (optional) ===\n'
-  if [ -f "$plangate_root/.cursor/hooks.json" ]; then
+  if [ -f "$plangate_project_root/.cursor/hooks.json" ]; then
     printf '  [PASS] .cursor/hooks.json present\n'
   else
     printf '  [WARN] .cursor/hooks.json missing — see docs/cursor/quickstart.md\n'
@@ -661,7 +718,7 @@ PYEOF
       # Dry-run: 全修復対象を非書込で計画表示のみ。
       printf '  [PLAN] dry-run — no files will be modified\n'
       printf '  [PLAN] settings.json hooks (via doctor_fix.py --dry-run):\n'
-      dry_run_output=$(python3 "$fix_py" --project-dir "$plangate_root" --dry-run) || {
+      dry_run_output=$(python3 "$fix_py" --project-dir "$plangate_project_root" --dry-run) || {
         printf '  [FAIL] doctor_fix.py --dry-run failed\n' >&2
         return 2
       }
@@ -670,7 +727,7 @@ PYEOF
       if [ -f "$eh8" ] && [ ! -x "$eh8" ]; then
         printf '  [PLAN] would: chmod +x scripts/hooks/check-metrics-privacy.sh (EH-8)\n'
       fi
-      if ! grep -q '_metrics/events.ndjson' "$plangate_root/.gitignore" 2>/dev/null; then
+      if ! grep -q '_metrics/events.ndjson' "$plangate_project_root/.gitignore" 2>/dev/null; then
         printf '  [PLAN] would: append docs/working/_metrics/events.ndjson to .gitignore\n'
       fi
       if [ ! -d "$plangate_working_dir" ]; then
@@ -706,7 +763,7 @@ PYEOF
     fix_rc=0
 
     # 1. settings.json: doctor_fix.py --apply（merge-only / backup / 冪等）
-    if python3 "$fix_py" --project-dir "$plangate_root" --apply; then
+    if python3 "$fix_py" --project-dir "$plangate_project_root" --apply; then
       printf '  [DONE] settings.json hooks merged (doctor_fix.py --apply)\n'
     else
       printf '  [FAIL] doctor_fix.py --apply failed\n' >&2
@@ -727,7 +784,7 @@ PYEOF
     fi
 
     # 3. .gitignore に events.ndjson 追記（privacy §8）
-    gitignore="$plangate_root/.gitignore"
+    gitignore="$plangate_project_root/.gitignore"
     if grep -q '_metrics/events.ndjson' "$gitignore" 2>/dev/null; then
       printf '  [SKIP] .gitignore already excludes events.ndjson\n'
     else
@@ -775,7 +832,7 @@ PYEOF
   fi
 
   # TASK-0106 T-07a: maintenance 窓の有無を 1 行表示（doctor 全 scope 共通の補足）
-  _maint_file="$plangate_root/docs/working/_maintenance/maintenance.json"
+  _maint_file="$plangate_project_root/docs/working/_maintenance/maintenance.json"
   if [ -f "$_maint_file" ]; then
     _m=$(python3 - "$_maint_file" <<'PYM' 2>/dev/null || true
 import json, sys, time
@@ -1271,7 +1328,7 @@ cmd_metrics() {
   if [ "$mode" = "validate" ]; then
     # H-1 (v8.6.0 PR5): validate events.ndjson against plangate-event.schema.json
     schema="$plangate_root/schemas/plangate-event.schema.json"
-    log_path=${events_log_arg:-"$plangate_root/docs/working/_metrics/events.ndjson"}
+    log_path=${events_log_arg:-"$plangate_project_root/docs/working/_metrics/events.ndjson"}
     if [ ! -f "$schema" ]; then
       printf '[FAIL] schema not found: %s\n' "$schema" >&2
       return 2
@@ -1462,7 +1519,7 @@ cmd_maintenance() {
   # AI 自己付与は L1 isatty / L2 env barrier / L3 parent process heuristic /
   # L4 対話 nonce で抑止し、全 start 試行を hook-events.log に記録。
   # 完全な構造保証は別 PBI 分割（R-012）。
-  REPO_ROOT="$plangate_root"
+  REPO_ROOT="$plangate_project_root"
   _hook_events="$REPO_ROOT/docs/working/_audit/hook-events.log"
   _maint_dir="$REPO_ROOT/docs/working/_maintenance"
   _maint="$_maint_dir/maintenance.json"
@@ -1781,7 +1838,7 @@ cmd_review() {
   fi
 
   # -- .plangate-reviewers.yaml 存在チェック ---------------------------------
-  reviewers_yaml="$plangate_root/.plangate-reviewers.yaml"
+  reviewers_yaml="$plangate_project_root/.plangate-reviewers.yaml"
   if [ -f "$reviewers_yaml" ] && command -v python3 >/dev/null 2>&1; then
     if python3 -c 'import yaml' >/dev/null 2>&1; then
       _rv_result=0
@@ -2142,7 +2199,7 @@ cmd_exec() {
   # exec は対象 commit（HEAD）に対して実行するため、source_sha と HEAD の一致を強制する。
   # legacy（approval_kind 無し）は従来の grep + plan_hash 経路で処理する。
   # set -eu 下で非ゼロ戻り（10=legacy / 1=NG）が中断を招かないよう `|| _c3_rc=$?` で受ける。
-  _exec_head=$(git -C "$plangate_root" rev-parse HEAD 2>/dev/null || echo "")
+  _exec_head=$(git -C "$plangate_project_root" rev-parse HEAD 2>/dev/null || echo "")
   # c3-prime を exec する場合、HEAD が解決できない環境（非 git）では source_sha
   # 照合を skip して受理してはならない（fail-closed / #889 R2 high）。
   # approval_kind=c3-prime かつ HEAD 空なら即 BLOCK。
@@ -2347,7 +2404,7 @@ cmd_handoff() {
     return 0
   fi
   work_dir="$plangate_working_dir/$task_id"
-  template="$plangate_root/docs/working/templates/handoff.md"
+  template="$plangate_templates_dir/handoff.md"
   target="$work_dir/handoff.md"
   if [ ! -f "$template" ]; then
     printf 'error: handoff template not found: %s\n' "$template" >&2
@@ -2370,8 +2427,8 @@ cmd_handoff() {
 # 監査は docs/working/_audit/hook-events.log に context 付きで記録。
 _plangate_presence_gate() {
   _pg_ctx="${1:-approve}"
-  _pg_log="$plangate_root/docs/working/_audit/hook-events.log"
-  mkdir -p "$plangate_root/docs/working/_audit"
+  _pg_log="$plangate_project_root/docs/working/_audit/hook-events.log"
+  mkdir -p "$plangate_project_root/docs/working/_audit"
   _pg_audit() {
     printf '{"ts":"%s","event":"%s_presence_attempt","verdict":"%s","ppid":%s,"isatty_stdin":%s,"detail":%s}\n' \
       "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$_pg_ctx" "$1" "${PPID:-0}" \
@@ -2466,8 +2523,8 @@ cmd_approve() {
 
   # 自動算出
   _ap_hash="sha256:$(plangate_sha256 "$_ap_plan")"
-  _ap_by="$(git -C "$plangate_root" config user.email 2>/dev/null || true)"
-  [ -n "$_ap_by" ] || _ap_by="$(git -C "$plangate_root" config user.name 2>/dev/null || true)"
+  _ap_by="$(git -C "$plangate_project_root" config user.email 2>/dev/null || true)"
+  [ -n "$_ap_by" ] || _ap_by="$(git -C "$plangate_project_root" config user.name 2>/dev/null || true)"
   [ -n "$_ap_by" ] || _ap_by="${USER:-unknown}"
   _ap_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
@@ -2545,13 +2602,38 @@ cmd_render() {
   _rd_py="$plangate_root/scripts/render_review.py"
   [ -f "$_rd_py" ] || { printf 'error: scripts/render_review.py not found\n' >&2; return 2; }
   if [ -n "$_rd_out" ]; then
-    python3 "$_rd_py" --task "$_rd_task" --out "$_rd_out"
+    python3 "$_rd_py" --task "$_rd_task" --work-dir "$plangate_working_dir/$_rd_task" --work-dir "$plangate_working_dir/$_rd_task" --out "$_rd_out"
   else
     python3 "$_rd_py" --task "$_rd_task"
   fi
 }
 
 # ── dispatch ──────────────────────────────────────────────────────────────────
+
+_plangate_project_root_arg=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --project-root)
+      [ $# -ge 2 ] || { printf 'error: --project-root requires a directory\n' >&2; exit 2; }
+      _plangate_project_root_arg=$2
+      shift 2
+      ;;
+    --project-root=*)
+      _plangate_project_root_arg=${1#--project-root=}
+      [ -n "$_plangate_project_root_arg" ] || { printf 'error: --project-root requires a directory\n' >&2; exit 2; }
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+plangate_resolve_project_root "$_plangate_project_root_arg" || exit $?
 
 if [ $# -eq 0 ]; then
   cmd_help
