@@ -12,40 +12,47 @@ PlanGate の主要リリース履歴。
 
 ## v8.23.0 - TBD
 
-feat: Intent Context Package v1 と Context Lifecycle を導入し、ai-loop V2 の Delivery runtime・Ratchet・Runtime Evidence を縦切りで実装し、`bin/plangate` の C-3 判定を共通化する
+feat: Intent Context Package v1 と Context Lifecycle を導入し、ai-loop V2 の Delivery runtime・Ratchet・Runtime Evidence を縦切りで実装し、`bin/plangate` の C-3 判定を共通化して既定の対象 repo を cwd の git root にする
 
-v8.22.0 タグ以降、収録範囲の締め切り `4f81588f`（#1494 の merge commit）までに main へ蓄積した変更に、
-締め切り後に merge された #1493（`13bb8875`）を加えて反映する。#1495 は次リリース。
-tag は main の先頭（tag-main parity）に打つため、merge 済みの #1493 は必ず本リリースに入る。
+v8.22.0 タグ以降、main へ蓄積した変更を `61d3f14b`（#1499 の merge commit）まで反映する。
+収録範囲は当初 `4f81588f`（#1494）で締めたが、tag は main の先頭（tag-main parity）に打つため、
+その後に merge された #1493（`13bb8875`）・#1498（`1b5dcdea`、本節の作り直し）・#1497（`3c34d2f6`）・
+そして #1499（`61d3f14b`）も本リリースに入る。**2026-10-07 以降、tag まで main への merge は凍結する**（Human 決定）。
+なお #1495 は次リリース。
 主題は **Context の受け渡しを「会話の持ち越し」から「正本 artifact の参照」へ移すこと**、
 **ai-loop V2 の runtime / Runtime Evidence を最初に動かすこと**、
-**`bin/plangate` の C-3 判定を status / validate / exec で 1 本に共通化すること**。
+**`bin/plangate` の C-3 判定を status / validate / exec で 1 本に共通化すること**、
+**`bin/plangate` が導入先の repo を対象にできるようにすること**（#1497）。
 
-- 収録範囲は **v8.22.0..`13bb8875` の 195 commit・PR 61 件**
-  （実測: `git rev-list --count v8.22.0..13bb8875`。PR は件名の `(#NNNN)` / `Merge pull request #NNNN` を全数抽出し、
+- 収録範囲は **v8.22.0..`61d3f14b` の 198 commit・PR 64 件**
+  （実測: `git rev-list --count v8.22.0..61d3f14b`。PR は件名の `(#NNNN)` / `Merge pull request #NNNN` を全数抽出し、
   件名に番号の無い #1419 / #1397 を `gh api repos/s977043/plangate/commits/<sha>/pulls` で補った。
-  61 件のうち #1432 / #1433 / #1434 はリリース準備の PR）
+  64 件のうち #1432 / #1433 / #1434 / #1498 はリリース準備の PR）
 - 配布物（`plugin/`）の変更は **24 ファイル・追加 11314 行・削除 24 行**
-  （実測: `git diff --shortstat v8.22.0..13bb8875 -- plugin/`）。`plugin.json` は 8.23.0 に bump 済み
-- **`bin/plangate` は +152 / −75 行**（実測: `git diff --numstat v8.22.0..13bb8875 -- bin/plangate`）。
-  C-3 判定の共通化と `exec` の復旧ガイダンス追加（下記 ⚠️ 4.）
+  （実測: `git diff --shortstat v8.22.0..61d3f14b -- plugin/`。`13bb8875` 以降の 3 PR は `plugin/` に触れていない）。
+  `plugin.json` は 8.23.0 に bump 済み
+- **`bin/plangate` は +279 / −106 行**（実測: `git diff --numstat v8.22.0..61d3f14b -- bin/plangate`。
+  うち #1497 が +127 / −31）。C-3 判定の共通化と `exec` の復旧ガイダンス追加（下記 ⚠️ 4.）、
+  対象 repo の解決（下記 ⚠️ 5.）
 - `schemas/` は**追加と任意フィールド・enum 値の追加のみ**（削除行 0）: `context-manifest.schema.json` に任意フィールド
   `intent_context`、**新規** `intent-context-package.schema.json`、`model-profile.schema.json` に任意フィールド
   `model_id` と enum 値 `gpt-6-*`、**新規** `plan-contract.schema.json`、**新規** `plan-deliberation.schema.json`
-  （実測: `git diff --numstat v8.22.0..13bb8875 -- schemas/` → 26/0・328/0・11/0・54/0・737/0。
+  （実測: `git diff --numstat v8.22.0..61d3f14b -- schemas/` → 26/0・328/0・11/0・54/0・737/0。
   `--name-status` は M・A・M・A・A）
-- 破壊的変更を宣言した commit は **0 件**（実測: `v8.22.0..13bb8875` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
-- **semver は minor**（Human 決定 2026-10-05）。CLI の出力・入力契約は変えないが、`validate-schemas` の検証対象拡大と
-  C-3 判定の fail-closed 化は**従来通っていた入力が止まりうる挙動変更**であり、patch ではなく minor で告知する
+- 破壊的変更を宣言した commit は **0 件**（実測: `v8.22.0..61d3f14b` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
+- **semver は minor**（Human 決定 2026-10-05。#1497 を含めても minor とする決定は 2026-10-07）。
+  `validate-schemas` の検証対象拡大と C-3 判定の fail-closed 化は**従来通っていた入力が止まりうる挙動変更**であり、
+  patch ではなく minor で告知する。#1497 の既定の対象 repo の変更は major 候補だったが、minor とした根拠は ⚠️ 5. に書く
 
-（数値はいずれも **基点 `13bb8875` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない）
+（数値はいずれも **基点 `61d3f14b` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない）
 **PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。
 
 ### ⚠️ 更新前に必ずお読みください
 
 > **対象: `plangate` プラグインを導入している利用者**（1.）、**ai-loop（`ai-loop-cycle` skill）を
 > 使っている利用者**（2.）、**`plangate validate-schemas` を CI 等で使っている利用者**（3.）、
-> **`bin/plangate` の status / validate / exec を使っている利用者**（4.）。
+> **`bin/plangate` の status / validate / exec を使っている利用者**（4.）、
+> **上流 clone の `bin/plangate` を PATH に通し、clone の外から実行している利用者**（5.）。
 > hook・schema の必須項目は変えていません。
 
 #### 1. `working-context` skill に「checkpoint してから fresh context で再開する」規則が加わります（#1411）
@@ -91,6 +98,45 @@ C-3 の read-only 評価を 1 つの関数（`_plangate_c3_evaluate`）に集約
 `exec` が止まったときは stderr に次の一手（read-only）を出します（終了コードと承認権限は不変。#1481）。
 minor の理由: 入出力のインターフェースは変えないが、従来通っていた壊れた承認記録が停止側に倒れる**挙動変更**を含むため。
 
+#### 5. `bin/plangate` の既定の対象 repo が「CLI 本体の置き場所」から「cwd の git root」に変わります（#1497 / #962）
+
+v8.22.0 までの `bin/plangate` は、cwd に関係なく **CLI 本体が置かれた clone の `docs/working/` だけ**を対象にしていました。
+本リリースから、対象 repo を次の順で 1 回だけ決め、すべてのサブコマンドで使います（`bin/plangate` の
+`plangate_resolve_project_root`）。
+
+1. グローバルオプション `--project-root <dir>`（`--project-root=<dir>` も可。サブコマンドより前に置く）
+2. 環境変数 `PLANGATE_PROJECT_ROOT`
+3. cwd の git root（`git rev-parse --show-toplevel`）
+4. CLI 本体の root（cwd が git 管理下にない、または `git` が無い場合）
+
+`--project-root` / `PLANGATE_PROJECT_ROOT` に存在しないディレクトリを渡すと、下位の候補へ落ちずに **rc=2** で止まります。
+検証器・schema・scripts は従来どおり CLI 本体の root から読み、TASK・承認記録・settings など
+**プロジェクトの状態**を対象 repo から読みます。
+
+- **clone の外の git repo で実行すると、対象が変わります**。`status` / `validate` / `approve` / `exec` / `doctor` に加え、
+  `init` / `resume` / `abort` / `handoff` / `plan-check` / `review` / `timeline` / `render` /
+  `validate-schemas <TASK>` / `maintenance` も、その repo の `docs/working/`（と `.plangate.yml` 等）を対象にします。
+  clone の中、または git 管理外のディレクトリで実行する場合の対象は従来と同じです。ただし linked worktree の中で
+  **別の checkout の** `bin/plangate` を実行すると、対象はその worktree になります
+- **clone の外を対象にした `doctor --fix` は rc=2 で止まり、何も書き込みません**（#1144。enforcement scripts が
+  導入先に配布されていないため、settings だけを書くと存在しない `scripts/...` を指す hook ができてしまう）。
+  対象が CLI 本体の root と同じ場合の `--fix` は従来どおりです
+- `doctor` は先頭に `PlanGate Doctor target: <dir> (source=<flag|env|cwd-git|cli-root>)` を出し
+  （`--check-settings` では stderr）、`doctor --json` は `project_root` / `project_root_source` を追加で返します（既存キーは不変）
+- **従来の挙動に戻すには `--project-root <clone>`**（または `PLANGATE_PROJECT_ROOT=<clone>`）を付けてください
+- `brainstorm` / `plan` / `gate` / `verify`（`scripts/ai-dev-workflow` 経由）と `eval` / `report` / `context` /
+  `keep-rate`、`metrics`（`--validate` の既定ログを除く）は、それぞれのスクリプト基準の root を使い続けます
+  （#1497 は #962 の最初の実装単位。#962 は open のまま）
+
+semver の扱い: [`docs/ai/versioning-stability-policy.md`](docs/ai/versioning-stability-policy.md) §2.4 の
+「引数・フラグの削除 / 意味変更 → major」に当たる候補でした（`doctor` は §3.1 で Stable）。それでも **minor** とした根拠
+（Human 決定 2026-10-07）は次のとおりです。
+
+- #962 の不具合修正として扱う。導入先で作った TASK を CLI が対象にできず、`plangate-setup` skill が単一検証源とする
+  `doctor` も、C-3 承認記録を発行する `approve` も導入先では機能していなかった
+- clone の中・git 管理外での実行という従来の使い方では、対象 repo は変わらない
+- 既存のフラグ・サブコマンド・終了コードの意味は変えていない（追加はグローバルオプション 1 つと環境変数 1 つ）
+
 ### Context（Intent Context / Dynamic Context Engine / Context Lifecycle）
 
 - **Intent Context Package v1 の契約を実装**（#1396。ownership は #1390 で確定）。
@@ -117,6 +163,11 @@ minor の理由: 入出力のインターフェースは変えないが、従来
   external verifier の bootstrap handoff package（#1483。content-address 化 #1484 / provenance candidate の復元 #1485）、
   verifier provenance を bootstrap package の identity へ束縛（#1493）。**candidate として扱い、
   repo 内からの自己昇格を許さない設計**（テストで固定）
+- **外部 runtime verifier の境界を決める Human 判断の P0 decision packet**（#1499 / `ta-113`）。
+  `docs/decisions/adr-007-external-runtime-verifier-boundary.md` を **Proposed** で追加した（決定ではない）。
+  選択肢・評価表・Human Decision Record の 8 項目と状態遷移を定め、AI / 自動化が Human に代わって決定・記入しないことを
+  ADR に明記した。`ta-113` は `Status` と Decision Record の記入状態の組み合わせ（Proposed なら 8 項目すべて
+  `UNDECIDED`、Accepted なら `UNDECIDED` 0 件）が整合することを構造として検査する
 - **shadow PBI materializer**（#1443）: feedback と RunEvidence から PBI 候補を shadow で生成する
 - **bounded requirement discovery** を Delivery 前段へ統合（#1441）
 - plan の確定（exec 前）: RunEvent / RunEvidence（#1391 / PR #1397）・RunState CAS / atomic snapshot（#1392 / PR #1406）・
@@ -134,6 +185,9 @@ minor の理由: 入出力のインターフェースは変えないが、従来
   （削除前に generator 出力と main の schema の byte 一致を確認済み）。`ta-89` は `schemas/plan-deliberation.schema.json`
   を直接検証する。`plan-deliberation.json` は #1494 で `validate-schemas` の対象になった（上記 ⚠️ 3.）
 - **`bin/plangate` の C-3 判定の共通化と `exec` の復旧ガイダンス**（#1481 / #1492 / `ta-111`。上記 ⚠️ 4.）
+- **`bin/plangate` の対象 repo を CLI 本体の root から分離**（#1497 / `ta-112`。上記 ⚠️ 5.）。グローバルオプション
+  `--project-root` と環境変数 `PLANGATE_PROJECT_ROOT` を追加し、`scripts/check-settings-wiring.sh` /
+  `scripts/doctor_check.py` も選ばれた対象 repo を検査する。`ta-10` は sandbox を `--project-root` で明示するよう変更
 
 ### 承認境界の運用（文面）
 
