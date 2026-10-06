@@ -56,7 +56,8 @@ plangate_resolve_project_root() {
     plangate_templates_dir="$plangate_root/docs/working/templates"
   fi
   PLANGATE_PROJECT_ROOT="$plangate_project_root"
-  export PLANGATE_PROJECT_ROOT
+  PLANGATE_PROJECT_ROOT_SOURCE="$plangate_project_root_source"
+  export PLANGATE_PROJECT_ROOT PLANGATE_PROJECT_ROOT_SOURCE
 }
 
 # ── utilities ────────────────────────────────────────────────────────────────
@@ -421,10 +422,12 @@ cmd_doctor() {
     shift
   done
 
-  if [ "$doctor_json" -eq 1 ] || [ "$doctor_check_settings" -eq 1 ]; then
-    printf 'PlanGate Doctor target: %s (source=%s)\n' "$plangate_project_root" "$plangate_project_root_source" >&2
-  else
-    printf 'PlanGate Doctor target: %s (source=%s)\n' "$plangate_project_root" "$plangate_project_root_source"
+  if [ "$doctor_json" -eq 0 ]; then
+    if [ "$doctor_check_settings" -eq 1 ]; then
+      printf 'PlanGate Doctor target: %s (source=%s)\n' "$plangate_project_root" "$plangate_project_root_source" >&2
+    else
+      printf 'PlanGate Doctor target: %s (source=%s)\n' "$plangate_project_root" "$plangate_project_root_source"
+    fi
   fi
 
   # TASK-0080 S1b: --check-settings は settings wiring 契約検証へ委譲
