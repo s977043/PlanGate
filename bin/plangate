@@ -2605,9 +2605,9 @@ cmd_render() {
   _rd_py="$plangate_root/scripts/render_review.py"
   [ -f "$_rd_py" ] || { printf 'error: scripts/render_review.py not found\n' >&2; return 2; }
   if [ -n "$_rd_out" ]; then
-    python3 "$_rd_py" --task "$_rd_task" --work-dir "$plangate_working_dir/$_rd_task" --work-dir "$plangate_working_dir/$_rd_task" --out "$_rd_out"
+    python3 "$_rd_py" --task "$_rd_task" --work-dir "$plangate_working_dir/$_rd_task" --out "$_rd_out"
   else
-    python3 "$_rd_py" --task "$_rd_task"
+    python3 "$_rd_py" --task "$_rd_task" --work-dir "$plangate_working_dir/$_rd_task"
   fi
 }
 
