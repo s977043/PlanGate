@@ -193,3 +193,13 @@
   - 事実: 範囲レビューのサブエージェント 2 本が、600 秒無進捗で stall した。作り直さずに、同じエージェントへの追加指示（例: SendMessage）で「確認済みの事実を棚卸しして、未確認の観点だけ再開する。1 回のツール呼び出しで大きな出力を出さない」と送った。その後、2 本とも完走した（追加指示が完走の原因かどうかは確かめていない）
   - 再利用条件: 読み取りレビューを委託するときは、次の 3 点を最初の委託プロンプトに書く。1 回のツール呼び出しで大きな出力を出さない（`grep -n` / `sed -n` / `head` で絞る）。`tests/run-tests.sh` 全体や `sleep` を含む長時間コマンドは実行しない。長い調査は小分けにする。stall したら破棄せず、同じエージェントへの追加指示で再開させる。追加指示の書き方は [`dispatch-template.md` §4-D](docs/ai/subagent-delegation/dispatch-template.md)（同一サブエージェントへの追指示）に従う
   - 根拠: 2026-09-29 の範囲レビュー R1（レーン A / B）
+
+- [2026-10-05] リリース準備 PR は、tag の前提がすべて揃ってから merge し、その日のうちに tag まで進める
+  - 事実: v8.23.0 で、準備 PR #1432（version bump・CHANGELOG）が HO の適用などの前提より先に merge された。その後、起動時の env が要る 1 件（#1412 の post-HO canonicalization）で 3 日以上止まっている間に、main が 149 commit 進んだ。CHANGELOG の実測値（commit 数・`plugin/` / `schemas/` / `bin/plangate` の差分）と semver の材料がすべて古くなり、計画し直しになった。準備中にも実測値を 3 回測り直していた（28 → 31 → 33）
+  - 再利用条件: リリース準備 PR を作る前に、tag の前提（HO の適用・env が要る `.sh` の作業・他の収録 PR）を洗い出し、env が要るものは先に片づける。前提が 1 件でも残るなら準備 PR は merge しない。実測値は tag の直前に 1 回だけ測る。止まってしまったら、再開の前に `git rev-list --count <前回 tag>..origin/main` と配布物の差分を測り直し、semver の材料から見直す
+  - 根拠: #1432 / #1434 / #1439、`docs/working/_merge/v8.23.0-release-runbook.md`、簡素化の提案 #1435
+
+- [2026-10-05] open PR 同士の衝突の事前検出は、各 PR を main に merge した結果どうしで比べる
+  - 事実: 各 PR の head を直接 `git merge-tree --write-tree --merge-base=origin/main A B` で比べると、base が古いブランチでは main 側の変更が「削除」として現れ、40 組以上の偽の衝突が出た。正しい方法で測った実数は 1 組だった。また zsh では `arr=($list)` が改行で分割されず、比較が 0 組のまま「衝突 0」と出た
+  - 再利用条件: 各 PR について `git merge-tree --write-tree origin/main origin/<head>` の tree から commit を作り（`git commit-tree -p origin/main`）、その commit どうしを `--merge-base=origin/main` で比べる。配列のループは `bash -c` と `mapfile` で書き、比較した組数（n(n-1)/2）を出力して照合する。既知の衝突 1 組を陽性コントロールにする
+  - 根拠: 2026-09-25 の open PR 14 本の横断検査（#1404 × #1405 の `tests/extras/ta-05-validate-schemas.sh`）

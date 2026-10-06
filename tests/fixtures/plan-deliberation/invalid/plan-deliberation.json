@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "artifact_type": "plan-deliberation",
+  "stability": "experimental",
+  "task_id": "TASK-1353",
+  "plan_ref": {
+    "plan_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "source_sha": "abcdef1"
+  },
+  "source_reviews": [
+    {
+      "review_ref": "docs/working/TASK-1353/review-external.md#design",
+      "reviewer_id": "design-lane",
+      "lane": "design_validity",
+      "execution_status": "executed"
+    },
+    {
+      "review_ref": "docs/working/TASK-1353/review-external.md#codebase",
+      "reviewer_id": "codebase-lane",
+      "lane": "codebase_consistency",
+      "execution_status": "executed"
+    }
+  ],
+  "execution": {
+    "status": "partial",
+    "limitations": []
+  },
+  "trigger": {
+    "reason_codes": [
+      "reviewer_conflict"
+    ]
+  },
+  "participants": [
+    {
+      "participant_id": "p1",
+      "reviewer_id": "design-lane",
+      "lane": "design_validity"
+    },
+    {
+      "participant_id": "p2",
+      "reviewer_id": "codebase-lane",
+      "lane": "codebase_consistency"
+    }
+  ],
+  "positions": {
+    "initial": [
+      {
+        "position_id": "i1",
+        "participant_ref": "p1",
+        "source_finding_ref": "R-001",
+        "stance": "support",
+        "claim": "The plan covers the required compatibility boundary.",
+        "rationale_summary": "The acceptance criteria explicitly preserve the existing contract.",
+        "evidence_refs": [
+          "plan.md#compatibility"
+        ],
+        "assumptions": []
+      },
+      {
+        "position_id": "i2",
+        "participant_ref": "p2",
+        "source_finding_ref": "R-002",
+        "stance": "oppose",
+        "claim": "The plan misses one repository compatibility constraint.",
+        "rationale_summary": "An existing consumer relies on a path not listed by the plan.",
+        "evidence_refs": [
+          "existing-consumer-ref"
+        ],
+        "assumptions": [
+          "The existing consumer remains supported."
+        ]
+      }
+    ],
+    "challenges": [
+      {
+        "challenge_id": "c1",
+        "from_position_ref": "i2",
+        "target_position_ref": "i1",
+        "statement": "Account for the existing consumer before claiming compatibility coverage.",
+        "evidence_refs": [
+          "existing-consumer-ref"
+        ]
+      }
+    ],
+    "final": [
+      {
+        "position_id": "f1",
+        "participant_ref": "p1",
+        "source_finding_ref": "R-001",
+        "stance": "support",
+        "claim": "The plan covers the required compatibility boundary after checking the cited consumer.",
+        "rationale_summary": "The cited consumer is already covered by the stated acceptance criteria.",
+        "evidence_refs": [
+          "plan.md#compatibility",
+          "existing-consumer-ref"
+        ],
+        "assumptions": [],
+        "changed": false,
+        "change_reason": "unchanged"
+      },
+      {
+        "position_id": "f2",
+        "participant_ref": "p2",
+        "source_finding_ref": "R-002",
+        "stance": "support",
+        "claim": "The compatibility concern is resolved by the cited acceptance criterion.",
+        "rationale_summary": "The stronger evidence shows the consumer is in scope.",
+        "evidence_refs": [
+          "plan.md#compatibility"
+        ],
+        "assumptions": [],
+        "changed": true,
+        "change_reason": "stronger_evidence"
+      }
+    ]
+  },
+  "outcome": {
+    "status": "converged",
+    "agreements": [
+      "The existing consumer remains supported."
+    ],
+    "unresolved": [],
+    "evidence_needed": [],
+    "replan_trigger_proposals": [],
+    "human_decisions": [],
+    "requires_c2_rereview": false,
+    "rereview_reasons": []
+  },
+  "problem_frames": [
+    {
+      "participant_ref": "p1",
+      "objective": "Preserve the approved plan contract while clarifying disagreement.",
+      "constraints": [
+        "Do not create a new approval authority."
+      ],
+      "non_goals": [
+        "Do not replace canonical C-2 findings."
+      ],
+      "assumptions": [
+        "The cited C-2 review snapshot is current."
+      ],
+      "unknowns": []
+    },
+    {
+      "participant_ref": "p2",
+      "objective": "Check the plan against existing repository compatibility constraints.",
+      "constraints": [
+        "Keep Human C-3 ownership on the standard path."
+      ],
+      "non_goals": [
+        "Do not modify ai-loop C-3' behavior."
+      ],
+      "assumptions": [
+        "The existing consumer remains supported."
+      ],
+      "unknowns": [
+        "Whether an undocumented compatibility edge exists."
+      ]
+    }
+  ]
+}
