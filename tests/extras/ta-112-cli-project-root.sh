@@ -108,7 +108,28 @@ else
   printf '  [FAIL] invalid explicit root handling (rc=%s)\n%s\n' "$_t112_rc" "$_t112_out" >&2; fail=$((fail + 1))
 fi
 
-# 5. validate reads downstream artifacts while validator implementation stays in CLI root.
+# 5. --project-root=<dir> form is equivalent to the split-argument form.
+_t112_rc=0
+_t112_out=$(sh "$_T112_BIN" "--project-root=$_t112_a" status "$_t112_task" 2>&1) || _t112_rc=$?
+if [ "$_t112_rc" -eq 0 ] && printf '%s' "$_t112_out" | grep -Fq "Work dir: $_t112_a/docs/working/$_t112_task"; then
+  printf '  [PASS] --project-root=<dir> targets downstream TASK\n'; pass=$((pass + 1))
+else
+  printf '  [FAIL] equals-form project root\n%s\n' "$_t112_out" >&2; fail=$((fail + 1))
+fi
+
+# 6. invalid env root also fails instead of falling back to cwd/CLI root.
+_t112_rc=0
+_t112_out=$(
+  cd "$_t112_a"
+  PLANGATE_PROJECT_ROOT="$_t112_tmp/missing-env" sh "$_T112_BIN" status "$_t112_task" 2>&1
+) || _t112_rc=$?
+if [ "$_t112_rc" -eq 2 ] && printf '%s' "$_t112_out" | grep -Fq 'PLANGATE_PROJECT_ROOT is not an accessible directory'; then
+  printf '  [PASS] invalid env root fails closed\n'; pass=$((pass + 1))
+else
+  printf '  [FAIL] invalid env root handling (rc=%s)\n%s\n' "$_t112_rc" "$_t112_out" >&2; fail=$((fail + 1))
+fi
+
+# 7. validate reads downstream artifacts while validator implementation stays in CLI root.
 _t112_plan_hash=$(python3 - "$_t112_b/docs/working/$_t112_task/plan.md" <<'PY'
 import hashlib, pathlib, sys
 print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
@@ -125,7 +146,7 @@ else
   printf '  [FAIL] downstream validate (rc=%s)\n%s\n' "$_t112_rc" "$_t112_out" >&2; fail=$((fail + 1))
 fi
 
-# 6. approve resolves downstream before Human-presence gate; never bypass L1-L4.
+# 8. approve resolves downstream before Human-presence gate; never bypass L1-L4.
 _t112_no_plan="TASK-962NOPLAN"
 mkdir -p "$_t112_b/docs/working/$_t112_no_plan/approvals"
 _t112_rc=0
@@ -138,7 +159,7 @@ else
   printf '  [FAIL] downstream approve preflight (rc=%s)\n%s\n' "$_t112_rc" "$_t112_out" >&2; fail=$((fail + 1))
 fi
 
-# 7. doctor --check-settings inspects selected target; implementation script stays in CLI root.
+# 9. doctor --check-settings inspects selected target; implementation script stays in CLI root.
 _t112_rc=0
 _t112_out=$(sh "$_T112_BIN" --project-root "$_t112_b" doctor --check-settings 2>&1) || _t112_rc=$?
 if [ "$_t112_rc" -eq 1 ] \
@@ -149,7 +170,7 @@ else
   printf '  [FAIL] downstream doctor target (rc=%s)\n%s\n' "$_t112_rc" "$_t112_out" >&2; fail=$((fail + 1))
 fi
 
-# 8. doctor --json preserves JSON stdout and reports target identity in-band.
+# 10. doctor --json preserves JSON stdout and reports target identity in-band.
 _t112_json="$_t112_tmp/doctor.json"
 _t112_err="$_t112_tmp/doctor.err"
 _t112_rc=0
@@ -172,7 +193,7 @@ else
   fail=$((fail + 1))
 fi
 
-# 9. doctor --fix --dry-run reads canonical hooks from CLI root but plans writes in target.
+# 11. doctor --fix --dry-run reads canonical hooks from CLI root but plans writes in target.
 _t112_before_count=$(find "$_t112_b" -type f 2>/dev/null | wc -l | tr -d ' ')
 _t112_rc=0
 _t112_out=$(sh "$_T112_BIN" --project-root "$_t112_b" doctor --fix --dry-run 2>&1) || _t112_rc=$?
@@ -187,7 +208,7 @@ else
   fail=$((fail + 1))
 fi
 
-# 10. CLI-root fallback remains available outside a git repository.
+# 12. CLI-root fallback remains available outside a git repository.
 _t112_fallback="TASK-962FALLBACK"
 _t112_fallback_dir="$_T112_ROOT/docs/working/$_t112_fallback"
 mkdir -p "$_t112_fallback_dir/approvals"
