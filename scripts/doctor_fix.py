@@ -162,9 +162,9 @@ def load_settings(settings_path: Path) -> dict | None:
         ) from exc
 
 
-def cmd_check(claude_dir: Path) -> int:
-    example = load_example(claude_dir)
-    settings_path = claude_dir / "settings.json"
+def cmd_check(source_claude_dir: Path, target_claude_dir: Path) -> int:
+    example = load_example(source_claude_dir)
+    settings_path = target_claude_dir / "settings.json"
     try:
         settings = load_settings(settings_path)
     except ValueError as exc:
@@ -180,9 +180,9 @@ def cmd_check(claude_dir: Path) -> int:
     return 0
 
 
-def cmd_dry_run(claude_dir: Path) -> int:
-    example = load_example(claude_dir)
-    settings_path = claude_dir / "settings.json"
+def cmd_dry_run(source_claude_dir: Path, target_claude_dir: Path) -> int:
+    example = load_example(source_claude_dir)
+    settings_path = target_claude_dir / "settings.json"
     try:
         settings = load_settings(settings_path)
     except ValueError as exc:
@@ -202,9 +202,9 @@ def cmd_dry_run(claude_dir: Path) -> int:
     return 0
 
 
-def cmd_apply(claude_dir: Path) -> int:
-    example = load_example(claude_dir)
-    settings_path = claude_dir / "settings.json"
+def cmd_apply(source_claude_dir: Path, target_claude_dir: Path) -> int:
+    example = load_example(source_claude_dir)
+    settings_path = target_claude_dir / "settings.json"
 
     existed = settings_path.is_file()
     try:
@@ -265,7 +265,12 @@ def main(argv: list[str]) -> int:
     parser.add_argument(
         "--project-dir",
         default=".",
-        help="project root containing .claude/ (default: cwd)",
+        help="target project root containing .claude/ (default: cwd)",
+    )
+    parser.add_argument(
+        "--source-dir",
+        default=None,
+        help="source project root providing .claude/settings.example.json (default: --project-dir)",
     )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--check", action="store_true", help="exit 0 if wired, 1 if not")
@@ -273,13 +278,14 @@ def main(argv: list[str]) -> int:
     mode.add_argument("--dry-run", action="store_true", help="print plan, write nothing")
     args = parser.parse_args(argv)
 
-    claude_dir = Path(args.project_dir).resolve() / ".claude"
+    target_claude_dir = Path(args.project_dir).resolve() / ".claude"
+    source_claude_dir = Path(args.source_dir or args.project_dir).resolve() / ".claude"
     try:
         if args.check:
-            return cmd_check(claude_dir)
+            return cmd_check(source_claude_dir, target_claude_dir)
         if args.dry_run:
-            return cmd_dry_run(claude_dir)
-        return cmd_apply(claude_dir)
+            return cmd_dry_run(source_claude_dir, target_claude_dir)
+        return cmd_apply(source_claude_dir, target_claude_dir)
     except FileNotFoundError as exc:
         print(f"[error] {exc}", file=sys.stderr)
         return 2
