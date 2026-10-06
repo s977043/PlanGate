@@ -32,7 +32,11 @@ Wiring unit: a hook is identified by the tuple
 `hooks.<event>[].hooks[]` is preserved on merge.
 
 Usage:
-    python3 scripts/doctor_fix.py --project-dir DIR (--check | --apply | --dry-run)
+    python3 scripts/doctor_fix.py --project-dir DIR [--source-dir SOURCE] (--check | --apply | --dry-run)
+
+When --source-dir is provided, canonical hook definitions are read from
+SOURCE/.claude/settings.example.json while settings.json is read/written only
+under DIR. This lets a trusted PlanGate CLI clone repair a downstream project.
 
 Exit codes:
     0 — success / (with --check) all expected hooks already wired
