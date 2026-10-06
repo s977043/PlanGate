@@ -465,16 +465,6 @@ def _validate_upstream_freshness(
     if expires is None:
         errors.append("external_verifier_result.expires_at: timezone-aware RFC3339 required")
     if issued is not None and expires is not None:
-        upstream_issued = _parse_rfc3339(upstream_value.get("issued_at"))
-        upstream_expires = _parse_rfc3339(upstream_value.get("expires_at"))
-        if upstream_issued is not None and issued < upstream_issued:
-            errors.append(
-                "provenance_receipt.issued_at: must not predate #1471 issued_at"
-            )
-        if upstream_expires is not None and expires > upstream_expires:
-            errors.append(
-                "provenance_receipt.expires_at: must not outlive #1471 expires_at"
-            )
         if expires <= issued:
             errors.append("external_verifier_result.expires_at: must be after issued_at")
         elif (expires - issued).total_seconds() > upstream.MAX_VALIDITY_SECONDS:
@@ -584,6 +574,16 @@ def _validate_provenance(
     if expires is None:
         errors.append("provenance_receipt.expires_at: timezone-aware RFC3339 required")
     if issued is not None and expires is not None:
+        upstream_issued = _parse_rfc3339(upstream_value.get("issued_at"))
+        upstream_expires = _parse_rfc3339(upstream_value.get("expires_at"))
+        if upstream_issued is not None and issued < upstream_issued:
+            errors.append(
+                "provenance_receipt.issued_at: must not predate #1471 issued_at"
+            )
+        if upstream_expires is not None and expires > upstream_expires:
+            errors.append(
+                "provenance_receipt.expires_at: must not outlive #1471 expires_at"
+            )
         if expires <= issued:
             errors.append("provenance_receipt.expires_at: must be after issued_at")
         elif (expires - issued).total_seconds() > MAX_VALIDITY_SECONDS:
