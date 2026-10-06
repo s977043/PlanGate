@@ -63,10 +63,10 @@ C-3' は AUTO_APPROVED を出さずに fail-closed で止まります**。同梱
 `plugin/plangate/skills/ai-loop-cycle/` の scripts / references / schemas と、`ai-dev-exec` / `ai-dev-verify` の
 `references/c3-prime-contract.md` も変わります。
 
-#### 3. `plangate validate-schemas` の検証対象が増え、従来 SKIP だったファイルが検証されます（#1396 / #1405 / #1412）
+#### 3. `plangate validate-schemas` の検証対象が増え、従来 SKIP だったファイルが検証されます（#1396 / #1405 / #1494）
 
 検証対象のファイル名に **`intent-context.json` / `plan-contract.json` / `plan-deliberation.json`** が加わりました
-（`scripts/schema_mapping.py`）。従来は schema マッピングが無く **SKIP（exit 0）** だったものが、
+（`scripts/schema_mapping.py`。`plan-deliberation.json` の登録は #1494）。従来は schema マッピングが無く **SKIP（exit 0）** だったものが、
 **schema に照らして検証され、違反があれば FAIL（exit 1）**になります。`intent-context.json` は schema に加えて
 参照・provenance の意味検証（`scripts/intent_context_contract.py`）も通ります。
 **これらと同名で別の目的のファイルを `docs/working/` 等に置いている場合、更新後に新たに FAIL しうる**ため、
@@ -75,13 +75,17 @@ CI で `validate-schemas` を実行している場合は更新前に `plangate v
 #### 4. `status` / `validate` / `exec` の C-3 判定が共通化され、不正な承認記録は fail-closed で止まります（#1481 / #1492）
 
 C-3 の read-only 評価を 1 つの関数（`_plangate_c3_evaluate`）に集約し、3 コマンドで同じ判定を使います。
-従来 `status` は `c3.json` の**存在**だけでフェーズを導出し、`exec` の legacy 判定は `grep` による文字列抽出でした。
-今後は実際の決定・検証結果で判定し、**壊れた legacy `c3.json`（JSON として読めない・`c3_status` が `APPROVED` 以外・
-`plan_hash` 不一致）や、c3-prime の dispatch が想定外の戻り値（0 でも 10 でもない）を返した場合は、
-承認済みとは扱わず止まります（fail-closed）**。従来 `exec` は dispatch の想定外 rc を受理側へ落としていました。
+`exec` は v8.22.0 でも、legacy の `c3_status` が `APPROVED` 以外の場合と `plan_hash` 不一致の場合を止めていました
+（#1481 は gate 判定ロジックを変えず、#1492 は legacy の APPROVED / plan_hash の意味を保存します）。
+**`exec` で新たに止まるのは次の 2 点だけ**です（fail-closed）。
+
+- c3-prime の dispatch が想定外の戻り値（0 でも 1 でも 10 でもない）を返した場合。v8.22.0 では受理側へ素通りしていました
+- JSON として読めない legacy `c3.json`。v8.22.0 では `grep` で `APPROVED` と判定され、`plan_hash` の検証も飛んでいました
+
+`status` は従来 `c3.json` の**存在**だけでフェーズを導出していましたが、実際の決定・検証結果（APPROVED 以外・
+`plan_hash` 不一致を含む）から導出します。読めない承認記録は `plangate validate` へ誘導します。
 `exec` が止まったときは stderr に次の一手（read-only）を出します（終了コードと承認権限は不変。#1481）。
-`status` は読めない承認記録を `plangate validate` へ誘導します。
-minor の理由: 入出力のインターフェースは変えないが、従来通っていた不正な承認記録が停止側に倒れる**挙動変更**を含むため。
+minor の理由: 入出力のインターフェースは変えないが、従来通っていた壊れた承認記録が停止側に倒れる**挙動変更**を含むため。
 
 ### Context（Intent Context / Dynamic Context Engine / Context Lifecycle）
 
@@ -124,7 +128,7 @@ minor の理由: 入出力のインターフェースは変えないが、従来
   apply スクリプトで Human が tag の前に適用した（PR #1433 / `db91ed16`）。**適用後の #1494 で、その bootstrap 用の
   `scripts/generate-plan-deliberation-schema.py` と `scripts/apply-task-1353-plan-deliberation-schema.sh` を削除した**
   （削除前に generator 出力と main の schema の byte 一致を確認済み）。`ta-89` は `schemas/plan-deliberation.schema.json`
-  を直接検証する。`plan-deliberation.json` は `validate-schemas` の対象になった（上記 ⚠️ 3.）
+  を直接検証する。`plan-deliberation.json` は #1494 で `validate-schemas` の対象になった（上記 ⚠️ 3.）
 - **`bin/plangate` の C-3 判定の共通化と `exec` の復旧ガイダンス**（#1481 / #1492 / `ta-111`。上記 ⚠️ 4.）
 
 ### 承認境界の運用（文面）
