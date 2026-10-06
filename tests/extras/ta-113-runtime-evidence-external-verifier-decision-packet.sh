@@ -42,25 +42,37 @@ else
 fi
 
 _t113_placeholders=0
-for _t113_key in external_verifier_location external_verifier_admin nonce_ledger_owner trusted_issuer; do
+for _t113_key in \
+  selected_option \
+  external_verifier_location \
+  external_verifier_admin \
+  nonce_ledger_owner \
+  trusted_issuer \
+  decision_recorded_by \
+  decision_recorded_at \
+  decision_evidence_ref
+do
   if grep -Fq "$_t113_key = UNDECIDED" "$_T113_ADR"; then
     _t113_placeholders=$((_t113_placeholders + 1))
   fi
 done
-if [ "$_t113_placeholders" -eq 4 ]; then
-  printf '  [PASS] decision fields: all four Human-owned values remain undecided\n'; pass=$((pass + 1))
+if [ "$_t113_placeholders" -eq 8 ]; then
+  printf '  [PASS] decision fields: complete Human Decision Record remains undecided\n'; pass=$((pass + 1))
 else
-  printf '  [FAIL] decision fields: expected 4 UNDECIDED values, found %s\n' "$_t113_placeholders" >&2; fail=$((fail + 1))
+  printf '  [FAIL] decision fields: expected 8 UNDECIDED values, found %s\n' "$_t113_placeholders" >&2; fail=$((fail + 1))
 fi
 
 if grep -Fq 'AI/automation MUST NOT satisfy items 1–6 on behalf of the Human owner.' "$_T113_ADR" \
-  && grep -Fq 'External provisioning may start only after this ADR is `Accepted` by a Human' "$_T113_ADR"; then
+  && grep -Fq 'External provisioning may start only after this ADR is `Accepted` by a Human' "$_T113_ADR" \
+  && grep -Fq 'the Human Decision Record has no `UNDECIDED` values.' "$_T113_ADR"; then
   printf '  [PASS] activation: automation cannot accept or provision before Human decision\n'; pass=$((pass + 1))
 else
   printf '  [FAIL] activation: Human acceptance gate is incomplete\n' >&2; fail=$((fail + 1))
 fi
 
-if grep -Fq '### Option C: Another PlanGate-local workflow or repository-authored verifier' "$_T113_ADR" \
+if grep -Fq '## Evaluation Matrix' "$_T113_ADR" \
+  && grep -Fq 'A separate repository name, organization membership, workflow file, or repository-authored statement is' "$_T113_ADR" \
+  && grep -Fq '### Option C: Another PlanGate-local workflow or repository-authored verifier' "$_T113_ADR" \
   && grep -A 12 -F '### Option C:' "$_T113_ADR" | grep -Fq '**Decision status**: REJECTED.' \
   && grep -Fq '### Option D: Separate repository without separate administration' "$_T113_ADR"; then
   printf '  [PASS] independence: local/self-administered substitutes are rejected\n'; pass=$((pass + 1))
@@ -90,7 +102,8 @@ else
 fi
 
 if grep -Fq 'The `Proposed` ADR itself is planning material. It is not external Evidence.' "$_T113_ADR" \
-  && grep -Fq 'Future reviewers can distinguish "decision recorded" from "independence proven".' "$_T113_ADR"; then
+  && grep -Fq 'Future reviewers can distinguish "decision recorded" from "independence proven".' "$_T113_ADR" \
+  && grep -Fq 'Filling this block records the **choice**; it does not prove the external boundary is already independent.' "$_T113_ADR"; then
   printf '  [PASS] evidence boundary: decision record is not independence proof\n'; pass=$((pass + 1))
 else
   printf '  [FAIL] evidence boundary: decision-vs-proof distinction missing\n' >&2; fail=$((fail + 1))
