@@ -46,7 +46,7 @@ for _t113_key in \
   decision_recorded_at \
   decision_evidence_ref
 do
-  _t113_value=$(printf '%s\\n' "$_t113_record" | sed -n "s/^${_t113_key} = //p" | head -1)
+  _t113_value=$(printf '%s\n' "$_t113_record" | sed -n "s/^${_t113_key} = //p" | head -1)
   if [ -n "$_t113_value" ]; then
     _t113_record_fields=$((_t113_record_fields + 1))
     if [ "$_t113_value" = "UNDECIDED" ]; then
@@ -77,9 +77,9 @@ case "$_t113_status" in
 esac
 
 if [ "$_t113_state_ok" -eq 1 ]; then
-  printf '  [PASS] ownership: ADR state and Human Decision Record are structurally consistent (%s)\\n' "$_t113_status"; pass=$((pass + 1))
+  printf '  [PASS] ownership: ADR state and Human Decision Record are structurally consistent (%s)\n' "$_t113_status"; pass=$((pass + 1))
 else
-  printf '  [FAIL] ownership: invalid Proposed/Accepted decision-state combination (%s; fields=%s undecided=%s)\\n' \
+  printf '  [FAIL] ownership: invalid Proposed/Accepted decision-state combination (%s; fields=%s undecided=%s)\n' \
     "$_t113_status" "$_t113_record_fields" "$_t113_undecided" >&2
   fail=$((fail + 1))
 fi
