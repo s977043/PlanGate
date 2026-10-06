@@ -32,16 +32,10 @@ _T113_ADR="$_T113_ROOT/docs/decisions/adr-007-external-runtime-verifier-boundary
 
 printf 'TA-113: external verifier P0 decision packet (#1473)\n'
 
-if [ -f "$_T113_ADR" ] \
-  && grep -Fq '**Status**: Proposed' "$_T113_ADR" \
-  && grep -Fq '**Decision Makers**: Human / external-boundary administrator — UNASSIGNED' "$_T113_ADR" \
-  && grep -Fq 'Decision state: NOT_MADE' "$_T113_ADR"; then
-  printf '  [PASS] ownership: ADR remains Proposed and Human-owned\n'; pass=$((pass + 1))
-else
-  printf '  [FAIL] ownership: Proposed/Human-owned decision state missing\n' >&2; fail=$((fail + 1))
-fi
-
-_t113_placeholders=0
+_t113_status=$(sed -n 's/^\\*\\*Status\\*\\*: \\([^ ]*\\).*/\\1/p' "$_T113_ADR" | head -1)
+_t113_record=$(sed -n '/^### Human Decision Record$/,/^### Decision-state transition contract$/p' "$_T113_ADR")
+_t113_record_fields=0
+_t113_undecided=0
 for _t113_key in \
   selected_option \
   external_verifier_location \
@@ -52,14 +46,42 @@ for _t113_key in \
   decision_recorded_at \
   decision_evidence_ref
 do
-  if grep -Fq "$_t113_key = UNDECIDED" "$_T113_ADR"; then
-    _t113_placeholders=$((_t113_placeholders + 1))
+  _t113_value=$(printf '%s\\n' "$_t113_record" | sed -n "s/^${_t113_key} = //p" | head -1)
+  if [ -n "$_t113_value" ]; then
+    _t113_record_fields=$((_t113_record_fields + 1))
+    if [ "$_t113_value" = "UNDECIDED" ]; then
+      _t113_undecided=$((_t113_undecided + 1))
+    fi
   fi
 done
-if [ "$_t113_placeholders" -eq 8 ]; then
-  printf '  [PASS] decision fields: complete Human Decision Record remains undecided\n'; pass=$((pass + 1))
+
+_t113_state_ok=0
+case "$_t113_status" in
+  Proposed)
+    if grep -Fq '**Decision Makers**: Human / external-boundary administrator — UNASSIGNED' "$_T113_ADR" \
+      && grep -Fq '**Decision state: NOT_MADE.**' "$_T113_ADR" \
+      && [ "$_t113_record_fields" -eq 8 ] \
+      && [ "$_t113_undecided" -eq 8 ]; then
+      _t113_state_ok=1
+    fi
+    ;;
+  Accepted)
+    if grep -Fq '**Decision Makers**:' "$_T113_ADR" \
+      && ! grep -Fq '**Decision Makers**: Human / external-boundary administrator — UNASSIGNED' "$_T113_ADR" \
+      && grep -Fq '**Decision state: RECORDED_BY_HUMAN.**' "$_T113_ADR" \
+      && [ "$_t113_record_fields" -eq 8 ] \
+      && [ "$_t113_undecided" -eq 0 ]; then
+      _t113_state_ok=1
+    fi
+    ;;
+esac
+
+if [ "$_t113_state_ok" -eq 1 ]; then
+  printf '  [PASS] ownership: ADR state and Human Decision Record are structurally consistent (%s)\\n' "$_t113_status"; pass=$((pass + 1))
 else
-  printf '  [FAIL] decision fields: expected 8 UNDECIDED values, found %s\n' "$_t113_placeholders" >&2; fail=$((fail + 1))
+  printf '  [FAIL] ownership: invalid Proposed/Accepted decision-state combination (%s; fields=%s undecided=%s)\\n' \
+    "$_t113_status" "$_t113_record_fields" "$_t113_undecided" >&2
+  fail=$((fail + 1))
 fi
 
 if grep -Fq 'AI/automation MUST NOT satisfy items 1–6 on behalf of the Human owner.' "$_T113_ADR" \
@@ -109,6 +131,7 @@ else
   printf '  [FAIL] evidence boundary: decision-vs-proof distinction missing\n' >&2; fail=$((fail + 1))
 fi
 
-unset _t113_key _t113_placeholders _t113_field _t113_false 2>/dev/null || true
+unset _t113_status _t113_record _t113_record_fields _t113_undecided _t113_state_ok \
+  _t113_key _t113_value _t113_field _t113_false 2>/dev/null || true
 
 pg_extra_contract_finalize
