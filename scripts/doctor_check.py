@@ -480,6 +480,9 @@ def main(argv: list[str]) -> int:
         return 2
 
     result = runner()
+    # #962: machine-readable target identity without contaminating JSON stdout.
+    result["project_root"] = str(REPO)
+    result["project_root_source"] = os.environ.get("PLANGATE_PROJECT_ROOT_SOURCE", "script-root")
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0 if result["passed"] else 1
 
