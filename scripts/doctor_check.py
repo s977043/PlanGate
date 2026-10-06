@@ -65,7 +65,7 @@ V860_FILE_CHECKS: list[tuple[str, str]] = [
 
 
 def check_file(path_rel: str, level: str) -> dict:
-    p = REPO / path_rel
+    p = SOURCE_REPO / path_rel
     return {
         "name": path_rel,
         "ok": p.is_file(),
@@ -75,7 +75,7 @@ def check_file(path_rel: str, level: str) -> dict:
 
 
 def check_eh8_executable() -> dict:
-    p = REPO / "scripts/hooks/check-metrics-privacy.sh"
+    p = SOURCE_REPO / "scripts/hooks/check-metrics-privacy.sh"
     ok = p.is_file() and os.access(p, os.X_OK)
     return {
         "name": "EH-8 hook is executable",
@@ -249,7 +249,7 @@ def check_w6_introduction() -> dict:
     AutonomousApproveRecordExists: docs/working/TASK-*/status.md のいずれかに
     "C-3 Gate: AUTONOMOUS APPROVED" 文字列が存在する。
     """
-    wc = REPO / ".claude" / "rules" / "working-context.md"
+    wc = SOURCE_REPO / ".claude" / "rules" / "working-context.md"
     heading_marker = "C-3 Autonomous APPROVE"
     introduced = False
     if wc.is_file():
@@ -294,7 +294,7 @@ def check_skill_collisions() -> dict:
     exit code 1 (衝突あり) を WARN として報告する。優先順位規約は
     docs/ai/skill-collision-detection.md を参照 (repo-local 優先)。
     """
-    script = REPO / "scripts" / "check-skill-name-collisions.py"
+    script = SOURCE_REPO / "scripts" / "check-skill-name-collisions.py"
     name = "skill/command/agent name collisions (#721)"
     if not script.is_file():
         return {
