@@ -193,7 +193,31 @@ else
   fail=$((fail + 1))
 fi
 
-# 11. doctor --fix --dry-run reads canonical hooks from CLI root but plans writes in target.
+# 11. doctor default JSON checks CLI assets from source and project state from target.
+_t112_json="$_t112_tmp/doctor-v860.json"
+_t112_err="$_t112_tmp/doctor-v860.err"
+_t112_rc=0
+sh "$_T112_BIN" --project-root "$_t112_b" doctor --json >"$_t112_json" 2>"$_t112_err" || _t112_rc=$?
+_t112_v860_ok=0
+if python3 - "$_t112_json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+checks = {c.get("name"): c for c in d.get("checks", [])}
+assert checks["schemas/plangate-event.schema.json"]["ok"] is True
+assert checks["scripts/metrics_collector.py"]["ok"] is True
+PY
+then
+  _t112_v860_ok=1
+fi
+if [ "$_t112_v860_ok" -eq 1 ] && [ ! -s "$_t112_err" ]; then
+  printf '  [PASS] doctor JSON separates CLI assets from downstream project state\n'; pass=$((pass + 1))
+else
+  printf '  [FAIL] doctor JSON source/target classification (rc=%s json_ok=%s)\n' "$_t112_rc" "$_t112_v860_ok" >&2
+  cat "$_t112_err" >&2
+  fail=$((fail + 1))
+fi
+
+# 12. doctor --fix --dry-run reads canonical hooks from CLI root but plans writes in target.
 _t112_before_count=$(find "$_t112_b" -type f 2>/dev/null | wc -l | tr -d ' ')
 _t112_rc=0
 _t112_out=$(sh "$_T112_BIN" --project-root "$_t112_b" doctor --fix --dry-run 2>&1) || _t112_rc=$?
@@ -208,7 +232,7 @@ else
   fail=$((fail + 1))
 fi
 
-# 12. CLI-root fallback remains available outside a git repository.
+# 13. CLI-root fallback remains available outside a git repository.
 _t112_fallback="TASK-962FALLBACK"
 _t112_fallback_dir="$_T112_ROOT/docs/working/$_t112_fallback"
 mkdir -p "$_t112_fallback_dir/approvals"
