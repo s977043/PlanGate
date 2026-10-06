@@ -206,6 +206,28 @@ Rules:
 - `decision_evidence_ref` must point to the Human-owned auditable record.
 - Filling this block records the **choice**; it does not prove the external boundary is already independent.
 
+### Decision-state transition contract
+
+`TA-113` validates structural consistency, not Human identity or independence proof.
+
+**Proposed state** requires:
+
+- metadata `Status = Proposed`;
+- `Decision state: NOT_MADE`;
+- `Decision Makers` remains `UNASSIGNED`;
+- all eight Human Decision Record values remain `UNDECIDED`.
+
+**Accepted state** requires:
+
+- metadata `Status = Accepted`;
+- `Decision state: RECORDED_BY_HUMAN`;
+- `Decision Makers` names the Human decision maker and is no longer `UNASSIGNED`;
+- all eight Human Decision Record values are non-placeholder values;
+- `decision_evidence_ref` points to the Human-owned auditable decision record.
+
+An Accepted structure is still **not** Evidence that the resulting external boundary is independent.
+That proof belongs to P1/P2 external Evidence.
+
 ### P1 activation gate
 
 External provisioning may start only after this ADR is `Accepted` by a Human and the Human Decision
