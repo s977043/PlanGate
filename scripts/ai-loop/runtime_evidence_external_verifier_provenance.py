@@ -38,14 +38,15 @@ HERE = pathlib.Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
+import runtime_evidence_external_verifier_bootstrap_manifest as bootstrap  # noqa: E402
 import runtime_evidence_external_verifier_receipt as upstream  # noqa: E402
 import runtime_evidence_ingress as ingress  # noqa: E402
 
 
-DOMAIN = "plangate.runtime-r1-external-verifier-provenance/v1"
-CONTRACT_STAGE = "r1-external-verifier-provenance-candidate-v1"
-RECEIPT_DOMAIN = "plangate.runtime-r1-external-verifier-provenance-input/v1"
-RECEIPT_STAGE = "r1-external-verifier-provenance-input-v1"
+DOMAIN = "plangate.runtime-r1-external-verifier-provenance/v2"
+CONTRACT_STAGE = "r1-external-verifier-provenance-candidate-v2"
+RECEIPT_DOMAIN = "plangate.runtime-r1-external-verifier-provenance-input/v2"
+RECEIPT_STAGE = "r1-external-verifier-provenance-input-v2"
 MAX_JSON_BYTES = 2 * 1024 * 1024
 MAX_VALIDITY_SECONDS = 15 * 60
 MAX_FUTURE_SKEW_SECONDS = 60
@@ -91,6 +92,42 @@ UPSTREAM_KEYS = {
     "verification_limit", "authority", "result_hash",
 }
 
+BOOTSTRAP_KEYS = {
+    "schema_version", "domain", "contract_stage", "declared_source_commit",
+    "package_file_count", "package_total_bytes", "files", "package_content_hash",
+    "exact_required_file_set_verified", "package_bytes_content_addressed_candidate",
+    "declared_source_commit_bound_candidate", "bootstrap_contract_semantics_revalidated",
+    "source_commit_repository_membership_verified",
+    "external_operator_received_package_verified",
+    "external_operator_accepted_package_verified",
+    "admin_evidence_independently_verified", "nonce_one_time_consumption_verified",
+    "independent_admin_boundary_verified", "independent_verifier_execution_attested",
+    "runtime_probe_attestation_verified", "human_rollout_decision_verified",
+    "dispatch_ready", "dispatch_allowed", "verification_limit", "authority",
+    "result_hash",
+}
+
+BOOTSTRAP_TRUE_FIELDS = (
+    "exact_required_file_set_verified",
+    "package_bytes_content_addressed_candidate",
+    "declared_source_commit_bound_candidate",
+)
+
+BOOTSTRAP_FALSE_FIELDS = (
+    "bootstrap_contract_semantics_revalidated",
+    "source_commit_repository_membership_verified",
+    "external_operator_received_package_verified",
+    "external_operator_accepted_package_verified",
+    "admin_evidence_independently_verified",
+    "nonce_one_time_consumption_verified",
+    "independent_admin_boundary_verified",
+    "independent_verifier_execution_attested",
+    "runtime_probe_attestation_verified",
+    "human_rollout_decision_verified",
+    "dispatch_ready",
+    "dispatch_allowed",
+)
+
 UPSTREAM_TRUE_FIELDS = (
     "receipt_structure_verified",
     "receipt_candidate_binding_verified",
@@ -126,6 +163,8 @@ UPSTREAM_FALSE_FIELDS = (
 PROVENANCE_KEYS = {
     "schema_version", "domain", "contract_stage", "request_hash", "config_sha",
     "provider", "platform", "capture_id",
+    "bootstrap_manifest_result_hash", "bootstrap_manifest_file_sha256",
+    "bootstrap_package_content_hash", "bootstrap_declared_source_commit",
     "external_verifier_result_hash", "external_verifier_result_file_sha256",
     "external_receipt_file_sha256", "verification_nonce",
     "verifier_id", "verifier_version", "verifier_binary_sha256",
@@ -251,6 +290,119 @@ def _validate_authority(value: Any, field: str, errors: list[str]) -> None:
         errors.append(f"{field}: all authority values must remain false")
 
 
+def _validate_bootstrap_manifest(value: Any) -> list[str]:
+    if not isinstance(value, dict):
+        return ["bootstrap_manifest_result: object required"]
+    errors: list[str] = []
+    if set(value) != BOOTSTRAP_KEYS:
+        errors.append("bootstrap_manifest_result: exact #1484 key set required")
+    if value.get("schema_version") != "1":
+        errors.append("bootstrap_manifest_result.schema_version: 1 required")
+    if value.get("domain") != bootstrap.DOMAIN:
+        errors.append("bootstrap_manifest_result.domain: exact #1484 domain required")
+    if value.get("contract_stage") != bootstrap.CONTRACT_STAGE:
+        errors.append("bootstrap_manifest_result.contract_stage: exact #1484 stage required")
+
+    commit = value.get("declared_source_commit")
+    if not isinstance(commit, str) or bootstrap.COMMIT_RE.fullmatch(commit) is None:
+        errors.append(
+            "bootstrap_manifest_result.declared_source_commit: 40 lowercase hex commit required"
+        )
+
+    files = value.get("files")
+    required_paths = [
+        (bootstrap.PACKAGE_RELATIVE_DIR / name).as_posix()
+        for name in bootstrap.REQUIRED_FILES
+    ]
+    if not isinstance(files, list) or len(files) != len(required_paths):
+        errors.append("bootstrap_manifest_result.files: exact four-file list required")
+        files = []
+    actual_paths: list[str] = []
+    total_bytes = 0
+    for index, item in enumerate(files):
+        if not isinstance(item, dict) or set(item) != {"path", "sha256", "size_bytes"}:
+            errors.append(
+                f"bootstrap_manifest_result.files[{index}]: exact file entry required"
+            )
+            continue
+        path = item.get("path")
+        digest = item.get("sha256")
+        size = item.get("size_bytes")
+        if not isinstance(path, str):
+            errors.append(f"bootstrap_manifest_result.files[{index}].path: string required")
+        else:
+            actual_paths.append(path)
+        if not isinstance(digest, str) or HASH_RE.fullmatch(digest) is None:
+            errors.append(
+                f"bootstrap_manifest_result.files[{index}].sha256: valid SHA-256 required"
+            )
+        if not isinstance(size, int) or isinstance(size, bool) or size < 0:
+            errors.append(
+                f"bootstrap_manifest_result.files[{index}].size_bytes: nonnegative integer required"
+            )
+        elif size > bootstrap.MAX_FILE_BYTES:
+            errors.append(
+                f"bootstrap_manifest_result.files[{index}].size_bytes: exceeds #1484 file limit"
+            )
+            total_bytes += size
+        else:
+            total_bytes += size
+
+    if actual_paths != required_paths:
+        errors.append("bootstrap_manifest_result.files: exact reviewed file order/path required")
+    file_count = value.get("package_file_count")
+    if (
+        not isinstance(file_count, int)
+        or isinstance(file_count, bool)
+        or file_count != len(required_paths)
+    ):
+        errors.append("bootstrap_manifest_result.package_file_count: integer 4 required")
+    package_total = value.get("package_total_bytes")
+    if (
+        not isinstance(package_total, int)
+        or isinstance(package_total, bool)
+        or package_total != total_bytes
+    ):
+        errors.append("bootstrap_manifest_result.package_total_bytes: exact integer sum required")
+    elif package_total > bootstrap.MAX_PACKAGE_BYTES:
+        errors.append("bootstrap_manifest_result.package_total_bytes: exceeds #1484 package limit")
+
+    package_binding = {
+        "domain": value.get("domain"),
+        "contract_stage": value.get("contract_stage"),
+        "declared_source_commit": value.get("declared_source_commit"),
+        "files": files,
+    }
+    expected_package_hash = ingress._canonical_hash(package_binding)
+    package_hash = value.get("package_content_hash")
+    if not isinstance(package_hash, str) or HASH_RE.fullmatch(package_hash) is None:
+        errors.append(
+            "bootstrap_manifest_result.package_content_hash: valid SHA-256 required"
+        )
+    elif package_hash != expected_package_hash:
+        errors.append(
+            "bootstrap_manifest_result.package_content_hash: canonical binding mismatch"
+        )
+
+    for field in BOOTSTRAP_TRUE_FIELDS:
+        if value.get(field) is not True:
+            errors.append(f"bootstrap_manifest_result.{field}: true required")
+    for field in BOOTSTRAP_FALSE_FIELDS:
+        if value.get(field) is not False:
+            errors.append(f"bootstrap_manifest_result.{field}: false required")
+
+    _validate_authority(
+        value.get("authority"),
+        "bootstrap_manifest_result.authority",
+        errors,
+    )
+    body = dict(value)
+    claimed_hash = body.pop("result_hash", None)
+    if claimed_hash != ingress._canonical_hash(body):
+        errors.append("bootstrap_manifest_result.result_hash: canonical hash mismatch")
+    return errors
+
+
 def _validate_upstream(value: Any) -> list[str]:
     if not isinstance(value, dict):
         return ["external_verifier_result: object required"]
@@ -321,7 +473,7 @@ def _validate_upstream_freshness(
             )
         if issued > now + dt.timedelta(seconds=upstream.MAX_FUTURE_SKEW_SECONDS):
             errors.append("external_verifier_result.issued_at: too far in the future")
-        if now > expires:
+        if now >= expires:
             errors.append("external_verifier_result: stale/expired #1471 result")
     return errors
 
@@ -329,6 +481,8 @@ def _validate_upstream_freshness(
 def _validate_provenance(
     value: Any,
     *,
+    bootstrap_value: dict[str, Any],
+    bootstrap_file_sha256: str,
     upstream_value: dict[str, Any],
     upstream_file_sha256: str,
     expected_verifier_workflow_ref: str,
@@ -350,7 +504,17 @@ def _validate_provenance(
     if value.get("contract_stage") != RECEIPT_STAGE:
         errors.append(f"provenance_receipt.contract_stage: {RECEIPT_STAGE} required")
 
-    bindings = {
+    bootstrap_bindings = {
+        "bootstrap_manifest_result_hash": bootstrap_value.get("result_hash"),
+        "bootstrap_manifest_file_sha256": bootstrap_file_sha256,
+        "bootstrap_package_content_hash": bootstrap_value.get("package_content_hash"),
+        "bootstrap_declared_source_commit": bootstrap_value.get("declared_source_commit"),
+    }
+    for field, expected in bootstrap_bindings.items():
+        if value.get(field) != expected:
+            errors.append(f"provenance_receipt.{field}: exact #1484 binding required")
+
+    upstream_bindings = {
         "request_hash": upstream_value.get("request_hash"),
         "config_sha": upstream_value.get("config_sha"),
         "provider": upstream_value.get("provider"),
@@ -364,7 +528,7 @@ def _validate_provenance(
         "verifier_version": upstream_value.get("verifier_version"),
         "verifier_binary_sha256": upstream_value.get("verifier_binary_sha256"),
     }
-    for field, expected in bindings.items():
+    for field, expected in upstream_bindings.items():
         if value.get(field) != expected:
             errors.append(f"provenance_receipt.{field}: exact #1471 binding required")
 
@@ -410,6 +574,16 @@ def _validate_provenance(
     if expires is None:
         errors.append("provenance_receipt.expires_at: timezone-aware RFC3339 required")
     if issued is not None and expires is not None:
+        upstream_issued = _parse_rfc3339(upstream_value.get("issued_at"))
+        upstream_expires = _parse_rfc3339(upstream_value.get("expires_at"))
+        if upstream_issued is not None and issued < upstream_issued:
+            errors.append(
+                "provenance_receipt.issued_at: must not predate #1471 issued_at"
+            )
+        if upstream_expires is not None and expires > upstream_expires:
+            errors.append(
+                "provenance_receipt.expires_at: must not outlive #1471 expires_at"
+            )
         if expires <= issued:
             errors.append("provenance_receipt.expires_at: must be after issued_at")
         elif (expires - issued).total_seconds() > MAX_VALIDITY_SECONDS:
@@ -430,28 +604,35 @@ def _validate_provenance(
 
 def verify_provenance_bytes(
     *,
+    bootstrap_manifest_result_raw: bytes,
     external_verifier_result_raw: bytes,
     provenance_receipt_raw: bytes,
     expected_verifier_workflow_ref: str,
     expected_challenge_id: str,
     now: dt.datetime | None = None,
 ) -> dict[str, Any]:
+    bootstrap_value = _strict_json_loads(
+        bootstrap_manifest_result_raw, "bootstrap_manifest_result"
+    )
     upstream_value = _strict_json_loads(
         external_verifier_result_raw, "external_verifier_result"
     )
     provenance_value = _strict_json_loads(
         provenance_receipt_raw, "provenance_receipt"
     )
-    errors = _validate_upstream(upstream_value)
+    errors = _validate_bootstrap_manifest(bootstrap_value)
+    errors.extend(_validate_upstream(upstream_value))
     current = now or dt.datetime.now(dt.timezone.utc)
     if current.tzinfo is None or current.utcoffset() is None:
         errors.append("now: timezone-aware datetime required")
-    elif isinstance(upstream_value, dict):
+    elif isinstance(bootstrap_value, dict) and isinstance(upstream_value, dict):
         current_utc = current.astimezone(dt.timezone.utc)
         errors.extend(_validate_upstream_freshness(upstream_value, current_utc))
         errors.extend(
             _validate_provenance(
                 provenance_value,
+                bootstrap_value=bootstrap_value,
+                bootstrap_file_sha256=_sha256_bytes(bootstrap_manifest_result_raw),
                 upstream_value=upstream_value,
                 upstream_file_sha256=_sha256_bytes(external_verifier_result_raw),
                 expected_verifier_workflow_ref=expected_verifier_workflow_ref,
@@ -462,6 +643,7 @@ def verify_provenance_bytes(
     if errors:
         raise ExternalVerifierProvenanceError(errors)
 
+    assert isinstance(bootstrap_value, dict)
     assert isinstance(upstream_value, dict)
     assert isinstance(provenance_value, dict)
     result = {
@@ -473,6 +655,10 @@ def verify_provenance_bytes(
         "provider": upstream_value["provider"],
         "platform": upstream_value["platform"],
         "capture_id": upstream_value["capture_id"],
+        "bootstrap_manifest_result_hash": bootstrap_value["result_hash"],
+        "bootstrap_manifest_file_sha256": _sha256_bytes(bootstrap_manifest_result_raw),
+        "bootstrap_package_content_hash": bootstrap_value["package_content_hash"],
+        "bootstrap_declared_source_commit": bootstrap_value["declared_source_commit"],
         "external_verifier_result_hash": upstream_value["result_hash"],
         "external_verifier_result_file_sha256": _sha256_bytes(external_verifier_result_raw),
         "command_candidate_result_hash": upstream_value["command_candidate_result_hash"],
@@ -488,6 +674,8 @@ def verify_provenance_bytes(
         "issued_at": provenance_value["issued_at"],
         "expires_at": provenance_value["expires_at"],
         "provenance_receipt_hash": provenance_value["provenance_receipt_hash"],
+        "bootstrap_manifest_binding_candidate": True,
+        "bootstrap_package_content_binding_candidate": True,
         "external_verifier_result_binding_verified": True,
         "upstream_receipt_freshness_reverified": True,
         "provenance_receipt_structure_verified": True,
@@ -496,6 +684,10 @@ def verify_provenance_bytes(
         "github_actions_oidc_issuer_bound_candidate": True,
         "run_challenge_binding_candidate": True,
         "freshness_window_candidate": True,
+        "bootstrap_contract_semantics_revalidated": False,
+        "source_commit_repository_membership_verified": False,
+        "external_operator_received_package_verified": False,
+        "external_operator_accepted_package_verified": False,
         "same_challenge_replay_prevented": False,
         "provenance_receipt_signature_verified": False,
         "crypto_verifier_binary_verified": False,
@@ -515,11 +707,13 @@ def verify_provenance_bytes(
         "dispatch_ready": False,
         "dispatch_allowed": False,
         "verification_limit": (
-            "exact #1471 result bytes, exact GitHub Actions OIDC issuer, immutable verifier "
-            "workflow expectation, #1471-bound binary digest, run challenge, and bounded "
-            "freshness are validated; the provenance receipt is not cryptographically "
-            "authenticated and caller-supplied workflow/challenge expectations do not prove "
-            "independent administration or one-time challenge consumption"
+            "exact #1484 bootstrap-manifest bytes/package hash and #1471 result bytes, exact "
+            "GitHub Actions OIDC issuer, immutable verifier workflow expectation, #1471-bound "
+            "binary digest, run challenge, and bounded freshness are candidate-bound; the "
+            "provenance receipt is not cryptographically "
+            "authenticated and the bootstrap binding does not prove external operator receipt/"
+            "acceptance, Git membership, independent administration, or one-time challenge "
+            "consumption"
         ),
         "authority": {
             "agent_invoke_allowed": False,
@@ -536,12 +730,18 @@ def verify_provenance_bytes(
 def verify_provenance_files(
     *,
     repo_root,
+    bootstrap_manifest_result_path,
     external_verifier_result_path,
     provenance_receipt_path,
     expected_verifier_workflow_ref,
     expected_challenge_id,
     now=None,
 ) -> dict[str, Any]:
+    bootstrap_raw = _require_external_regular_file(
+        bootstrap_manifest_result_path,
+        repo_root=repo_root,
+        field="bootstrap_manifest_result",
+    )
     upstream_raw = _require_external_regular_file(
         external_verifier_result_path,
         repo_root=repo_root,
@@ -553,6 +753,7 @@ def verify_provenance_files(
         field="provenance_receipt",
     )
     return verify_provenance_bytes(
+        bootstrap_manifest_result_raw=bootstrap_raw,
         external_verifier_result_raw=upstream_raw,
         provenance_receipt_raw=provenance_raw,
         expected_verifier_workflow_ref=expected_verifier_workflow_ref,
@@ -564,6 +765,7 @@ def verify_provenance_files(
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", required=True)
+    parser.add_argument("--bootstrap-manifest-result", required=True)
     parser.add_argument("--external-verifier-result", required=True)
     parser.add_argument("--provenance-receipt", required=True)
     parser.add_argument("--expected-verifier-workflow-ref", required=True)
@@ -572,6 +774,7 @@ def main(argv=None) -> int:
     try:
         result = verify_provenance_files(
             repo_root=args.repo_root,
+            bootstrap_manifest_result_path=args.bootstrap_manifest_result,
             external_verifier_result_path=args.external_verifier_result,
             provenance_receipt_path=args.provenance_receipt,
             expected_verifier_workflow_ref=args.expected_verifier_workflow_ref,

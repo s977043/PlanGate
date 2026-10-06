@@ -71,6 +71,9 @@ if grep -q '"same_challenge_replay_prevented": False' "$_T110_IMPL" \
   && grep -q '"provenance_receipt_signature_verified": False' "$_T110_IMPL" \
   && grep -q '"crypto_verifier_binary_verified": False' "$_T110_IMPL" \
   && grep -q '"github_actions_oidc_issuer_bound_candidate": True' "$_T110_IMPL" \
+  && grep -q '"bootstrap_manifest_binding_candidate": True' "$_T110_IMPL" \
+  && grep -q '"bootstrap_package_content_binding_candidate": True' "$_T110_IMPL" \
+  && grep -q '"external_operator_accepted_package_verified": False' "$_T110_IMPL" \
   && grep -q '"independent_admin_boundary_verified": False' "$_T110_IMPL" \
   && grep -q '"runtime_probe_attestation_verified": False' "$_T110_IMPL" \
   && grep -q '"dispatch_allowed": False' "$_T110_IMPL"; then
@@ -83,9 +86,12 @@ fi
 
 if [ -f "$_T110_PROPOSAL" ] \
   && grep -q '"immutable_verifier_identity_binding_candidate"' "$_T110_PROPOSAL" \
+  && grep -q '"bootstrap_manifest_binding_candidate"' "$_T110_PROPOSAL" \
+  && grep -q '"bootstrap_package_content_hash"' "$_T110_PROPOSAL" \
+  && grep -q '"external_operator_accepted_package_verified": false' "$_T110_PROPOSAL" \
   && grep -q '"same_challenge_replay_prevented": false' "$_T110_PROPOSAL" \
   && grep -q '"independent_admin_boundary_verified": false' "$_T110_PROPOSAL"; then
-  printf '  [PASS] proposal: immutable identity is not independent-admin proof\n'
+  printf '  [PASS] proposal: bootstrap identity + immutable verifier identity remain candidate-only\n'
   pass=$((pass + 1))
 else
   printf '  [FAIL] proposal: trust boundary incomplete\n' >&2
