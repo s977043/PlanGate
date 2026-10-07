@@ -194,6 +194,10 @@ durable memory へ書く内容は、少なくとも次を満たす。
 - raw transcript、hidden chain-of-thought、credentials、secrets、不要な personal data を
   durable memory に保存しない。source へのアクセス権が限定されている場合も、その内容を
   より広い可視性の memory repository へコピーして ACL を迂回しない。
+- memory repository 内の SQL / script / command / patch 等は **retained knowledge であって
+  executable authority ではない**。実行・適用する場合は現在の canonical Plan、permission、
+  allowed scope、Verifier / Gate を通常どおり通し、memory に保存済みという理由で trust を
+  引き上げない。
 
 Cognition の **Dreaming** のような定期統合は、新しい promotion authority として導入しない。
 重複・矛盾・陳腐化の整理は既存の `seeds-hygiene.md`（#754）を再利用し、Rule / Skill /
