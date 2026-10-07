@@ -33,6 +33,16 @@ After an explicit Human decision records a structurally complete
 `Accepted / RECORDED_BY_HUMAN` ADR-007, the preflight may return exit code 0
 with `p1_preflight_candidate=true`.
 
+Even in that state:
+
+```text
+p1_activation_allowed=false
+external_provisioning_allowed=false
+```
+
+Exit code 0 is **not** a provisioning trigger or permission. It is only a
+repository-local structural preflight result.
+
 ## Critical limitation
 
 A zero exit code means only:
@@ -57,6 +67,8 @@ record:
 human_decision_identity_verified=false
 decision_evidence_ref_authenticated=false
 external_boundary_provisioned_verified=false
+p1_activation_allowed=false
+external_provisioning_allowed=false
 admin_evidence_independently_verified=false
 nonce_one_time_consumption_verified=false
 independent_admin_boundary_verified=false
