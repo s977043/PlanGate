@@ -199,6 +199,80 @@ Does runtime need to instantiate bounded topology?
 
 この区別は Work Item Graph / Assignment の宣言と接続する。Graph runtime の generic engine を先に作らず、durable state・convergence / stop・trajectory evaluation・event stream は §2 の既存 owner を再利用する。
 
+### Execution Strategy is orthogonal to Graph topology
+
+HydraFusion で示された `single / cascade / critique` は、上記の Static Workflow / Adaptive Routing /
+Bounded Dynamic Graph と同じ taxonomy ではない。前者は **1 つの approved Work Item / Graph node をどの実行構成で解くか**、
+後者は **責務や node をどう配置・遷移させるか** を表す。
+
+したがって PlanGate では Execution Strategy を、Model / Effort / Role / Graph topology / Judgment authority から
+独立した execution-time lens として扱う。Execution Strategy を選んでも WorkItemGraph の scope、Acceptance Criteria、
+Human-owned authority、Verifier / Gate の authority は変わらない。
+
+```text
+Approved Work Item / Graph node
+        ↓
+Execution Strategy
+  ├─ single
+  ├─ cascade
+  └─ critique
+        ↓
+RunEvidence / Verification
+        ↓
+Gate / Human authority
+```
+
+| Strategy | Vendor-neutral semantics | 適する条件 | 境界 |
+|---|---|---|---|
+| `single` | 1 worker / 1 solving path で実行する | bounded・低不確実性・追加独立判断の便益が小さい | 失敗時に strategy 内で無制限 retry せず #894 の convergence / stop に従う |
+| `cascade` | 低コスト側の path を先に実行し、事前定義した quality signal が不足した場合だけ別の stronger path へ escalation する | cost / latency を抑えつつ quality floor を守りたい | cascade 内の quality check は PlanGate Gate そのものではない。terminal authority を持たない |
+| `critique` | Builder の候補を read-only Reviewer が独立に批評し、Builder が bounded な修正を行う | ambiguity / risk / independent judgment need が高い | Reviewer は patch / merge authority を持たない。Reviewer と Verifier は別責務であり、review 完了を verification 成功とみなさない |
+
+`critique` の independence は「モデル数」だけでは証明しない。少なくとも execution provenance を残し、
+必要な trust level に応じて model/provider/context/tool/host の分離を評価する。external verifier が必要な境界は
+[`adr-007-external-runtime-verifier-boundary.md`](../../decisions/adr-007-external-runtime-verifier-boundary.md) と
+Evaluation Trust Boundary の既存規則を正とする。
+
+#### Strategy selection inputs
+
+strategy recommendation は、少なくとも次を入力候補とする。
+
+- task complexity / uncertainty
+- risk class / protected-surface proximity
+- cost / latency / token budget
+- independent judgment need
+- prior Run の failure / repair evidence
+- provider / model capability availability
+
+ただし、deterministic rule で十分な場合は LLM router を使わない。未知・矛盾・evidence 不足を
+`single` へ都合よく丸めず、shadow recommendation または Human escalation とする。
+
+#### Orchestration guardrails
+
+HydraFusion の運用原則は新しい owner を作らず、既存責務へ次のように対応付ける。
+
+| Guardrail | PlanGate interpretation | Owner / evidence |
+|---|---|---|
+| Complete accounting | strategy / leg ごとの model/provider、token、time、cost、retry、fallback、result を追跡可能にする | #874 RunEvidence / event stream、#908 operational evaluation |
+| Bounded execution | timeout / retry / fallback / parallelism / token / time / cost を budget と stop policy の内側に置く | #894 convergence / stop、Work Item の `budget_profile` / `budget_ref` |
+| Isolated review | critique の Reviewer を Builder の write authority から分離し、必要な independence を provenance で説明可能にする | Evaluation Trust Boundary、ADR-007、River Review の review / verifier contract |
+| Fail-safe application | review / verification / routing が失敗・unknown のとき変更適用や authority 昇格へ進めない | Verifier / Gate / Human-owned C-4・merge boundary |
+| Validated routing | strategy routing を default-on にする前に shadow / paired evaluation で quality・cost・latency・Human correction burden を検証する | #908 Run Eval、#869 Harness Evolution |
+
+ここでいう `fail-safe application` は PlanGate が patch application を新たに所有するという意味ではない。
+既存どおり、Execution Strategy は protected authority を変更せず、不可逆な採用判断を代替しない。
+
+#### Adoption rule
+
+Execution Strategy の runtime 自動選択は、最初から production default にしない。
+
+1. **Interpretation only**: taxonomy と owner mapping を明文化する。
+2. **Observe-only**: 実際に使った strategy と、推奨 strategy を別々に記録する。
+3. **Paired evaluation**: #869 / #908 で quality / coverage / repair round / cost / latency /
+   Human correction burden を baseline と比較する。
+4. **Opt-in routing**: critical regression がなく、routing の便益が evidence で示された範囲だけ有効化する。
+5. **Evolution**: strategy / threshold / routing rule の改善は active Run の self-modification ではなく
+   #869 の Candidate として次の Harness version に反映する。
 ## 5. Minimum topology principle
 
 **まず最小の制御構造を選ぶ。** AI を使うこと自体は Graph 導入理由にならない。
