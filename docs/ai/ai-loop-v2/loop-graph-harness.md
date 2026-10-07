@@ -414,6 +414,46 @@ Harness の設計判断では、部品数や layer 数を増やすことを進�
 
 したがって、外部事例から新しい「層」を取り込む場合も、まず既存 primitive へ写像し、**既存責務で表せない具体的な gap がある場合だけ**新しい component / artifact / owner を検討する。これは North Star §11 の Reuse Before Create と §12 の simplification を、Harness 全体の構成判断へ適用するための解釈である。
 
+
+## 12. Persistent operational state / failure ratchet
+
+外部の file-oriented Harness で見かける `receipt` / `checkpoint` / `guard` / independent grader / failure-to-rule の形は、そのファイル名や JSON shape をそのまま輸入するのではなく、**会話や単一 process の寿命を越えて必要な operational state を外部化する設計パターン**として解釈する。
+
+PlanGate では、resume・Evidence・policy binding・改善 provenance を conversation history / raw transcript / hidden CoT に依存させない。再現・再開・判定に必要な事実は、§2 の既存 owner が管理する canonical artifact / event / evidence から復元できることを優先する。
+
+外部パターンを読むときは次のように既存責務へ接続する。**これは第2の owner 対応表ではない。owner / 正本は §2 の表だけを正とする。**
+
+- **receipt-like record**: Worker の成功自己申告ではなく、RunEvidence / event stream / verifier output から検証可能な Evidence を残す。deterministic verifier の FAIL を LLM self-report や independent grader の PASS で上書きしない。
+- **checkpoint-like state**: durable state / wait-resume / recovery の意味は Graph + Harness の既存責務を使う。conversation の直前発話や live process 内 memory を再開位置の正本にしない。
+- **guard / budget / kill-switch-like control**: permission / policy / budget / verifier availability 等の Harness enforcement と、Loop の stop / escalate 判断を合成する。新しい guard file が独自 authority を持つとは解釈しない。
+- **independent grade**: deterministic verification の代替ではなく、#908 / #910 が扱う evaluation / calibrated soft signal の側に置く。Candidate が自分を裁く authority を変更しない。
+- **failure-to-rule / failure-to-harness change**: #1376 の Ratchet Traceability を通じて #869 の Evolution Candidate へ接続する。失敗を「次は気をつける」という会話上の注意だけに戻さず、必要なら regression / prevention evidence を伴う Harness N+1 Candidate に変換する。
+
+このパターンを PlanGate で使うときの不変条件:
+
+1. **Persist facts, not conversation memory.** 再開・判定・改善に必要な事実は canonical state / event / evidence / provenance へ残す。
+2. **Evidence before judgment.** receipt-like な記録は claim の保存ではなく、artifact / verifier / policy と照合できる Evidence binding を持つ。
+3. **Bound autonomy with existing authority.** timeout / budget / deny / stop / escalation は既存 policy と Human-owned boundary を狭めず、未知・不足・衝突は fail-closed または escalation とする。
+4. **Do not self-modify an active Run.** Active Run の `harness_manifest_ref` は固定し、改善は別 Task / branch / Run の Harness N+1 Candidate として評価する。
+5. **Ratchet with regression evidence.** 再発防止を主張する変更は、known-bad replay / negative control / deterministic invariant / incident regression 等の evidence を少なくとも1つ持ち、#1376 の provenance chain で source failure まで辿れるようにする。
+6. **Reuse before new artifacts.** `receipt.json` / `checkpoint.json` 等の名前を理由に新しい top-level schema / SSoT を追加しない。既存 owner で表せない具体的 gap が Evidence で確認された場合だけ、最小の新規 component を検討する。
+
+典型的な failure-driven evolution は次の流れとして読む。
+
+```text
+Run / Failure Evidence
+  -> Retrospective / Pattern
+  -> Harness Improvement Candidate
+  -> isolated Harness N+1 change
+  -> regression / prevention check
+  -> independent evaluation
+  -> PASS | FAIL | INCONCLUSIVE
+  -> Promotion Ready
+  -> Human-owned merge / promotion
+```
+
+これは Active Run の自己書き換えでも、Production auto-promotion でもない。Delivery と Evolution の境界、Evaluation Trust Boundary、C-4 / merge の Human-owned authority は維持する。
+
 ## References
 
 Informative only. Repository canon takes precedence.
