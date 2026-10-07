@@ -13,7 +13,9 @@ from __future__ import annotations
 import copy
 import json
 import pathlib
+import subprocess
 import sys
+import tempfile
 import unittest
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -25,6 +27,7 @@ from ratchet import (  # noqa: E402
     canonical_digest,
     compute_source_set_digest,
     evaluate_verification_skipped,
+    evaluate_verification_skipped_repository,
     manifest_ref,
 )
 
@@ -429,6 +432,43 @@ class RatchetVerticalSliceTests(unittest.TestCase):
             result["promotion_decision"]["decision"], expected_result
         )
 
+    def _git(self, root, *args):
+        completed = subprocess.run(
+            ["git", "-C", str(root), *args],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        return completed.stdout.strip()
+
+    def _repository_commits(self, root, candidate_paths):
+        root = pathlib.Path(root)
+        self._git(root, "init", "-q")
+        self._git(root, "config", "user.email", "ratchet-test@example.invalid")
+        self._git(root, "config", "user.name", "Ratchet Test")
+
+        base_path = root / "harness" / "verifiers" / "deterministic-tests.json"
+        base_path.parent.mkdir(parents=True, exist_ok=True)
+        base_path.write_text('{"enabled":true}\n', encoding="utf-8")
+        self._git(root, "add", ".")
+        self._git(root, "commit", "-qm", "baseline")
+        baseline = self._git(root, "rev-parse", "HEAD")
+
+        for path, value in candidate_paths.items():
+            target = root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(value, encoding="utf-8")
+        self._git(root, "add", ".")
+        self._git(root, "commit", "-qm", "candidate")
+        candidate = self._git(root, "rev-parse", "HEAD")
+        return baseline, candidate
+
+    def _bind_repository_commits(self, value, baseline, candidate):
+        value["baseline_manifest"]["source_commit"] = baseline
+        value["candidate_manifest"]["source_commit"] = candidate
+        return rebind_manifests(value)
+
     # --- major 1: actual delta scope ------------------------------------
 
     def test_non_canonical_changed_path_fails_closed(self):
@@ -529,6 +569,127 @@ class RatchetVerticalSliceTests(unittest.TestCase):
         rebind_manifests(value)
         result = self.evaluate_bound(value)
         self.assertResult(result, "INCONCLUSIVE", "NO_OBSERVED_HARNESS_DELTA")
+
+    def test_repository_observer_uses_exact_git_delta(self):
+        value = copy.deepcopy(self.base)
+        with tempfile.TemporaryDirectory() as tmp:
+            baseline, candidate = self._repository_commits(
+                tmp,
+                {
+                    "harness/verifiers/completion-evidence.json":
+                        '{"enabled":true}\n',
+                },
+            )
+            self._bind_repository_commits(value, baseline, candidate)
+            bundle = copy.deepcopy(value)
+            plan = bundle.pop("sealed_evaluation_plan")
+            bundle.pop("expected", None)
+            result = evaluate_verification_skipped_repository(
+                bundle, plan, tmp
+            )
+        self.assertEqual(result["experiment_result"]["result"], "PASS")
+        observation = result["experiment_result"]["delta_observation"]
+        self.assertEqual(observation["baseline_commit"], baseline)
+        self.assertEqual(observation["candidate_commit"], candidate)
+        self.assertEqual(
+            observation["changed_paths"],
+            ["harness/verifiers/completion-evidence.json"],
+        )
+
+    def test_repository_observer_rejects_out_of_scope_actual_path(self):
+        value = copy.deepcopy(self.base)
+        with tempfile.TemporaryDirectory() as tmp:
+            baseline, candidate = self._repository_commits(
+                tmp,
+                {
+                    "harness/verifiers/completion-evidence.json":
+                        '{"enabled":true}\n',
+                    "outside/escape.json": "{}\n",
+                },
+            )
+            self._bind_repository_commits(value, baseline, candidate)
+            bundle = copy.deepcopy(value)
+            plan = bundle.pop("sealed_evaluation_plan")
+            bundle.pop("expected", None)
+            result = evaluate_verification_skipped_repository(
+                bundle, plan, tmp
+            )
+        self.assertResult(
+            result, "FAIL", "ACTUAL_DELTA_OUTSIDE_ALLOWED_PATHS"
+        )
+        self.assertEqual(
+            result["experiment_result"]["policy_verdict"],
+            "HUMAN_REQUIRED",
+        )
+        self.assertIn(
+            "outside/escape.json",
+            result["experiment_result"]["observed_changed_paths"],
+        )
+
+    def test_repository_observer_rejects_protected_actual_path(self):
+        value = copy.deepcopy(self.base)
+        with tempfile.TemporaryDirectory() as tmp:
+            baseline, candidate = self._repository_commits(
+                tmp,
+                {
+                    "harness/verifiers/completion-evidence.json":
+                        '{"enabled":true}\n',
+                    "scripts/ai-loop-v2/ratchet.py": "# mutation\n",
+                },
+            )
+            self._bind_repository_commits(value, baseline, candidate)
+            bundle = copy.deepcopy(value)
+            plan = bundle.pop("sealed_evaluation_plan")
+            bundle.pop("expected", None)
+            result = evaluate_verification_skipped_repository(
+                bundle, plan, tmp
+            )
+        self.assertResult(result, "FAIL", "PROTECTED_AUTHORITY_CHANGED")
+        self.assertEqual(
+            result["experiment_result"]["policy_verdict"],
+            "HUMAN_REQUIRED",
+        )
+
+    def test_repository_observer_requires_manifest_delta_to_be_observed(self):
+        value = copy.deepcopy(self.base)
+        with tempfile.TemporaryDirectory() as tmp:
+            baseline, candidate = self._repository_commits(
+                tmp,
+                {"harness/verifiers/other.json": "{}\n"},
+            )
+            self._bind_repository_commits(value, baseline, candidate)
+            bundle = copy.deepcopy(value)
+            plan = bundle.pop("sealed_evaluation_plan")
+            bundle.pop("expected", None)
+            result = evaluate_verification_skipped_repository(
+                bundle, plan, tmp
+            )
+        self.assertResult(
+            result, "INCONCLUSIVE", "MANIFEST_REPOSITORY_DELTA_MISMATCH"
+        )
+
+    def test_repository_observer_invalid_commit_fails_closed(self):
+        value = copy.deepcopy(self.base)
+        with tempfile.TemporaryDirectory() as tmp:
+            baseline, candidate = self._repository_commits(
+                tmp,
+                {
+                    "harness/verifiers/completion-evidence.json":
+                        '{"enabled":true}\n',
+                },
+            )
+            self._bind_repository_commits(value, baseline, candidate)
+            value["candidate_manifest"]["source_commit"] = "not-a-commit"
+            rebind_manifests(value)
+            bundle = copy.deepcopy(value)
+            plan = bundle.pop("sealed_evaluation_plan")
+            bundle.pop("expected", None)
+            result = evaluate_verification_skipped_repository(
+                bundle, plan, tmp
+            )
+        self.assertResult(
+            result, "INCONCLUSIVE", "REPOSITORY_DELTA_UNAVAILABLE"
+        )
 
     # --- major 2: provenance --------------------------------------------
 
