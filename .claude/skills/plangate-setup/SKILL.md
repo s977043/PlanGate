@@ -154,3 +154,11 @@ setup が完了したと判定する条件（**CLI が利用でき、doctor が 
 > `plangate --project-root <dir> ...` で明示する。#1497 以降、`render` / `approve` は
 > selected project root の TASK を対象にできる（Human-presence gate は不変）。
 > CLI が無ければファイル直接確認へ degrade し、未検証を PASS と書かない。
+
+> **C-3 承認の権限境界（#962 / #1226）**: CLI 不在時も `approvals/c3.json` を
+> 発行する判断は Human-owned であり、AI は代理発行・自己承認しない。
+> CLI が利用できる場合は選択した project root の `plangate approve <task_id>` を
+> Human が実行する（Human-presence gate は不変）。CLI が無く手動運用する場合も
+> Human が Plan Package をレビューして `approvals/c3.json` を発行する。
+> CLI / hooks が未配布の導入先では、発行記録の存在だけで enforcement が
+> 機械的に保証されたと扱わず、未検証のゲートを PASS と記録しない。
