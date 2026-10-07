@@ -472,6 +472,20 @@ class RatchetVerticalSliceTests(unittest.TestCase):
 
     # --- major 1: actual delta scope ------------------------------------
 
+    def test_invalid_candidate_allowed_paths_fail_closed(self):
+        for allowed_paths in ([], [""], [None], "harness/verifiers/**"):
+            with self.subTest(allowed_paths=allowed_paths):
+                value = copy.deepcopy(self.base)
+                value["candidate"]["target"]["allowed_paths"] = allowed_paths
+                result = self.evaluate_bound(value)
+                self.assertResult(
+                    result, "FAIL", "CANDIDATE_SCOPE_INVALID"
+                )
+                self.assertEqual(
+                    result["experiment_result"]["policy_verdict"],
+                    "HUMAN_REQUIRED",
+                )
+
     def test_non_canonical_changed_path_fails_closed(self):
         # (a) fnmatch's "*" crosses "/", so an un-normalized path can sit
         # inside allowed_paths while resolving onto a protected path.
