@@ -433,7 +433,7 @@ PlanGate では、resume・Evidence・policy binding・改善 provenance を con
 
 1. **Persist facts, not conversation memory.** 再開・判定・改善に必要な事実は canonical state / event / evidence / provenance へ残す。
 2. **Evidence before judgment.** receipt-like な記録は claim の保存ではなく、artifact / verifier / policy と照合できる Evidence binding を持つ。
-3. **Bound autonomy with existing authority.** timeout / budget / deny / stop / escalation は既存 policy と Human-owned boundary を狭めず、未知・不足・衝突は fail-closed または escalation とする。
+3. **Bound autonomy with existing authority.** timeout / budget / deny / stop / escalation は既存 policy / Human-owned authority を迂回・弱体化せず、未知・不足・衝突は fail-closed または escalation とする。
 4. **Do not self-modify an active Run.** Active Run の `harness_manifest_ref` は固定し、改善は別 Task / branch / Run の Harness N+1 Candidate として評価する。
 5. **Ratchet with regression evidence.** 再発防止を主張する変更は、known-bad replay / negative control / deterministic invariant / incident regression 等の evidence を少なくとも1つ持ち、#1376 の provenance chain で source failure まで辿れるようにする。
 6. **Reuse before new artifacts.** `receipt.json` / `checkpoint.json` 等の名前を理由に新しい top-level schema / SSoT を追加しない。既存 owner で表せない具体的 gap が Evidence で確認された場合だけ、最小の新規 component を検討する。
@@ -460,3 +460,4 @@ Informative only. Repository canon takes precedence.
 
 - #923 — Harness / Loop / Graph Engineering responsibility separation (SUPERSEDED)
 - https://x.com/Sumanth_077/status/2097689190712692965 — Loop vs Graph Engineering discussion
+- https://github.com/mrbuzzoni/loop-rat — file-oriented persistent harness pattern（informative only; dependency / canon ではない）
