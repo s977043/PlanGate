@@ -20,12 +20,12 @@
 
 ## 1. 4 段ループ
 
-| 段 | 名前 | 入力 | 出力 | 担当（責務 4 分類） |
-| --- | --- | --- | --- | --- |
-| **L1** | 観測 | run の結果・摩擦・手戻り | improvement-seeds エントリ（単一形式） | AI-owned（下書き）+ Human-owned（`confirmed_by`） |
-| **L2** | 蓄積・整理 | `docs/working/improvement-seeds.md` | `docs/working/improvement-digest.md`（定期更新） | AI-owned（生成）+ Human-owned（digest PR の C-4） |
-| **L3** | 還流 | 最新 digest | plan 生成・派遣プロンプトへの参照入力 / TC 昇格候補 | AI-owned（参照・候補生成）。HO 側の配線は Human-owned |
-| **L4** | 採用判定 | 昇格候補 + 実行履歴 | 採用 / 不採用の記録 | CI-owned（Ratchet 検証）+ Human-owned（採用 PR の C-4） |
+| 段 | 名前 | 入力 | 出力 | 担当（責務 4 分類） | 起動条件 / 停止条件 |
+| --- | --- | --- | --- | --- | --- |
+| **L1** | 観測 | run の結果・摩擦・手戻り | improvement-seeds エントリ（単一形式） | AI-owned（下書き）+ Human-owned（`confirmed_by`） | 起動: WF-06 retro の opt-in run、または WF-05 handoff 発行時の下書き（§6 の 1）。停止: 人間が confirm しない下書きは追記しない |
+| **L2** | 蓄積・整理 | `docs/working/improvement-seeds.md` | `docs/working/improvement-digest.md`（定期更新） | AI-owned（生成）+ Human-owned（digest PR の C-4） | 起動: WF-05 完了時、または seeds が前回 digest から **N = 5 件以上**増えたとき（**初期値・要調整**）。停止: 前回 digest 以降の seeds 増分が 0 件なら生成しない |
+| **L3** | 還流 | 最新 digest | plan 生成・派遣プロンプトへの参照入力 / TC 昇格候補 / 却下済み仮説 | AI-owned（参照・候補生成）。HO 側の配線は Human-owned | 起動: plan 生成時・派遣プロンプト作成時。停止: digest が `superseded` とした知見は渡さない |
+| **L4** | 採用判定 | 昇格候補 + 実行履歴 | 採用 / 不採用の記録（不採用は digest の却下欄へ） | CI-owned（Ratchet 検証）+ Human-owned（採用 PR の C-4） | 起動: 昇格候補が出たとき（PR #1495 マージ後）。停止: 検証待ちが **M = 3 run** 続いたら不採用で閉じる（**初期値・要調整**） |
 
 ### L1 観測: 記録形式を 1 つに寄せる
 
@@ -33,9 +33,22 @@
   （[`retro-phase.md`](./retro-phase.md) §2 の 5 項目 + `confirmed_by`）と、
   `AGENT_LEARNINGS.md`（独自形式「事実 / 再利用条件 / 根拠」、`AGENT_LEARNINGS.md` §記録フォーマット）。
 - 方針: **新規の記録は seeds の 5 項目 + `confirmed_by` 形式に寄せる**。
-  `AGENT_LEARNINGS.md` の既存エントリは**削除も書き換えもしない**。
+  本ループは `AGENT_LEARNINGS.md` を書き換えない。`AGENT_LEARNINGS.md` 自身の更新規約
+  （同ファイル §記録ルール 5）は変更しない。
   両者の対応は digest 側（L2）で参照関係として持つ（digest の各知見に出典として
   seeds の見出し / `AGENT_LEARNINGS.md` の見出しを併記する）。
+- [`retro-phase.md`](./retro-phase.md) 提案 B（seeds への任意項目「プロセス教訓」）とは競合しない。
+  提案 B が採用されても本書の対応表に 1 行足すだけで済む。
+- 項目の対応（digest で参照関係を持つときの読み替え）:
+
+| `AGENT_LEARNINGS.md` | improvement-seeds |
+| --- | --- |
+| 見出し | `## <date> — <task_id>` の見出し |
+| 事実 | 失敗・手戻り / ツール・プロセス上の摩擦点 |
+| 再利用条件 | 次回再利用すべき判断 |
+| 根拠 | 効いた skill / gate / artifact（出典の PR・commit を併記） |
+| （無し） | 目的達成可否 / `confirmed_by` は空欄とし、digest では「未 confirm」と表示する |
+
 - `AGENT_LEARNINGS.md` は「Codex がそのまま使える検証済み知見」の**閲覧面**として残し、
   一次記録は seeds とする。二重記録をしない。
 
@@ -52,8 +65,11 @@
   [`seeds-hygiene.md`](./seeds-hygiene.md) §還流）と、**派遣プロンプト**
   （[`dispatch-template.md`](./subagent-delegation/dispatch-template.md) 要素 4
   「既知の事実・確定済み結論・却下済み仮説」の材料）。
-- **同型の失敗が 2 回出たら TC 昇格候補**にする。同型判定は seeds-hygiene の
-  「同一の技術的原因」判定を流用する（2 回以上の記録で「恒常運用へ昇格すべき候補」）。
+- **同型の失敗が 2 回出たら TC 昇格候補**にする。**昇格基準の正本は本書**。
+  同型判定のみ `docs/ai/seeds-hygiene.md:37` の「同一の技術的原因」判定を参照する。
+- L4 で不採用になった候補は digest の**却下欄**に残し、L3 で
+  dispatch-template 要素 4 の「**却下済み仮説**」として派遣先へ渡す。
+  これで L4 の結果が次の run の入力に戻り、ループが閉じる。
 - digest は参照入力であり、承認境界を緩和する根拠にしない（seeds-hygiene §還流と同じ）。
 
 ### L4 採用判定: 予防効果を検証できたものだけ採用
@@ -62,7 +78,8 @@
   **「この変更があれば当該失敗を検出・予防できた」ことを検証**してから採用する。
 - 予防主張と検証の束縛（expected prevention claims）は PR #1495（未マージ）が担う。
   それまでは L4 は**未成立**として扱い、昇格候補は「検証待ち」で保留する。
-- **検証できないものは採用しない**。不採用でも候補と理由は digest に残す。
+- **検証できないものは採用しない**。不採用でも候補と理由は digest の却下欄に残す（L3 へ戻る）。
+- 検証待ちが M run（§1 表、初期値 3）続いた候補は不採用で閉じる。
 
 ## 不変条件
 
@@ -82,7 +99,7 @@
 | digest は 1 回きり | digest は #754 / PR #761 で生成されたサンプル #001 のみ、以後更新 0 回。生成 skill / CLI も無い | `docs/working/_reports/1157-seeds-read-path-patch.md` §1.1–1.2 |
 | retro は既定 OFF | WF-06 は opt-in 既定 OFF。未 opt-in の run では seeds が書かれない | `docs/ai/retro-phase.md:6` |
 | L4 の検証部品が未マージ | Ratchet 本体（`scripts/ai-loop-v2/ratchet.py`、#1488 / #1491）は main にあるが、予防主張の束縛は PR #1495（OPEN）で main に不在 | `scripts/ai-loop-v2/ratchet.py`、PR #1495 |
-| roadmap §18 が完了状態と食い違う | 冒頭 Status は「すべて Done（EPIC #193 CLOSED）」だが §18 は「最初は PBI-HI-001: Metrics v1 から始める」と未着手前提のまま | `docs/ai/harness-improvement-roadmap.md:3` / `:655` |
+| roadmap §18 が完了状態と食い違う | 冒頭 Status は「すべて Done（EPIC #193 CLOSED）」だが §18 は「最初は PBI-HI-001: Metrics v1 から始める」と未着手前提のまま | `docs/ai/harness-improvement-roadmap.md:3` / §18（`:657`） |
 
 ## 3. 既存資産との関係（重複させない）
 
@@ -116,10 +133,10 @@ CI、HO の Human 適用である。
 
 | 順 | 候補 | 層 | HO |
 | --- | --- | --- | --- |
-| 1 | hygiene の定期実行（生成 skill 化 + digest #002 生成、`superseded` 導入） | L2 | 非 HO |
-| 2 | `AGENT_LEARNINGS.md` ↔ seeds の参照関係を digest に持たせる | L1/L2 | 非 HO |
-| 3 | `scripts/reporting.py` が seeds を読む（docs の記述と実装を一致させる） | L2 | 非 HO |
+| 1 | **L1 入力量の確保**: high-risk 以上は retro opt-in を推奨、WF-05 handoff の既知課題から seeds 下書きを作る（confirm は人間） | L1 | 非 HO（推奨の記述のみ。mode 連動の既定化は retro-phase 提案 A で HO） |
+| 2 | hygiene の定期実行（生成 skill 化 + digest #002 生成、`superseded`・却下欄の導入、`AGENT_LEARNINGS.md` ↔ seeds の参照関係を digest に持たせる） | L1/L2 | 非 HO |
+| 3 | docs と実装の不一致是正: `scripts/reporting.py` が seeds を読む（06_retro / working-context の記述に実装を合わせる） | L2 | 非 HO |
 | 4 | L0 への digest 配線（#1157 §6.2 + 本書 HO patch 案） | L3 | **HO**（Human 適用） |
-| 5 | dispatch-template 要素 4 に digest 参照を追加、2 回同型で TC 昇格候補を出す | L3 | 非 HO |
-| 6 | PR #1495 マージ後、昇格候補を Ratchet で検証する接続 | L4 | 要確認 |
+| 5 | dispatch-template 要素 4 に digest 参照（却下済み仮説を含む）を追加、2 回同型で TC 昇格候補を出す | L3 | 非 HO |
+| 6 | PR #1495 マージ後、昇格候補を Ratchet で検証する接続 | L4 | 触るパス見込み: `scripts/ai-loop-v2/*.py`・`docs/ai/ai-loop-v2/`（非 HO）。CI 配線で `.github/workflows/*.yml` に及ぶなら HO。**確定するまで安全側で HO 扱い** |
 | 7 | roadmap §18 を完了状態に同期 | 付随 | 非 HO |
