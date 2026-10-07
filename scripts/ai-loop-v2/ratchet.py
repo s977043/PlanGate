@@ -566,7 +566,22 @@ def _evaluate_verification_skipped(bundle, sealed_plan, *, repository_observatio
                 delta_observation=repository_observation,
             )
 
-    allowed_paths = candidate.get("target", {}).get("allowed_paths") or []
+    allowed_paths = candidate.get("target", {}).get("allowed_paths")
+    if (
+        not isinstance(allowed_paths, list)
+        or not allowed_paths
+        or not all(isinstance(path, str) and path for path in allowed_paths)
+    ):
+        return _finish(
+            bundle,
+            sealed_plan,
+            "FAIL",
+            ["CANDIDATE_SCOPE_INVALID"],
+            policy_verdict="HUMAN_REQUIRED",
+            deltas=deltas,
+            changed_paths=changed_paths,
+            delta_observation=repository_observation,
+        )
     if scope_patterns_intersect(allowed_paths, protected_paths):
         return _finish(
             bundle,
