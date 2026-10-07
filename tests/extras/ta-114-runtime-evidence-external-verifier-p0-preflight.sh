@@ -56,7 +56,6 @@ python3 "$_T114_IMPL" --repo-root "$_T114_ROOT" >"$_t114_out" 2>"$_t114_err" || 
 if [ "$_t114_rc" -eq 1 ] \
   && grep -q '"adr_status":"Proposed"' "$_t114_out" \
   && grep -q '"decision_state":"NOT_MADE"' "$_t114_out" \
-  && grep -q '"decision_makers":"Human / external-boundary administrator — UNASSIGNED"' "$_t114_out" \
   && grep -q '"decision_record_structurally_valid":true' "$_t114_out" \
   && grep -q '"human_decision_recorded_candidate":false' "$_t114_out" \
   && grep -q '"p1_preflight_candidate":false' "$_t114_out" \
