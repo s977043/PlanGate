@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import pathlib
 import sys
+import tempfile
 import unittest
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -85,6 +86,14 @@ class P0PreflightTests(unittest.TestCase):
         self.assertFalse(result["p1_activation_allowed"])
         self.assertFalse(result["external_provisioning_allowed"])
 
+    def test_accepted_decision_maker_mismatch_fails_closed(self):
+        bad = ACCEPTED.replace(
+            "**Decision Makers**: Example Human Owner",
+            "**Decision Makers**: Different Human Owner",
+        )
+        with self.assertRaises(p0.P0PreflightError):
+            p0.evaluate_text(bad, adr_sha256=_hash(bad))
+
     def test_accepted_with_undecided_field_fails_closed(self):
         bad = ACCEPTED.replace(
             "trusted_issuer = https://token.actions.githubusercontent.com",
@@ -131,6 +140,26 @@ class P0PreflightTests(unittest.TestCase):
         )
         with self.assertRaises(p0.P0PreflightError):
             p0.evaluate_text(bad, adr_sha256=_hash(bad))
+
+    def test_repo_symlink_adr_fails_closed(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = pathlib.Path(raw)
+            decision_dir = root / "docs" / "decisions"
+            decision_dir.mkdir(parents=True)
+            target = root / "real-adr.md"
+            target.write_text(PROPOSED, encoding="utf-8")
+            (decision_dir / "adr-007-external-runtime-verifier-boundary.md").symlink_to(target)
+            with self.assertRaises(p0.P0PreflightError):
+                p0.evaluate_repo(root)
+
+    def test_repo_oversized_adr_fails_closed(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = pathlib.Path(raw)
+            path = root / p0.ADR_RELATIVE_PATH
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"x" * (p0.MAX_ADR_BYTES + 1))
+            with self.assertRaises(p0.P0PreflightError):
+                p0.evaluate_repo(root)
 
 
 if __name__ == "__main__":
