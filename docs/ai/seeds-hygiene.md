@@ -92,6 +92,12 @@ candidate の source として参照される場合も、canonical task state / 
 executable authority への promotion とは扱わない。Rule / Skill / Hook / test / Runbook
 等へ昇格する場合は #811 Memory Promotion Gate の既存責務を維持する。
 
+外部の retained-memory candidate が digest を参考にする場合、**採用済み digest の版
+（commit / revision）と元の seeds / Evidence への参照**を保持し、記述の鮮度・
+アクセス権・owner scope を再確認する。未採用 digest、参照不能な原典、
+矛盾した知見は確定 fact として扱わず、未検証の候補に留める。digest の採用は
+memory repository への書き込み許可でも、知識の共有範囲の拡大でもない。
+
 ## 責務分類
 
 [`responsibility-classes.md`](../../.claude/rules/responsibility-classes.md)
