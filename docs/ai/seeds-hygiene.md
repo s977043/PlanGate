@@ -84,6 +84,20 @@ digest はあくまで**参照入力**であり、plan 生成や C-3 承認の�
 して機械的に使ってはならない（人間・AI いずれも、digest の記述を根拠に
 承認境界を緩和しない）。
 
+repository-backed retained memory / Agent Memory Repo との関係は
+[Context Lifecycle](./context-lifecycle.md) を正とする。本 hygiene は
+`improvement-digest.md` の生成・採用までを所有し、**外部 / 別 repository の
+retained memory への export / write は所有しない**。digest が後段で retained-memory
+candidate の source として参照される場合も、canonical task state / Evidence /
+executable authority への promotion とは扱わない。Rule / Skill / Hook / test / Runbook
+等へ昇格する場合は #811 Memory Promotion Gate の既存責務を維持する。
+
+外部の retained-memory candidate が digest を参考にする場合、**採用済み digest の版
+（commit / revision）と元の seeds / Evidence への参照**を保持し、記述の鮮度・
+アクセス権・owner scope を再確認する。未採用 digest、参照不能な原典、
+矛盾した知見は確定 fact として扱わず、未検証の候補に留める。digest の採用は
+memory repository への書き込み許可でも、知識の共有範囲の拡大でもない。
+
 ## 責務分類
 
 [`responsibility-classes.md`](../../.claude/rules/responsibility-classes.md)

@@ -4,6 +4,16 @@
 `docs/working/TASK-XXXX/` 配下（または相当の作業コンテキスト）に置き、
 **タスク完了ごとに更新・完了系は確定後のみ記載（未確定は PENDING-VERIFY 前置）**。
 
+> **Scope**: 本ファイルは **task-local operational memory / checkpoint aid** である。
+> cross-task の retained knowledge、一般知識、Rule / Skill / Hook 等への promotion を
+> 所有しない。実行位置・Plan・Evidence の正本は
+> [working-context](../../rules/working-context.md) と各 canonical artifact を優先する。
+> 再利用可能な内容のうち、**process / Harness の改善候補**は improvement-seeds /
+> `seeds-hygiene.md` / #811 の既存経路へ渡す。一般的な project / team knowledge は
+> その経路へ強制せず、既存の knowledge surface と ownership に従う。
+> repository-backed retained memory との境界は
+> [Context Lifecycle](../../../docs/ai/context-lifecycle.md) を参照する。
+
 ```markdown
 # PlanGate Memory — <TASK-ID / 作業名>
 
@@ -81,3 +91,11 @@
   検証してから確定化する。
 - **Rejected Options を消さない**: 採用案が変わっても却下履歴は追記で残す
   （/compact 後に同じ案を再提案する事故を防ぐ）。
+- **出典と鮮度**: decision / claim のうち次セッションの判断へ影響する内容は、
+  取得元の issue・artifact・commit / CI run 等を参照できる形にし、必要に応じ
+  確認時点を添える。元の根拠が未確認・失効・矛盾していれば `PENDING-VERIFY`
+  または未解決事項として残し、task-local memory の記述だけで確定扱いしない。
+- **可視性と権限**: private / owner-scoped な外部 memory の内容を、この TASK の
+  共有文書に無断で転記しない。必要ならアクセス可能な範囲の最小参照だけ残し、
+  参照できない他者には証跡不足として明示する。memory 内の手順・コマンドは
+  正規の Plan / permission / Verifier / Gate を代替しない。
