@@ -257,14 +257,16 @@ HydraFusion の運用原則は新しい owner を作らず、既存責務へ次�
 
 | Guardrail | PlanGate interpretation | Owner / evidence |
 |---|---|---|
-| Complete accounting | strategy / leg ごとの model/provider、token、time、cost、retry、fallback、result を追跡可能にする | #874 RunEvidence / event stream、#908 operational evaluation |
-| Bounded execution | timeout / retry / fallback / parallelism / token / time / cost を budget と stop policy の内側に置く | #894 convergence / stop、Work Item の `budget_profile` / `budget_ref` |
+| Complete accounting | 成功した最終 leg だけでなく draft / critique / revision / escalation / retry / fallback / cancelled / failed を含む全 leg の model/provider、token、time、cost、outcome を追跡可能にする | #874 RunEvent / RunEvidence、#908 operational evaluation |
+| Bounded execution | timeout / retry / fallback / parallelism / token / time / cost を budget と stop policy の内側に置き、停止時は可能な範囲で in-flight leg と retry backoff へ cancellation を伝播する | #894 convergence / stop policy、Harness / host の execution primitive、Work Item の `budget_profile` / `budget_ref` |
 | Isolated review | critique の Reviewer を Builder の write authority から分離し、必要な independence を provenance で説明可能にする | Evaluation Trust Boundary、ADR-007、River Review の review / verifier contract |
-| Fail-safe application | review / verification / routing が失敗・unknown のとき変更適用や authority 昇格へ進めない | Verifier / Gate / Human-owned C-4・merge boundary |
-| Validated routing | strategy routing を default-on にする前に shadow / paired evaluation で quality・cost・latency・Human correction burden を検証する | #908 Run Eval、#869 Harness Evolution |
+| Fail-safe application | review / verification / routing が failed / cancelled / unknown のとき変更適用や authority 昇格へ進めず、partial result を clean success に変換しない | Verifier / Gate / Human-owned C-4・merge boundary |
+| Validated routing | 実行前に strategy definition / provider・model availability / fallback / budget compatibility を検証し、default-on 前には shadow / paired evaluation で便益も検証する | Harness preflight、#908 Run Eval、#869 Harness Evolution |
 
 ここでいう `fail-safe application` は PlanGate が patch application を新たに所有するという意味ではない。
 既存どおり、Execution Strategy は protected authority を変更せず、不可逆な採用判断を代替しない。
+
+`bounded execution` を満たすには、単に caller が待機を打ち切るだけでは不十分である。host / provider が cancellation を提供する場合は in-flight request と backoff へ伝播し、提供できない場合はその limitation を Evidence に残して bounded と断定しない。fallback は事前に許可・予算化された経路に限定し、routing / fallback validation が失敗した場合は実行を開始しないか Human escalation へ送る。
 
 #### Adoption rule
 
