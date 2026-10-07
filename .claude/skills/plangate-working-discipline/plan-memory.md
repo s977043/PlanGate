@@ -4,6 +4,14 @@
 `docs/working/TASK-XXXX/` 配下（または相当の作業コンテキスト）に置き、
 **タスク完了ごとに更新・完了系は確定後のみ記載（未確定は PENDING-VERIFY 前置）**。
 
+> **Scope**: 本ファイルは **task-local operational memory / checkpoint aid** である。
+> cross-task の retained knowledge、一般知識、Rule / Skill / Hook 等への promotion を
+> 所有しない。実行位置・Plan・Evidence の正本は
+> [working-context](../../rules/working-context.md) と各 canonical artifact を優先する。
+> 再利用可能な学びは improvement-seeds / `seeds-hygiene.md` / #811 の既存経路へ渡す。
+> repository-backed retained memory との境界は
+> [Context Lifecycle](../../../docs/ai/context-lifecycle.md) を参照する。
+
 ```markdown
 # PlanGate Memory — <TASK-ID / 作業名>
 
