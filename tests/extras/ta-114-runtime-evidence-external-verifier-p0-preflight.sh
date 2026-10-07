@@ -72,6 +72,8 @@ for _t114_field in \
   human_decision_identity_verified \
   decision_evidence_ref_authenticated \
   external_boundary_provisioned_verified \
+  p1_activation_allowed \
+  external_provisioning_allowed \
   admin_evidence_independently_verified \
   nonce_one_time_consumption_verified \
   independent_admin_boundary_verified \
@@ -85,10 +87,10 @@ do
     _t114_false=$((_t114_false + 1))
   fi
 done
-if [ "$_t114_false" -eq 11 ]; then
-  printf '  [PASS] authority: P0 preflight promotes no trust/Human/dispatch field\n'; pass=$((pass + 1))
+if [ "$_t114_false" -eq 13 ]; then
+  printf '  [PASS] authority: preflight success is not P1/provisioning permission\n'; pass=$((pass + 1))
 else
-  printf '  [FAIL] authority: expected 11 fail-closed fields, found %s\n' "$_t114_false" >&2; fail=$((fail + 1))
+  printf '  [FAIL] authority: expected 13 fail-closed fields, found %s\n' "$_t114_false" >&2; fail=$((fail + 1))
 fi
 
 if grep -Fq 'without modifying the content-addressed bootstrap package' "$_T114_DOC" \
