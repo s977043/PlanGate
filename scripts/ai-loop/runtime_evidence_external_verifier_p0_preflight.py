@@ -32,6 +32,7 @@ ADR_RELATIVE_PATH = pathlib.Path(
     "docs/decisions/adr-007-external-runtime-verifier-boundary.md"
 )
 MAX_ADR_BYTES = 256 * 1024
+PROPOSED_DECISION_MAKERS = "Human / external-boundary administrator — UNASSIGNED"
 
 RECORD_KEYS = (
     "selected_option",
@@ -157,9 +158,9 @@ def evaluate_text(text: str, *, adr_sha256: str) -> dict[str, Any]:
             raise P0PreflightError(
                 "Proposed ADR must use Decision state: NOT_MADE"
             )
-        if not unassigned_makers:
+        if decision_makers != PROPOSED_DECISION_MAKERS:
             raise P0PreflightError(
-                "Proposed ADR must keep Decision Makers UNASSIGNED"
+                "Proposed ADR must keep the canonical UNASSIGNED Decision Makers value"
             )
         if len(undecided) != len(RECORD_KEYS):
             raise P0PreflightError(
@@ -181,6 +182,10 @@ def evaluate_text(text: str, *, adr_sha256: str) -> dict[str, Any]:
             raise P0PreflightError(
                 "Accepted ADR must have no UNDECIDED Human Decision Record fields"
             )
+        if decision_makers != record["decision_recorded_by"]:
+            raise P0PreflightError(
+                "Accepted ADR Decision Makers must match decision_recorded_by"
+            )
         state = "human_decision_record_present_candidate"
         recorded_candidate = True
         preflight_candidate = True
@@ -193,6 +198,7 @@ def evaluate_text(text: str, *, adr_sha256: str) -> dict[str, Any]:
         "decision_record_file_sha256": adr_sha256,
         "adr_status": status,
         "decision_state": decision_state,
+        "decision_makers": decision_makers,
         "decision_record_structurally_valid": True,
         "human_decision_recorded_candidate": recorded_candidate,
         "p1_preflight_candidate": preflight_candidate,
