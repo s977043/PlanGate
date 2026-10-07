@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import copy
 import hashlib
 import pathlib
 import sys
@@ -83,6 +82,8 @@ class P0PreflightTests(unittest.TestCase):
         )
         for field in p0.STRONG_FALSE_FIELDS:
             self.assertFalse(result[field], field)
+        self.assertFalse(result["p1_activation_allowed"])
+        self.assertFalse(result["external_provisioning_allowed"])
 
     def test_accepted_with_undecided_field_fails_closed(self):
         bad = ACCEPTED.replace(
