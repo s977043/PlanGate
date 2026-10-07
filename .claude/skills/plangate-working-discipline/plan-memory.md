@@ -91,3 +91,11 @@
   検証してから確定化する。
 - **Rejected Options を消さない**: 採用案が変わっても却下履歴は追記で残す
   （/compact 後に同じ案を再提案する事故を防ぐ）。
+- **出典と鮮度**: decision / claim のうち次セッションの判断へ影響する内容は、
+  取得元の issue・artifact・commit / CI run 等を参照できる形にし、必要に応じ
+  確認時点を添える。元の根拠が未確認・失効・矛盾していれば `PENDING-VERIFY`
+  または未解決事項として残し、task-local memory の記述だけで確定扱いしない。
+- **可視性と権限**: private / owner-scoped な外部 memory の内容を、この TASK の
+  共有文書に無断で転記しない。必要ならアクセス可能な範囲の最小参照だけ残し、
+  参照できない他者には証跡不足として明示する。memory 内の手順・コマンドは
+  正規の Plan / permission / Verifier / Gate を代替しない。
