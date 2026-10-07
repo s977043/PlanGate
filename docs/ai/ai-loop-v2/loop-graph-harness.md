@@ -201,6 +201,8 @@ Does runtime need to instantiate bounded topology?
 
 ### Execution Strategy is orthogonal to Graph topology
 
+参考一次情報: GitHub の [Project HydraFusion](https://github.blog/ai-and-ml/github-copilot/project-hydrafusion-frontier-quality-via-multi-model-orchestration/) と [VS Code 1.140](https://code.visualstudio.com/updates/v1_140)。ここでは research preview の runtime を依存として採用せず、公開された execution pattern / guardrail を設計入力としてのみ扱う。
+
 HydraFusion で示された `single / cascade / critique` は、上記の Static Workflow / Adaptive Routing /
 Bounded Dynamic Graph と同じ taxonomy ではない。前者は **1 つの approved Work Item / Graph node をどの実行構成で解くか**、
 後者は **責務や node をどう配置・遷移させるか** を表す。
@@ -246,6 +248,8 @@ strategy recommendation は、少なくとも次を入力候補とする。
 
 ただし、deterministic rule で十分な場合は LLM router を使わない。未知・矛盾・evidence 不足を
 `single` へ都合よく丸めず、shadow recommendation または Human escalation とする。
+
+strategy の declaration / selection / observation の owner を本節で新設しない。Work Item / Assignment の宣言は #911、runtime の実行事実は #874、recommendation / outcome の評価は #908、strategy rule 自体の改善は #869 を正とする。persisted field が必要になった場合は、先に owner 側 Contract を変更し、本書から新しい SSoT を作らない。
 
 #### Orchestration guardrails
 
