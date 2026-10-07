@@ -281,7 +281,6 @@ def _finish(
         ),
         "observed_component_deltas": deltas or [],
         "observed_changed_paths": changed_paths or [],
-        "delta_observation": delta_observation,
         "prevention_evidence": paired or {},
         "activation": activation or {},
         "metrics": {
@@ -295,6 +294,8 @@ def _finish(
         "result": result_value,
         "reason_codes": list(reason_codes),
     }
+    if delta_observation is not None:
+        experiment["delta_observation"] = delta_observation
     if policy_verdict is not None:
         experiment["policy_verdict"] = policy_verdict
     experiment_ref = canonical_digest(experiment)
@@ -516,6 +517,21 @@ def evaluate_verification_skipped(bundle, sealed_plan, *, repository_observation
 
     changed_paths = manifest_changed_paths
     if repository_observation is not None:
+        if (
+            repository_observation.get("baseline_commit")
+            != baseline.get("source_commit")
+            or repository_observation.get("candidate_commit")
+            != candidate_manifest.get("source_commit")
+        ):
+            return _finish(
+                bundle,
+                sealed_plan,
+                "INCONCLUSIVE",
+                ["REPOSITORY_DELTA_BINDING"],
+                deltas=deltas,
+                changed_paths=manifest_changed_paths,
+                delta_observation=repository_observation,
+            )
         observed = repository_observation.get("changed_paths")
         try:
             changed_paths = [canonical_path(path) for path in observed]
