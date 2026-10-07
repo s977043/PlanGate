@@ -423,11 +423,11 @@ PlanGate では、resume・Evidence・policy binding・改善 provenance を con
 
 外部パターンを読むときは次のように既存責務へ接続する。**これは第2の owner 対応表ではない。owner / 正本は §2 の表だけを正とする。**
 
-- **receipt-like record**: Worker の成功自己申告ではなく、RunEvidence / event stream / verifier output から検証可能な Evidence を残す。deterministic verifier の FAIL を LLM self-report や independent grader の PASS で上書きしない。
-- **checkpoint-like state**: durable state / wait-resume / recovery の意味は Graph + Harness の既存責務を使う。conversation の直前発話や live process 内 memory を再開位置の正本にしない。
+- **receipt-like record**: Worker の成功自己申告ではなく、RunEvidence / event stream / verifier output から検証可能な Evidence を残す。receipt-like record は少なくとも対象 Run / artifact / verifier または policy identity へ束縛できることを要求し、repository に自己記述 JSON が存在するだけでは強い Evidence に昇格させない。deterministic verifier の FAIL を LLM self-report や independent grader の PASS で上書きしない。
+- **checkpoint-like state**: durable state / wait-resume / recovery の意味は Graph + Harness の既存責務を使う。conversation の直前発話や live process 内 memory を再開位置の正本にしない。resume 時は #1025 の revision / CAS 境界に従い、stale / conflict を都合よく上書きしない。
 - **guard / budget / kill-switch-like control**: permission / policy / budget / verifier availability 等の Harness enforcement と、Loop の stop / escalate 判断を合成する。新しい guard file が独自 authority を持つとは解釈しない。
 - **independent grade**: deterministic verification の代替ではなく、#908 / #910 が扱う evaluation / calibrated soft signal の側に置く。Candidate が自分を裁く authority を変更しない。
-- **failure-to-rule / failure-to-harness change**: #1376 の Ratchet Traceability を通じて #869 の Evolution Candidate へ接続する。失敗を「次は気をつける」という会話上の注意だけに戻さず、必要なら regression / prevention evidence を伴う Harness N+1 Candidate に変換する。
+- **failure-to-rule / failure-to-harness change**: #1376 の Ratchet Traceability を通じて #869 の Evolution Candidate へ接続する。失敗を「次は気をつける」という会話上の注意だけに戻さず、必要なら regression / prevention evidence を伴う Harness N+1 Candidate に変換する。source identity は immutable な failure instance / event / evidence ref を基礎にし、分類ロジックで変化し得る fingerprint や pattern label を恒久 identity にしない。
 
 このパターンを PlanGate で使うときの不変条件:
 
