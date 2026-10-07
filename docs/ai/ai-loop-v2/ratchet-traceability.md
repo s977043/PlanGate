@@ -179,6 +179,7 @@ FAIL
   known-bad is not stopped
   negative control regresses
   Candidate known-mutant detection power falls below baseline
+  Candidate allowed scope is malformed
   actual delta exceeds allowed scope
   protected authority is changed
 
@@ -276,6 +277,7 @@ Raw conversation transcript, hidden CoT, credentials, and unbounded session memo
 ## Current executable evidence
 
 - `scripts/ai-loop-v2/ratchet.py`
+- `scripts/ai-loop-v2/scope_observer.py`
 - `scripts/ai-loop-v2/test_ratchet.py`
 - `tests/fixtures/ai-loop-v2/ratchet/verification-skipped.json`
 - `tests/fixtures/ai-loop-v2/ratchet/evolution-input-non-success.json`
