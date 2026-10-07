@@ -117,7 +117,7 @@ How actual changed paths are derived:
 - A changed component without a non-empty `paths` list is `INCONCLUSIVE` (`COMPONENT_PATHS_MISSING`): an empty path set would make the subset check vacuous.
 - A manifest whose components lack a `component_id` or repeat one is `INCONCLUSIVE` (`MANIFEST_COMPONENT_IDENTITY`): a duplicate could shadow a changed component.
 - Synthetic fixture evaluation continues to use the manifest-observed delta for deterministic regression compatibility.
-- Repository-backed evaluation additionally observes changed paths from an exact baseline/candidate commit pair using `git diff --name-only -z --no-renames`. Only full lowercase commit object IDs are accepted, the repository root is verified, and observation failure is `INCONCLUSIVE`.
+- Repository-backed evaluation additionally observes changed paths from an exact baseline/candidate commit pair using `git diff --no-ext-diff --name-only -z --no-renames`. Only full lowercase commit object IDs are accepted, the repository root is verified, and observation failure is `INCONCLUSIVE`.
 - Repository-observed baseline/candidate commit IDs must equal the corresponding HarnessManifest `source_commit` values.
 - Every manifest-observed changed component path must also appear in the repository-observed changed path set. A mismatch is `INCONCLUSIVE / MANIFEST_REPOSITORY_DELTA_MISMATCH`; the Candidate cannot hide a manifest change by supplying another repository delta.
 - Scope and protected-authority checks use the repository-observed path set in repository-backed mode. An extra repository path outside `allowed_paths` is `FAIL / ACTUAL_DELTA_OUTSIDE_ALLOWED_PATHS`; an extra protected path is `FAIL / PROTECTED_AUTHORITY_CHANGED`.
