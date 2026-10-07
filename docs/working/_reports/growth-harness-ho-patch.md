@@ -44,6 +44,12 @@
 
 ## 2. 適用時の確認（Human）
 
+- 適用順は「#1157 §6.2（文章ベースの手順・unified diff なし）→ 本 patch」に固定する。
+- 本 patch の diff は `origin/main` = `7fad3e71` 時点の `working-context.md` に対して作成している。
+  #1157 適用後は文脈行（手順番号）がずれるため、#1157 適用後に AI へ本 patch の再生成を依頼してから当てる
+  （AI は dry-run のみ、適用は Human）。
+- ミラー `plugin/plangate/rules/working-context.md` も同じ順で適用する。
+
 - `### セッション開始時` 見出し・`### improvement-seeds.md（WF-06 Retro / opt-in・append-only）`
   見出しを変更しない（後者は `scripts/apply-quality-command-gate.sh` がアンカーとして使用。#1157 §6.2 注記）。
 - 本体とミラーの diff が 0 であること。
