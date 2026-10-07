@@ -84,6 +84,12 @@ digest はあくまで**参照入力**であり、plan 生成や C-3 承認の�
 して機械的に使ってはならない（人間・AI いずれも、digest の記述を根拠に
 承認境界を緩和しない）。
 
+repository-backed retained memory / Agent Memory Repo との関係は
+[Context Lifecycle](./context-lifecycle.md) を正とする。digest の consolidation は
+retained knowledge の整理には利用できるが、**canonical task state / Evidence /
+executable authority への promotion ではない**。Rule / Skill / Hook / test / Runbook
+等へ昇格する場合は #811 Memory Promotion Gate の既存責務を維持する。
+
 ## 責務分類
 
 [`responsibility-classes.md`](../../.claude/rules/responsibility-classes.md)
