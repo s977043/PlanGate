@@ -85,9 +85,11 @@ digest はあくまで**参照入力**であり、plan 生成や C-3 承認の�
 承認境界を緩和しない）。
 
 repository-backed retained memory / Agent Memory Repo との関係は
-[Context Lifecycle](./context-lifecycle.md) を正とする。digest の consolidation は
-retained knowledge の整理には利用できるが、**canonical task state / Evidence /
-executable authority への promotion ではない**。Rule / Skill / Hook / test / Runbook
+[Context Lifecycle](./context-lifecycle.md) を正とする。本 hygiene は
+`improvement-digest.md` の生成・採用までを所有し、**外部 / 別 repository の
+retained memory への export / write は所有しない**。digest が後段で retained-memory
+candidate の source として参照される場合も、canonical task state / Evidence /
+executable authority への promotion とは扱わない。Rule / Skill / Hook / test / Runbook
 等へ昇格する場合は #811 Memory Promotion Gate の既存責務を維持する。
 
 ## 責務分類
