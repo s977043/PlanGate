@@ -123,6 +123,7 @@ class RatchetVerticalSliceTests(unittest.TestCase):
         self.assertEqual(
             experiment["observed_changed_paths"], expected["changed_paths"]
         )
+        self.assertNotIn("delta_observation", experiment)
         self.assertEqual(
             experiment["prevention_evidence"]["known_bad"]["baseline"]["outcome"],
             "MERGE_READY",
@@ -666,6 +667,26 @@ class RatchetVerticalSliceTests(unittest.TestCase):
             )
         self.assertResult(
             result, "INCONCLUSIVE", "MANIFEST_REPOSITORY_DELTA_MISMATCH"
+        )
+
+    def test_repository_observation_commit_binding_fails_closed(self):
+        value = copy.deepcopy(self.base)
+        bundle = copy.deepcopy(value)
+        plan = bundle.pop("sealed_evaluation_plan")
+        bundle.pop("expected", None)
+        result = evaluate_verification_skipped(
+            bundle,
+            plan,
+            repository_observation={
+                "baseline_commit": "0" * 40,
+                "candidate_commit": "1" * 40,
+                "changed_paths": [
+                    "harness/verifiers/completion-evidence.json"
+                ],
+            },
+        )
+        self.assertResult(
+            result, "INCONCLUSIVE", "REPOSITORY_DELTA_BINDING"
         )
 
     def test_repository_observer_invalid_commit_fails_closed(self):
