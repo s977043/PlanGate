@@ -14,7 +14,7 @@
 - [x] adversarial review of Revision 2 (Rev2-R1〜R5; Human ruled R5 converged, 2026-09-25)
 - [x] Revision 2.1 / 2.2 (scope narrowed to DecisionInput, stream binding to #1422; R-042〜R-054)
 - [x] I0 plan review（Revision 2.5 / 簡易 C-1 PASS。現行 runtime I0 は別途必要）
-- [x] C-2 R1 (external, 2 lanes) → Revision 2.3 (R-055〜R-069; R-055 / R-058 open for Human)
+- [x] C-2 R1 (external, 2 lanes) → Revision 2.3 (R-055〜R-069; R-055 / R-058 resolved by Human 2026-09-28)
 - [x] C-2 R2 (2026-09-28 Revision 2.5 / Human裁定で収束)
 - [x] C-3 (Human, 2026-09-28 22:45:37Z、承認plan限定。追加範囲は別途判定)
 
@@ -32,7 +32,7 @@
 - [ ] plan "Preflight before exec" PF-1〜PF-6
 - [ ] #1395 budget requirement recorded (release condition)
 - [ ] exact base SHA
-- [ ] #1329 semantic invalidation YES
+- [x] #1329 semantic invalidation YES candidate（V2実行系変更。失効判定・canon I4 は別gate）
 
 ## RED/GREEN
 - [ ] records
