@@ -186,20 +186,29 @@ durable memory へ書く内容は、少なくとも次を満たす。
 - 完了・merge・test success 等の確定 claim は一次 Evidence で確認してから保存する。
   未確認の状態を durable fact として確定しない。
 - 可能な限り source / evidence ref と記録時点を持ち、後で再検証できるようにする。
+  mutable な URL や branch しか参照できない場合は、取得時点または revision / commit 等を
+  併記し、後の内容変化と区別できるようにする。
 - canonical source と矛盾した場合は memory を優先しない。source を再確認し、stale /
-  superseded / conflicting として扱う。
+  superseded / conflicting として扱う。source が消失・到達不能なら、memory の記述だけで
+  authoritative fact に昇格させない。
 - raw transcript、hidden chain-of-thought、credentials、secrets、不要な personal data を
-  durable memory に保存しない。
+  durable memory に保存しない。source へのアクセス権が限定されている場合も、その内容を
+  より広い可視性の memory repository へコピーして ACL を迂回しない。
 
 Cognition の **Dreaming** のような定期統合は、新しい promotion authority として導入しない。
 重複・矛盾・陳腐化の整理は既存の `seeds-hygiene.md`（#754）を再利用し、Rule / Skill /
 Hook / test / Runbook 等へ昇格する場合は #811 Memory Promotion Gate を通す。
 memory consolidation の生成自体と、実行可能な behavior への promotion を分離する。
 
-複数 agent が同じ memory repository を使う場合、Git merge は concurrent write を統合する
-transport / coordination mechanism として使える。一方、同じ事実について意味的に競合する
-entry が存在する場合、textual merge の成功を truth adjudication とみなさない。source を
-再確認し、解消できない競合は明示したまま review / escalation へ送る。
+複数 agent が memory repository を共有・合成する場合、**ownership / visibility / write
+destination を保持する**。personal / team / project memory を別 repository として扱う構成では、
+ある owner の preference や private context を別 owner の memory へ暗黙にコピーしない。
+書き込み先が曖昧なら durable write を保留し、review / escalation へ送る。
+
+Git merge は concurrent write を統合する transport / coordination mechanism として使える。
+一方、同じ事実について意味的に競合する entry が存在する場合、textual merge の成功を truth
+adjudication とみなさない。source と owner scope を再確認し、解消できない競合は明示したまま
+review / escalation へ送る。
 
 grep / link traversal で不足する規模になった場合、full-text / embedding / semantic index を
 追加してよいが、それらは **derived retrieval index** とする。index の ranking や embedding
