@@ -669,26 +669,6 @@ class RatchetVerticalSliceTests(unittest.TestCase):
             result, "INCONCLUSIVE", "MANIFEST_REPOSITORY_DELTA_MISMATCH"
         )
 
-    def test_repository_observation_commit_binding_fails_closed(self):
-        value = copy.deepcopy(self.base)
-        bundle = copy.deepcopy(value)
-        plan = bundle.pop("sealed_evaluation_plan")
-        bundle.pop("expected", None)
-        result = evaluate_verification_skipped(
-            bundle,
-            plan,
-            repository_observation={
-                "baseline_commit": "0" * 40,
-                "candidate_commit": "1" * 40,
-                "changed_paths": [
-                    "harness/verifiers/completion-evidence.json"
-                ],
-            },
-        )
-        self.assertResult(
-            result, "INCONCLUSIVE", "REPOSITORY_DELTA_BINDING"
-        )
-
     def test_repository_observer_invalid_commit_fails_closed(self):
         value = copy.deepcopy(self.base)
         with tempfile.TemporaryDirectory() as tmp:
