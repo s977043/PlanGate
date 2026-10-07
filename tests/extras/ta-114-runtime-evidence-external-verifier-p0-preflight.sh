@@ -94,7 +94,7 @@ else
   printf '  [FAIL] authority: expected 13 fail-closed fields, found %s\n' "$_t114_false" >&2; fail=$((fail + 1))
 fi
 
-if grep -Fq 'without modifying the content-addressed bootstrap package' "$_T114_DOC" \
+if grep -Fq 'content-addressed bootstrap package from #1484/#1493.' "$_T114_DOC" \
   && grep -Fq 'The preflight must never be used as administrator-independence Evidence.' "$_T114_DOC"; then
   printf '  [PASS] package boundary: P0 wiring leaves bootstrap bytes untouched\n'; pass=$((pass + 1))
 else
