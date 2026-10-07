@@ -316,7 +316,7 @@ def _finish(
     }
 
 
-def evaluate_verification_skipped(bundle, sealed_plan, *, repository_observation=None):
+def _evaluate_verification_skipped(bundle, sealed_plan, *, repository_observation=None):
     _reject_private(bundle)
     _reject_private(sealed_plan)
 
@@ -770,6 +770,12 @@ def evaluate_verification_skipped(bundle, sealed_plan, *, repository_observation
     )
 
 
+
+def evaluate_verification_skipped(bundle, sealed_plan):
+    """Evaluate the deterministic synthetic Ratchet fixture path."""
+    return _evaluate_verification_skipped(bundle, sealed_plan)
+
+
 def evaluate_verification_skipped_repository(bundle, sealed_plan, repo_root):
     """Run the vertical slice with observer-owned repository changed paths.
 
@@ -797,7 +803,7 @@ def evaluate_verification_skipped_repository(bundle, sealed_plan, repo_root):
             ["REPOSITORY_DELTA_UNAVAILABLE"],
         )
 
-    return evaluate_verification_skipped(
+    return _evaluate_verification_skipped(
         bundle,
         sealed_plan,
         repository_observation=observation,
