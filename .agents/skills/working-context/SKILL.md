@@ -115,35 +115,31 @@ stream、secret / credential / personal data。独立 reviewer は implementer �
 
 ## CLI 呼び出し
 
-> **前提（Human 決定 #1144）**: plugin / `install.sh --claude` / Codex が導入先へ配るのは
-> **読み物層（`skills` / `rules` / `agents` / `commands`）だけ**であり、**CLI（PlanGate CLI 本体）も
-> enforcement 層（`scripts/hooks/`）も配布物に含まれない**。したがって下表の「上流リポジトリの cwd」
-> 列にしか成立しない手順は、導入先では **上流リポジトリ（`s977043/plangate`）の clone が無いかぎり
-> 実行できない**。そこへ到達したら「CLI が無いため実行できない／上流リポジトリの clone が必要」と
-> **明示して停止する**か、同表の代替手順へ置き換える。**CLI が無いことを理由に手順を黙って省略し、
-> 実施済みと読める記録を残してはならない。**
+> **配布と対象 project root は別の問題（#962 / #1144）**: plugin / `install.sh --claude` / Codex は
+> `bin/plangate` と enforcement scripts を導入先へ配布しない。そのため CLI を使うには
+> PlanGate の clone と、その `bin/plangate` への PATH または絶対パスが必要。
+> ただし #1497 以降、CLI が利用できる場合の対象 project root は全コマンド共通で
+> **`--project-root` → `PLANGATE_PROJECT_ROOT` → cwd の git root → CLI root fallback**
+> の順に解決される。導入先の git repo で PATH 上の `plangate` を実行すれば、その導入先が
+> 既定の対象になる。CLI が無いことを理由にゲートや検証を黙って省略してはならない。
+>
+> #1497 で downstream 契約を明示検証したのは `status` / `validate` / `approve` /
+> read-only `doctor`（および work-dir を明示する `render`）。`doctor --fix` は #1144 の
+> enforcement 配布が解決するまで downstream では **rc=2 / no-write** で fail-closed。
+> script-relative helper に委譲するコマンドは、root resolver が存在しても自動的に
+> downstream 対応になるとは扱わず、下表・フォールバックの個別契約に従う。
 
-**呼び出し表記は実行環境で変わる**。相対パス形式（`bin/plangate`）が成立するのは
-**上流リポジトリ（`s977043/plangate`）を clone した cwd に居るときだけ**で、導入先には `bin/` が
-配置されない。導入先で PATH を通した場合のコマンド名は **`plangate`**（`bin/plangate` ではない）。
-いずれも**補助**であり、本 skill の読み書きはファイルを直接扱えば CLI 無しで完結する。
+本 skill 自体はファイルを直接扱えば CLI 無しで完結する。
 
-下表の 2 列目は「導入先 + PATH に `plangate` あり」「導入先 + PATH に無い」で結論が同じ
-（`resume` / `context` / `status` はいずれも `--dir` 相当を持たず導入先の TASK を対象にできない）
-ため、**PATH 有無で差がないので 2 列に統合している**。
+| 用途 | 上流リポジトリの cwd | 導入先 + PATH に `plangate` あり | 導入先 + PATH に無い（**既定**） |
+|------|---------------------|----------------------------------|--------------------------------|
+| current-state 表示 | `bin/plangate resume TASK-XXXX` | `plangate resume TASK-XXXX` | `current-state.md` を直接読む |
+| 動的 context 取得（opt-in / Issue #199） | `bin/plangate context TASK-XXXX --phase <...>` | context-engine は script-relative root のため **#1497 downstream 保証外** → L0〜L3を手動で読む | L0〜L3を手動で読む |
+| 状態確認 | `bin/plangate status TASK-XXXX` | `plangate status TASK-XXXX` | `INDEX.md` / `status.md` を直接読む |
 
-| 用途 | 上流リポジトリの cwd | 導入先（PATH の有無を問わず） |
-|------|---------------------|------------------------------|
-| current-state 表示 | `bin/plangate resume TASK-XXXX` | **導入先の TASK には使えない**（下記注意）→ `current-state.md` を直接読む |
-| 動的 context 取得（opt-in / Issue #199） | `bin/plangate context TASK-XXXX --phase <classify\|plan\|approve-wait\|execute\|review\|verify\|handoff>`（**`--phase` 必須**） | 同上 → L0〜L3 プロトコルに従って手動で読む |
-| 状態確認 | `bin/plangate status TASK-XXXX` | 同上 → `INDEX.md` / `status.md` を直接読む |
-
-> **注意: `TASK-XXXX` 位置引数は cwd ではなく CLI 本体の位置を基準に解決される。**
-> `bin/plangate` は自身のパスから `plangate_root`（= `bin/` の親）を求め、
-> `<CLI の repo root>/docs/working/TASK-XXXX` を読み書きする。`bin/` は導入先に配置されない
-> ため、PATH 上の `plangate` は必ず**別の場所にある上流 clone** の実体を指す。cwd 非依存で
-> パスを明示できる `--dir` を持つのは `validate` / `validate-schemas` **だけ**で、
-> `resume` / `context` / `status` に相当オプションは無い（＝導入先の TASK は対象にできない）。
+> **project root 契約**: `resume` / `status` は選択済み project root の
+> `docs/working/TASK-XXXX` を参照する。明示対象は `--project-root <dir>`。
+> `context` は Python helper 側の root 契約が別なので、#1497 の保証対象として扱わない。
 
 ## 次フェーズへ
 

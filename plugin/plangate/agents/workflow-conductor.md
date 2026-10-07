@@ -550,13 +550,27 @@ strict profile（`model-profiles.yaml` の `validation_bias: strict`）で EHS-1
 従来どおり非発火（既存挙動不変）。**強制は CLI 側（`bin/plangate`）に閉じており、
 本補足は運用ガイドであって強制力を持たない**。
 
-> **注意: `verify` の `<TASK>` 位置引数は cwd ではなく CLI 本体の位置を基準に解決される。**
-> `verify` に `--dir` 相当のオプションは無いため、PATH 上の `plangate` を導入先で実行しても
-> 対象は導入先の `docs/working/` ではなく **その clone 側の `docs/working/`** になる。
+> **project root 契約（#962）**: `verify <TASK>` の CLI 再入呼び出しでは
+> `PLANGATE_PROJECT_ROOT` が継承されるため、`validate` / read-only `doctor` / `review` は
+> selected project root を参照する。一方、EH hook scripts・`eval`・metrics collector/reporter には
+> script-relative root 契約が残るため、**`verify` 全体を downstream-safe と扱ってはならない**。
+> 導入先では target repo の cwd から実行し、script-relative step が必要な場合は手動検証へ degrade して
+> 「strict profile で完全検証済み」と記録しない。
 >
-> **CLI 未導入時の degrade**: 導入先で `verify` 自体が実行できないため、`--profile` 供給と
-> strict profile の EHS-1/2/3 実 run 発火はいずれも成立しない。V フェーズは手動レビューで
-> 代替し、**「strict profile で検証済み」とは記録しない**。
+> **CLI 未導入時の degrade**: `verify` 自体を実行できない。Vフェーズは各Skillの手動検証へ
+> degradeし、未実施項目をPASS扱いしない。
+
+### CLI 必須 / 不要 の分離（#1144）
+
+**CLI は導入先へ配布されない**。PATH上の `plangate` が利用できる場合でも、#1497 が保証するのは
+selected project root の解決であり、enforcement scripts の配布ではない。
+
+| 記述箇所 | 導入先での扱い |
+|---------|--------------|
+| `verify <TASK> --mode=<m> --profile=<key>` | CLI があれば実行可能。ただし script-relative substep は個別にdegrade |
+| `validate` / read-only `doctor` / `review` | selected project root を参照 |
+| EH hook / `eval` / metrics | #1497 の downstream 保証外。結果を自動的に導入先検証済みと扱わない |
+
 
 ### CLI 必須 / 不要 の分離（#1144）
 

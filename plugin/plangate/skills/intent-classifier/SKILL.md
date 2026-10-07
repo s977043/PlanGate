@@ -65,13 +65,13 @@ description: "ユーザーの依頼文から開発 Intent を 8 分類し、stru
 
 `<TASK>` はコンテキストから推定（不明なら確認）。**intent=ops と判定した時点で plangate コマンドの候補を提示し、承認を待たずに実行する**（render は読み取り専用）。
 
-> **呼び出し表記は実行環境で変わる**。上表は導入先で PATH を通した場合のコマンド名
-> （**`plangate`**）。**上流リポジトリ（`s977043/plangate`）を clone した cwd では
-> `bin/plangate render` のように相対パス形式で呼ぶ**（導入先に `bin/` は配置されない）。
-> なお `<TASK>` 位置引数は cwd ではなく **CLI 本体の位置**を基準に
-> `<CLI の repo root>/docs/working/<TASK>` へ解決されるため、PATH 上の `plangate` で
-> **導入先の TASK を対象にすることはできない**（`render` / `approve` / `doctor` / `exec` に
-> `--dir` 相当のオプションは無い）。
+> **呼び出し表記と対象rootは分離して考える（#962）**。上流 clone の cwd では
+> `bin/plangate`、導入先で PATH を通した場合は `plangate`。対象 project root は
+> `--project-root` → `PLANGATE_PROJECT_ROOT` → cwd git root → CLI root fallback の順で決まる。
+> したがって導入先repoの cwd から `render` / `approve` / read-only `doctor` を実行すれば
+> その導入先を対象にする。downstream `doctor --fix` は #1144 解決まで rc=2 / no-write。
+> `exec` は selected project root の gate/artifact を使うが、agent runner 固有の相対パス契約に
+> 注意し target repo の cwd から実行する。
 
 ### CLI 不在時の degrade
 
