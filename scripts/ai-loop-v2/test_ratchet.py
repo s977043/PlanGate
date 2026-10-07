@@ -627,6 +627,37 @@ class RatchetVerticalSliceTests(unittest.TestCase):
             result["experiment_result"]["observed_changed_paths"],
         )
 
+    def test_repository_observer_protects_scope_observer_itself(self):
+        value = copy.deepcopy(self.base)
+        value["candidate"]["target"]["allowed_paths"] = [
+            "scripts/ai-loop-v2/scope_observer.py"
+        ]
+        value["candidate_manifest"]["components"][-1]["paths"] = [
+            "scripts/ai-loop-v2/scope_observer.py"
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            baseline, candidate = self._repository_commits(
+                tmp,
+                {
+                    "scripts/ai-loop-v2/scope_observer.py":
+                        "# candidate mutation\n",
+                },
+            )
+            self._bind_repository_commits(value, baseline, candidate)
+            bundle = copy.deepcopy(value)
+            plan = bundle.pop("sealed_evaluation_plan")
+            bundle.pop("expected", None)
+            result = evaluate_verification_skipped_repository(
+                bundle, plan, tmp
+            )
+        self.assertResult(
+            result, "FAIL", "DECLARED_SCOPE_INTERSECTS_PROTECTED_AUTHORITY"
+        )
+        self.assertEqual(
+            result["experiment_result"]["policy_verdict"],
+            "HUMAN_REQUIRED",
+        )
+
     def test_repository_observer_rejects_protected_actual_path(self):
         value = copy.deepcopy(self.base)
         with tempfile.TemporaryDirectory() as tmp:
