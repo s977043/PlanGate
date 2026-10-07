@@ -48,11 +48,12 @@ repository-local structural preflight result.
 A zero exit code means only:
 
 > the repository-local ADR-007 structure is consistent with the recorded P0
-> transition.
+> transition, including an exact match between `Decision Makers` and
+> `decision_recorded_by`.
 
 It does **not** prove:
 
-- that the named decision maker is actually Human;
+- that the named decision maker is actually Human (matching strings are not identity proof);
 - that `decision_evidence_ref` is authentic;
 - that the selected repository/service has been provisioned;
 - that administrator separation exists;
