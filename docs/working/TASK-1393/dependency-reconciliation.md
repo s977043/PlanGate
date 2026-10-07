@@ -1,6 +1,6 @@
 # TASK-1393 Dependency Reconciliation / #1381 AC-6 Handoff
 
-> Observed: 2026-10-08 JST. Issue #1519. Informative handoff only.
+> Observed: 2026-10-08 JST, main baseline `e20cf1dac50a24a3d82bc9584ecf5f8e86d4d519`. Issue #1519. Informative handoff only.
 > The approved Revision 2.5 `plan.md` and Human-issued C-3 approval remain authoritative and unchanged.
 > **Verdict: BLOCKED** for execution until the pending Human plan-scope/reapproval ruling and the owner preflights below are completed.
 
@@ -68,6 +68,24 @@ Exit evidence for AC-6:
 - the Decision's input refs demonstrably contain the verifier result ref;
 - deterministic mutation negative controls, latest-head Test/CI/CodeQL, independent I3/I4 review at exact head;
 - explicit #1395 → #1383 → #1381 unblock evidence / Human authority gates.
+
+## Reproducible acceptance commands (only after owner integration)
+
+These are **commands to run later**, not a claim of successful execution in this handoff:
+
+```sh
+python3 scripts/ai-loop-v2/test_ratchet.py
+python3 scripts/ai-loop-v2/test_delivery_v2.py
+sh tests/extras/ta-92-ai-loop-v2-ratchet.sh
+sh tests/extras/ta-93-ai-loop-v2-owner-backed-delivery.sh
+# Complete required repository test suite / CI on the exact PR head SHA.
+```
+
+Current TA-92/TA-93 success is only regression evidence of provisional/synthetic behavior. For #1381 AC-6 record, alongside these green commands, the **new owner-backed verifier E2E command**, fixture IDs, accepted `verification_recorded` event refs, Decision input refs, artifact/contract identity, and exact reviewed head SHA. A green preexisting TA must not replace these missing artifacts.
+
+## Owner implementation sequencing note
+
+The current `ratchet.py` calls provisional `decision_core.decide`; its synthetic `simulate_completion` path must remain explicitly non-authoritative until owner integration. #1393's designed `artifact_verdicts` API is **not currently consumable as a final owner seam**. #1460 Mode A is a tests-only executable specification, not a substitute owner Decision.
 
 ## Execution order / stop conditions
 
