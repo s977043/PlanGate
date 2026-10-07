@@ -17,6 +17,7 @@
     "protected_paths": [
       "scripts/ai-loop-v2/decision_core.py",
       "scripts/ai-loop-v2/ratchet.py",
+      "scripts/ai-loop-v2/scope_observer.py",
       "scripts/ai-loop-v2/test_ratchet.py",
       "tests/fixtures/ai-loop-v2/ratchet/**",
       "tests/extras/ta-92-ai-loop-v2-ratchet.sh"
@@ -69,7 +70,7 @@
       "expected_effect": "completion without verification evidence is blocked"
     },
     "baseline_manifest_ref": "sha256:77364e04fd614edb481bffd4755e0c999add5a8ba46658ed81ffdbf00b8fd3f6",
-    "evaluation_plan_digest": "sha256:987e64960f1ccf95433ea9251b7b2c88316c42e4c4a2c1e4dba3070641ea4e18"
+    "evaluation_plan_digest": "sha256:6c4892b0aafd6d544a801b2e70825db3ee369caa1de81f7ffc210a3d5c3a30b4"
   },
   "sources": [
     {
