@@ -218,7 +218,9 @@ grep / link traversal で不足する規模になった場合、full-text / embe
 追加してよいが、それらは **derived retrieval index** とする。index の ranking や embedding
 結果を canonical memory source とみなさず、最終的な判断では元 entry と source を確認する。
 
-参考仕様は informative only であり dependency / canon ではない。
+参考仕様は informative only であり dependency / canon ではない。upstream が示す
+human-in-the-loop なしの memory update も、そのまま PlanGate の canonical state 更新や
+behavior promotion 権限へ一般化しない。
 
 - https://cognition.ai/agent-memory-repo
 - https://github.com/AgentMemoryRepo/agentmemoryrepo
@@ -233,11 +235,15 @@ A Context Lifecycle change is acceptable only when all are true:
 - independent review does not inherit implementation conversation;
 - evidence is retained without raw transcript/hidden reasoning;
 - no C-3/C-4/Human-owned authority is weakened;
+- repository-backed memory does not become a second SSoT or executable authority;
+- durable memory preserves source/provenance and does not widen source visibility/ownership scope;
+- Dreaming / consolidation cannot bypass existing #754 / #811 adoption and promotion boundaries;
+- retrieval indexes remain derived and judgments can resolve back to the underlying entry/source;
 - simple tasks do not gain mandatory ceremony beyond the existing working-context files.
 
 ## 9. Non-goals
 
-- Vector DB / embeddings / long-term memory service
+- requiring or defining a Vector DB / embeddings / long-term memory service as PlanGate-owned canonical state
 - automatic provider-independent token accounting
 - automatic session termination
 - storing complete conversations
