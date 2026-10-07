@@ -22,7 +22,7 @@ python3 scripts/ai-loop/runtime_evidence_external_verifier_p0_preflight.py \
 
 Current ADR-007 is `Proposed / NOT_MADE`, so the expected current result is:
 
-- JSON is emitted;
+- JSON is emitted without Human-owned field values (ADR SHA-256 + state only);
 - `decision_record_structurally_valid=true`;
 - `human_decision_recorded_candidate=false`;
 - `p1_preflight_candidate=false`;
@@ -50,6 +50,10 @@ A zero exit code means only:
 > the repository-local ADR-007 structure is consistent with the recorded P0
 > transition, including an exact match between `Decision Makers` and
 > `decision_recorded_by`.
+
+The output omits `Decision Makers` and all eight Human Decision Record values;
+any required review of those values stays in the Human-owned ADR/evidence source.
+An invalid line is not echoed into stderr.
 
 It does **not** prove:
 
