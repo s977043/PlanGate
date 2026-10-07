@@ -279,6 +279,7 @@ Execution Strategy の runtime 自動選択は、最初から production default
 4. **Opt-in routing**: critical regression がなく、routing の便益が evidence で示された範囲だけ有効化する。
 5. **Evolution**: strategy / threshold / routing rule の改善は active Run の self-modification ではなく
    #869 の Candidate として次の Harness version に反映する。
+
 ## 5. Minimum topology principle
 
 **まず最小の制御構造を選ぶ。** AI を使うこと自体は Graph 導入理由にならない。
