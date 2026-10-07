@@ -42,7 +42,7 @@ _t114_rc=0
 python3 "$_T114_TEST" >"$_t114_unit" 2>&1 || _t114_rc=$?
 _t114_n=$(sed -n 's/^Ran \([0-9][0-9]*\) tests* in .*/\1/p' "$_t114_unit" | head -1)
 [ -n "$_t114_n" ] || _t114_n=0
-if [ "$_t114_rc" -eq 0 ] && [ "$_t114_n" -ge 8 ] && grep -q '^OK' "$_t114_unit"; then
+if [ "$_t114_rc" -eq 0 ] && [ "$_t114_n" -ge 11 ] && grep -q '^OK' "$_t114_unit"; then
   printf '  [PASS] unit: P0 transition negative controls execute (%s tests)\n' "$_t114_n"; pass=$((pass + 1))
 else
   printf '  [FAIL] unit: P0 preflight tests failed (rc=%s ran=%s)\n' "$_t114_rc" "$_t114_n" >&2; fail=$((fail + 1))
@@ -56,6 +56,7 @@ python3 "$_T114_IMPL" --repo-root "$_T114_ROOT" >"$_t114_out" 2>"$_t114_err" || 
 if [ "$_t114_rc" -eq 1 ] \
   && grep -q '"adr_status":"Proposed"' "$_t114_out" \
   && grep -q '"decision_state":"NOT_MADE"' "$_t114_out" \
+  && grep -q '"decision_makers":"Human / external-boundary administrator — UNASSIGNED"' "$_t114_out" \
   && grep -q '"decision_record_structurally_valid":true' "$_t114_out" \
   && grep -q '"human_decision_recorded_candidate":false' "$_t114_out" \
   && grep -q '"p1_preflight_candidate":false' "$_t114_out" \
