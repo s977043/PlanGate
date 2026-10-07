@@ -8,7 +8,9 @@
 > cross-task の retained knowledge、一般知識、Rule / Skill / Hook 等への promotion を
 > 所有しない。実行位置・Plan・Evidence の正本は
 > [working-context](../../rules/working-context.md) と各 canonical artifact を優先する。
-> 再利用可能な学びは improvement-seeds / `seeds-hygiene.md` / #811 の既存経路へ渡す。
+> 再利用可能な内容のうち、**process / Harness の改善候補**は improvement-seeds /
+> `seeds-hygiene.md` / #811 の既存経路へ渡す。一般的な project / team knowledge は
+> その経路へ強制せず、既存の knowledge surface と ownership に従う。
 > repository-backed retained memory との境界は
 > [Context Lifecycle](../../../docs/ai/context-lifecycle.md) を参照する。
 
