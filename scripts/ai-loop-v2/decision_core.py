@@ -10,8 +10,10 @@ exit 2
 ":"""
 from __future__ import annotations
 
-import fnmatch
-import posixpath
+from scope_observer import (
+    ScopeObservationError,
+    changed_paths_within_scope as observe_changed_paths_within_scope,
+)
 
 
 class DecisionError(ValueError):
@@ -55,39 +57,12 @@ def assess_progress(
     }
 
 
-def _canonical_path(path):
-    """Return ``path`` if it is canonical; raise otherwise.
-
-    ``fnmatch`` lets ``*`` cross ``/``, so a path such as
-    ``fixture://delivery/../../bin/plangate`` would match
-    ``fixture://delivery/**``. Only canonical, relative paths are accepted:
-    no empty string, no leading ``/``, and no ``.`` / ``..`` / empty segment.
-    """
-    if not isinstance(path, str) or not path:
-        raise DecisionError("changed_paths: empty path")
-    scheme, sep, rest = path.partition("://")
-    if not sep:
-        scheme, rest = "", path
-    if scheme and ("/" in scheme or not scheme.replace("-", "").isalnum()):
-        raise DecisionError("changed_paths: invalid scheme: " + path)
-    if not rest or rest.startswith("/"):
-        raise DecisionError("changed_paths: absolute or empty path: " + path)
-    if posixpath.normpath(rest) != rest or ".." in rest.split("/"):
-        raise DecisionError("changed_paths: non-canonical path: " + path)
-    return path
-
-
 def changed_paths_within_scope(changed_paths, allowed_scope):
-    if not isinstance(changed_paths, list) or not changed_paths:
-        # An empty or unobserved change set is not evidence of being in scope.
-        raise DecisionError("changed_paths")
-    paths = [_canonical_path(path) for path in changed_paths]
-    if not isinstance(allowed_scope, list) or not allowed_scope:
-        raise DecisionError("allowed_scope")
-    return all(
-        any(fnmatch.fnmatch(path, pattern) for pattern in allowed_scope)
-        for path in paths
-    )
+    """Compatibility seam; scope semantics are owned by scope_observer."""
+    try:
+        return observe_changed_paths_within_scope(changed_paths, allowed_scope)
+    except ScopeObservationError as exc:
+        raise DecisionError(str(exc)) from exc
 
 
 def _fresh_deterministic_pass(verifications, artifact_ref):
