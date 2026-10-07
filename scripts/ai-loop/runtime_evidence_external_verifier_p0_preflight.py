@@ -126,7 +126,7 @@ def _decision_record(text: str) -> dict[str, str]:
         match = FIELD_RE.fullmatch(raw.strip())
         if not match:
             raise P0PreflightError(
-                f"Human Decision Record contains malformed line: {raw!r}"
+                "Human Decision Record contains malformed line"
             )
         key, value = match.groups()
         if key not in RECORD_KEYS:
@@ -201,17 +201,16 @@ def evaluate_text(text: str, *, adr_sha256: str) -> dict[str, Any]:
         "decision_record_file_sha256": adr_sha256,
         "adr_status": status,
         "decision_state": decision_state,
-        "decision_makers": decision_makers,
         "decision_record_structurally_valid": True,
         "human_decision_recorded_candidate": recorded_candidate,
         "p1_preflight_candidate": preflight_candidate,
         "state": state,
-        "record": record,
         "verification_limit": (
             "Repository-local structural preflight only. Human identity, "
             "decision-evidence authenticity, administrator independence, "
             "external provisioning, runtime attestation, Human rollout, and "
-            "dispatch authority are not verified. Exit code 0 is structural "
+            "dispatch authority are not verified. Human-owned record values "
+            "are omitted from CLI output. Exit code 0 is structural "
             "preflight success only and is not provisioning permission."
         ),
     }
