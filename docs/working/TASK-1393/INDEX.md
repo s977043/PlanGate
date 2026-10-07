@@ -15,10 +15,10 @@ BLOCKED
 
 > Revision 2.5。C-2 は R1 / R2 の 2 ラウンドで収束（R2 は新クラス 0）。簡易 C-1 PASS（R-071 は Human y で反映済み）。
 > **C-3 Gate: APPROVED**（Human 発行の `approvals/c3.json`、`approved_at` 2026-09-28T22:45:37Z、`plan_hash` は main の plan.md の sha256 `799c8526…` と一致。承認トークンは Human が発行したもので、repo には commit されていない）。Mode = high-risk。
- > **BLOCKED**（2026-10-08 再照合。詳しくは [dependency-reconciliation.md](dependency-reconciliation.md)）:
+> **BLOCKED**（2026-10-08 再照合。詳しくは [dependency-reconciliation.md](dependency-reconciliation.md)）:
 >
 > - blocker: #1391 / #1392 / #1393 / #1395 / #1422 は現在 OPEN。#1392 model-B と #1393 owner Decision は未実装。#1516 で `_canonical_path` private 依存は解消済みだが、`ratchet.py` の provisional `DecisionError` / `decide` 依存および PF-1 caller migration は残る。既承認 plan の追加範囲と再 C-3 は Human 判断待ち
-> - owner: Human（issue を reopen するか、新しい issue に振り分けるか。PF-1 の範囲を広げる場合は plan の再承認が要るか）
+> - owner: Human（Plan scope / 再C-3裁定）。未実装箇所の owner は各OPEN Issue #1391/#1392/#1393/#1395/#1422
 > - unblock_condition: dependency-reconciliation.md の owner table に沿って未実装部分を帰属決定し、Human が plan scope / 必要な C-3 の再発行を裁定し、PF-1〜PF-8 を通すこと
 
 ## 次のアクション
