@@ -98,6 +98,8 @@ def scope_patterns_intersect(declared, protected):
 
 
 def _index_components(manifest):
+    if not isinstance(manifest, dict):
+        raise ManifestObservationError("MANIFEST_COMPONENT_IDENTITY")
     components = manifest.get("components")
     if not isinstance(components, list):
         raise ManifestObservationError("MANIFEST_COMPONENT_IDENTITY")
@@ -201,6 +203,7 @@ def observe_repository_delta(repo_root, baseline_commit, candidate_commit):
         root,
         [
             "diff",
+            "--no-ext-diff",
             "--name-only",
             "-z",
             "--no-renames",
