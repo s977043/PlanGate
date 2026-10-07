@@ -123,6 +123,19 @@ docs/working/
 
 **フォールバック**: INDEX.md が存在しない場合（旧形式チケット）→ L1 から開始（status.md を直接読む = 従来動作）。
 
+### Repository-backed retained memory の読み込み境界
+
+外部または別 repository の retained memory は **L0 / L1 の canonical input ではない**。
+セッション開始時は上表の L0 → phase-required L1 を先に復元し、task state / Plan /
+Evidence の不足を具体的に特定してから、必要な retained memory だけを参照する。
+
+- retained memory は過去の知識・関係・再利用手順を思い出すための optional reference input とする。
+- current task state / canonical Plan / decision-log / Evidence と衝突した場合は canonical side を優先し、
+  retained memory を stale / superseded / conflicting candidate として再確認する。
+- retained memory の存在を理由に L0 / L1 の欠落・stale を正常扱いしない。
+- 詳細な ownership / provenance / visibility / executable-authority 境界は
+  [Context Lifecycle](../../docs/ai/context-lifecycle.md) に従う。
+
 ### INDEX.md / current-state.md / status.md / handoff.md の役割分担
 
 | ファイル | 役割 | 目安行数 | 更新タイミング |
