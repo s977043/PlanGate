@@ -48,6 +48,8 @@ STRONG_FALSE_FIELDS = (
     "human_decision_identity_verified",
     "decision_evidence_ref_authenticated",
     "external_boundary_provisioned_verified",
+    "p1_activation_allowed",
+    "external_provisioning_allowed",
     "admin_evidence_independently_verified",
     "nonce_one_time_consumption_verified",
     "independent_admin_boundary_verified",
@@ -200,7 +202,8 @@ def evaluate_text(text: str, *, adr_sha256: str) -> dict[str, Any]:
             "Repository-local structural preflight only. Human identity, "
             "decision-evidence authenticity, administrator independence, "
             "external provisioning, runtime attestation, Human rollout, and "
-            "dispatch authority are not verified."
+            "dispatch authority are not verified. Exit code 0 is structural "
+            "preflight success only and is not provisioning permission."
         ),
     }
     for field in STRONG_FALSE_FIELDS:
