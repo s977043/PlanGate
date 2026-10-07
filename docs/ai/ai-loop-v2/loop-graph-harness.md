@@ -199,6 +199,87 @@ Does runtime need to instantiate bounded topology?
 
 この区別は Work Item Graph / Assignment の宣言と接続する。Graph runtime の generic engine を先に作らず、durable state・convergence / stop・trajectory evaluation・event stream は §2 の既存 owner を再利用する。
 
+### Execution Strategy is orthogonal to Graph topology
+
+参考一次情報: GitHub の [Project HydraFusion](https://github.blog/ai-and-ml/github-copilot/project-hydrafusion-frontier-quality-via-multi-model-orchestration/) と [VS Code 1.140](https://code.visualstudio.com/updates/v1_140)。ここでは research preview の runtime を依存として採用せず、公開された execution pattern / guardrail を設計入力としてのみ扱う。
+
+HydraFusion で示された `single / cascade / critique` は、上記の Static Workflow / Adaptive Routing /
+Bounded Dynamic Graph と同じ taxonomy ではない。前者は **1 つの approved Work Item / Graph node をどの実行構成で解くか**、
+後者は **責務や node をどう配置・遷移させるか** を表す。
+
+したがって PlanGate では Execution Strategy を、Model / Effort / Role / Graph topology / Judgment authority から
+独立した execution-time lens として扱う。Execution Strategy を選んでも WorkItemGraph の scope、Acceptance Criteria、
+Human-owned authority、Verifier / Gate の authority は変わらない。
+
+```text
+Approved Work Item / Graph node
+        ↓
+Execution Strategy
+  ├─ single
+  ├─ cascade
+  └─ critique
+        ↓
+RunEvidence / Verification
+        ↓
+Gate / Human authority
+```
+
+| Strategy | Vendor-neutral semantics | 適する条件 | 境界 |
+|---|---|---|---|
+| `single` | 1 worker / 1 solving path で実行する | bounded・低不確実性・追加独立判断の便益が小さい | 失敗時に strategy 内で無制限 retry せず #894 の convergence / stop に従う |
+| `cascade` | 低コスト側の path を先に実行し、事前定義した quality signal が不足した場合だけ別の stronger path へ escalation する | cost / latency を抑えつつ quality floor を守りたい | cascade 内の quality check は PlanGate Gate そのものではない。terminal authority を持たない |
+| `critique` | Builder の候補を read-only Reviewer が独立に批評し、Builder が bounded な修正を行う | ambiguity / risk / independent judgment need が高い | Reviewer は patch / merge authority を持たない。Reviewer と Verifier は別責務であり、review 完了を verification 成功とみなさない |
+
+`critique` の independence は「モデル数」だけでは証明しない。少なくとも execution provenance を残し、
+必要な trust level に応じて model/provider/context/tool/host の分離を評価する。external verifier が必要な境界は
+[`adr-007-external-runtime-verifier-boundary.md`](../../decisions/adr-007-external-runtime-verifier-boundary.md) と
+Evaluation Trust Boundary の既存規則を正とする。
+
+#### Strategy selection inputs
+
+strategy recommendation は、少なくとも次を入力候補とする。
+
+- task complexity / uncertainty
+- risk class / protected-surface proximity
+- cost / latency / token budget
+- independent judgment need
+- prior Run の failure / repair evidence
+- provider / model capability availability
+
+ただし、deterministic rule で十分な場合は LLM router を使わない。未知・矛盾・evidence 不足を
+`single` へ都合よく丸めず、shadow recommendation または Human escalation とする。
+
+strategy の declaration / selection / observation の owner を本節で新設しない。Work Item / Assignment の宣言は #911、runtime の実行事実は #874、recommendation / outcome の評価は #908、strategy rule 自体の改善は #869 を正とする。persisted field が必要になった場合は、先に owner 側 Contract を変更し、本書から新しい SSoT を作らない。
+
+#### Orchestration guardrails
+
+HydraFusion の運用原則は新しい owner を作らず、既存責務へ次のように対応付ける。
+
+| Guardrail | PlanGate interpretation | Owner / evidence |
+|---|---|---|
+| Complete accounting | 成功した最終 leg だけでなく draft / critique / revision / escalation / retry / fallback / cancelled / failed を含む全 leg の model/provider、token、time、cost、outcome を追跡可能にする | #874 RunEvent / RunEvidence、#908 operational evaluation |
+| Bounded execution | timeout / retry / fallback / parallelism / token / time / cost を budget と stop policy の内側に置き、停止時は可能な範囲で in-flight leg と retry backoff へ cancellation を伝播する | #894 convergence / stop policy、Harness / host の execution primitive、Work Item の `budget_profile` / `budget_ref` |
+| Isolated review | critique の Reviewer を Builder の write authority から分離し、必要な independence を provenance で説明可能にする | Evaluation Trust Boundary、ADR-007、River Review の review / verifier contract |
+| Fail-safe application | review / verification / routing が failed / cancelled / unknown のとき変更適用や authority 昇格へ進めず、partial result を clean success に変換しない | Verifier / Gate / Human-owned C-4・merge boundary |
+| Validated routing | 実行前に strategy definition / provider・model availability / fallback / budget compatibility を検証し、default-on 前には shadow / paired evaluation で便益も検証する | Harness preflight、#908 Run Eval、#869 Harness Evolution |
+
+ここでいう `fail-safe application` は PlanGate が patch application を新たに所有するという意味ではない。
+既存どおり、Execution Strategy は protected authority を変更せず、不可逆な採用判断を代替しない。
+
+`bounded execution` を満たすには、単に caller が待機を打ち切るだけでは不十分である。host / provider が cancellation を提供する場合は in-flight request と backoff へ伝播し、提供できない場合はその limitation を Evidence に残して bounded と断定しない。fallback は事前に許可・予算化された経路に限定し、routing / fallback validation が失敗した場合は実行を開始しないか Human escalation へ送る。
+
+#### Adoption rule
+
+Execution Strategy の runtime 自動選択は、最初から production default にしない。
+
+1. **Interpretation only**: taxonomy と owner mapping を明文化する。
+2. **Observe-only**: 実際に使った strategy と、推奨 strategy を別々に記録する。
+3. **Paired evaluation**: #869 / #908 で quality / coverage / repair round / cost / latency /
+   Human correction burden を baseline と比較する。
+4. **Opt-in routing**: critical regression がなく、routing の便益が evidence で示された範囲だけ有効化する。
+5. **Evolution**: strategy / threshold / routing rule の改善は active Run の self-modification ではなく
+   #869 の Candidate として次の Harness version に反映する。
+
 ## 5. Minimum topology principle
 
 **まず最小の制御構造を選ぶ。** AI を使うこと自体は Graph 導入理由にならない。
