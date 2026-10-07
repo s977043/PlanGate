@@ -11,6 +11,7 @@ exit 2
 from __future__ import annotations
 
 import hashlib
+import json
 import pathlib
 import sys
 import tempfile
@@ -99,7 +100,7 @@ class P0PreflightTests(unittest.TestCase):
         result = p0.evaluate_text(ACCEPTED, adr_sha256=_hash(ACCEPTED))
         self.assertNotIn("record", result)
         self.assertNotIn("decision_makers", result)
-        serialized = __import__("json").dumps(result)
+        serialized = json.dumps(result)
         for secret in _ACCEPTED_VALUES.values():
             self.assertNotIn(secret, serialized)
         self.assertEqual(result["decision_record_file_sha256"], _hash(ACCEPTED))
@@ -107,7 +108,7 @@ class P0PreflightTests(unittest.TestCase):
     def test_invalid_record_does_not_echo_input(self):
         bad = ACCEPTED.replace(
             "selected_option = Option A",
-            "selected_option = Option A\\nsecret: private-data",
+            "selected_option = Option A\nsecret: private-data",
         )
         with self.assertRaises(p0.P0PreflightError) as caught:
             p0.evaluate_text(bad, adr_sha256=_hash(bad))
