@@ -14,7 +14,8 @@ Memory Promotion Gate.
       from derived, adoption-gated digest
 - [x] Prepare `plan-proposal.md` (non-canonical pre-C-3) and `design-proposal.md` (non-canon)
 - [x] Complete three AI self-review/adaptation loops on PR #1522, recorded in `design-review.md` (not independent C-4 approval)
-- [ ] Confirm latest-head CI/links/mergeability; C-4 is Human-owned
+- [x] Define Git's evidence / source revision / PR and merged SHA role in non-canon `design-proposal.md` §9, plus three additional Git-boundary self-review passes
+- [ ] Confirm latest-head CI/links/mergeability. Existing Test failure on this docs-only PR was traced to inherited duplicate TA-114; separate fix PR #1526 / issue #1525 (all checks must pass on the relevant final head). C-4 is Human-owned
 
 ## Unresolved blockers and next actions
 
