@@ -121,7 +121,31 @@ else
   fail=$((fail + 1))
 fi
 
+# Regression (#1512 follow-up): a syntactically damaged Markdown line can
+# still retain the right keywords and pass the root-guidance contract above.
+# Check both *negative* signatures and expected positive executable examples.
+_t115_md_fail=0
+_t115_plan="$_T115_ROOT/.agents/skills/ai-dev-plan/SKILL.md"
+_t115_exec="$_T115_ROOT/.agents/skills/ai-dev-exec/SKILL.md"
+if grep -Fq 'フォールバック### CLI 不在時のフォールバック' "$_t115_plan" \
+  || [ "$(grep -Fc '### CLI 不在時のフォールバック（導入先では既定）' "$_t115_plan")" -ne 1 ]; then
+  printf '  [FAIL] ai-dev-plan fallback heading is duplicated or missing\n' >&2
+  _t115_md_fail=1
+fi
+if grep -Fq 'ai-dev-workflow- 並行で' "$_t115_exec" \
+  || ! grep -Fq -- '- 並行で `./scripts/ai-dev-workflow TASK-XXXX exec` も利用可' "$_t115_exec"; then
+  printf '  [FAIL] ai-dev-exec has malformed/missing executable workflow example\n' >&2
+  _t115_md_fail=1
+fi
+if [ "$_t115_md_fail" -eq 0 ]; then
+  printf '  [PASS] CLI guidance Markdown headings and command examples are intact\n'
+  pass=$((pass + 1))
+else
+  fail=$((fail + 1))
+fi
+
 unset _t115_skill _t115_src _t115_dst _t115_file \
-  _t115_mirror_fail _t115_stale_fail _t115_required_fail 2>/dev/null || true
+  _t115_mirror_fail _t115_stale_fail _t115_required_fail \
+  _t115_md_fail _t115_plan _t115_exec 2>/dev/null || true
 
 pg_extra_contract_finalize
