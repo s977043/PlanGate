@@ -83,6 +83,21 @@ Review finding status.
 python3 -m unittest discover -s tests -p test_review_questions.py
 ~~~
 
+## Browser E2E smoke (#1535)
+
+The optional browser smoke executes the generated HTML in a real
+Chrome/Chromium renderer. It verifies DOM interaction, response
+validation, SHA-256 metadata, escaped input, and exported Blob JSON.
+The test intercepts the anchor click to inspect Blob content; it does
+**not** claim the browser wrote a file into a downloads folder.
+
+~~~sh
+python3 -m unittest discover -s tests -p test_review_feedback_chromium.py -v
+~~~
+
+The CI job requires Chrome/Chromium and fails if it is unavailable.
+Local tests report an explicit skip if a browser is not installed.
+No external requests or third-party browser-test dependencies are needed.
 ## Follow-ups
 
 See River Review #2577 for optional validator/importer and read-only
