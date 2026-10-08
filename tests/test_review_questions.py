@@ -107,6 +107,73 @@ class PlanFeedbackTest(unittest.TestCase):
                                  capture_output=True, text=True, check=False)
         self.assertEqual(0, process.returncode, process.stderr)
 
+    def test_export_roundtrip_with_node_dom_shim(self):
+        """Browser-independent JS smoke: the exported Blob must contain valid JSON."""
+        import shutil
+        import subprocess
+        if shutil.which("node") is None:
+            self.skipTest("node not available for JS roundtrip")
+        js_file = self.root / "feedback.js"
+        js_file.write_text(JS.replace(
+            "__META__",
+            '{"taskId":"TASK-0001","source":{"plan":{"sha256":"abc"}}}'
+        ).replace("<script>", "").replace("</script>", ""), encoding="utf8")
+        harness = self.root / "browser-smoke.cjs"
+        harness.write_text(r"""
+const fs = require("node:fs");
+const vm = require("node:vm");
+let listener;
+let capturedBlob;
+let downloaded = false;
+const status = {value: "answered", focus() {}};
+const answer = {value: "Canary"};
+const note = {value: ""};
+const row = {
+  getAttribute(name) { return name === "data-question-id" ? "Q-1" : null; },
+  querySelector(selector) {
+    return {"[data-state]": status, "[data-response]": answer,
+            "[data-note]": note}[selector];
+  }
+};
+const message = {textContent: ""};
+const exportButton = {addEventListener(event, fn) {
+  if (event !== "click") throw new Error("wrong event");
+  listener = fn;
+}};
+const panel = {
+  querySelector(selector) {
+    return {"[data-message]": message, "[data-export]": exportButton}[selector];
+  },
+  querySelectorAll() { return [row]; }
+};
+const document = {
+  getElementById() { return panel; },
+  createElement() { return {click() {downloaded = true;}}; }
+};
+const URL = {
+  createObjectURL(blob) {capturedBlob = blob; return "blob:fake";},
+  revokeObjectURL() {}
+};
+vm.runInNewContext(fs.readFileSync(process.argv[2], "utf8"), {
+  document, URL, Blob, Date, requestAnimationFrame(callback) {callback();}
+});
+if (typeof listener !== "function") throw new Error("no click listener");
+listener();
+if (!downloaded || !capturedBlob) throw new Error("nothing downloaded");
+capturedBlob.text().then(text => {
+  const value = JSON.parse(text);
+  if (value.kind !== "plan-review-feedback" ||
+      value.feedback_only !== true || value.approval_granted !== false ||
+      value.answers[0].status !== "answered" ||
+      value.answers[0].response !== "Canary") {
+    throw new Error("invalid export structure");
+  }
+}).catch(error => {console.error(error); process.exitCode = 1;});
+""", encoding="utf8")
+        result = subprocess.run(["node", str(harness), str(js_file)],
+                                capture_output=True, text=True, check=False)
+        self.assertEqual(0, result.returncode, result.stderr)
+
     def test_bad_identifier_rejected(self):
         self.put([{"id": 'x"><img>', "prompt": "one"}])
         with self.assertRaises(ValueError):
