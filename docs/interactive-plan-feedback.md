@@ -43,14 +43,15 @@ python3 scripts/render_review.py --task TASK-XXXX
 
 When review-questions.json is missing, the interactive section is omitted
 without changing the prior page. When present, each question offers
-unanswered (default), answered, or deferred states. Optional choices are
+unanswered (default), answered, or deferred states. A deferred question
+requires an explicit note and must not retain an answer. Optional choices are
 a single-select; without choices an accessible textarea is presented.
 
 Export downloads a local TASK-XXXX-review-feedback.json, containing:
 
 - schemaVersion (1), kind (plan-review-feedback), taskId
 - source.plan.sha256 and source.questions.sha256
-- answers: questionId, status, response
+- answers: questionId, status, response, note
 - feedback_only: true and approval_granted: false
 - generatedAt
 
