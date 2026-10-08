@@ -204,6 +204,44 @@ These proof obligations are **not met by this proposal**. They need
 C-3-approved implementation and real usage evidence; don't check off the
 migrated ACs from a Markdown link alone.
 
+### Proposed acceptance experiment for actual seed reuse (post-C-3 only)
+
+The migrated #1157 AC-1 and AC-3 require **a real later run**, not
+the mere presence of a reference in a prompt or a Markdown table.
+The following is a review protocol, **not an executed evaluation,
+new runtime capability or permission to read private context**.
+
+| Variant | Controlled conditions | Required observation |
+|---|---|---|
+| Baseline negative | Same bounded task and frozen source revision; eligible seed/digest unavailable to this run by normal policy | No fabricated source read; capture ordinary failures and decisions |
+| Positive | Same task, model profile and controlled evaluation inputs; the existing authorized retrieval path exposes a pinned seed/digest | Read trace ties source path, revision, visibility and actual bytes returned to this run; downstream decision/output explicitly references a specific applicable point |
+| Unrelated or stale counterexample | Supply a non-applicable, superseded or access-denied candidate via the existing safe fixture mechanism | No adoption, no cross-scope leakage, and a traceable reason for non-use |
+| Later run reuse | A distinct real execution/candidate with shared stable fingerprint; preserve separate run identities | Independently observable consumption and effect, not a copy of the first run's summary |
+
+The Human/Verifier should choose the task and outcome metric **before**
+seeing the variant results. Pin the source and exact evaluator/test
+revision; keep sealed controls inaccessible to the candidate. Compare
+read path behavior and consequences, not only natural-language assertions
+that a memory was used. A single positive answer, coincidental overlap,
+or a citation without an actual read trace is **inconclusive**; do not
+claim causality from it. Report inaccessible evidence as unavailable
+and execute no fallback that would widen source permissions.
+
+For unbounded append-only seeds, prefilter by source/date/task scope
+through the existing authorized digest or index; specify the read cap
+at evaluation time and record token count, omitted source references,
+truncation status and retrieval failures. Do **not** silently truncate
+away contradictory corrections. Demonstrate both that old entries
+remain intact and that the authoritative correction/deprecation entry
+changes a later decision. Derived digests must cite their raw source
+revision and are not independent approval or immutable truth.
+
+Completion evidence should be tied to owner-backed RunEvidence or
+the repository's existing trace authority; no new ledger entry alone
+can prove later-run adoption or Human permission. Negative controls,
+exact revisions, results and unresolved counterexamples remain
+required even when the documentation gate itself is approved.
+
 ## 9. Git as an evidence and change ledger (not an autonomous memory engine)
 
 Git is useful to **version and trace the artifacts that the existing
