@@ -56,6 +56,24 @@ class PlanFeedbackTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             render_review_questions(self.root, "TASK-0001")
 
+    def test_render_cli_with_questions_and_bad_input(self):
+        import subprocess
+        renderer = Path(__file__).resolve().parents[1] / "scripts" / "render_review.py"
+        self.put([{"id": "Q1", "prompt": "What is next?"}])
+        out = self.root / "rendered.html"
+        command = [sys.executable, str(renderer), "--task", "TASK-0001",
+                   "--work-dir", str(self.root), "--out", str(out)]
+        success = subprocess.run(command, capture_output=True, text=True, check=False)
+        self.assertEqual(0, success.returncode, success.stderr)
+        self.assertIn("pg-plan-feedback", out.read_text(encoding="utf8"))
+
+        (self.root / "review-questions.json").write_text("{broken", encoding="utf8")
+        out.unlink()
+        failure = subprocess.run(command, capture_output=True, text=True, check=False)
+        self.assertEqual(2, failure.returncode)
+        self.assertIn("invalid review questions", failure.stderr)
+        self.assertFalse(out.exists())
+
     def test_bad_identifier_rejected(self):
         self.put([{"id": 'x"><img>', "prompt": "one"}])
         with self.assertRaises(ValueError):
