@@ -284,7 +284,7 @@ plan.md 生成時、以下の観点を Work Breakdown / Risks に反映する:
 > `docs/working/TASK-XXXX` を基準に解決する。これは `scripts/ai-dev-workflow` の
 > script-relative root 解決とは別契約である。
 
-### CLI 不在時のフォールバック### CLI 不在時のフォールバック（導入先では既定）
+### CLI 不在時のフォールバック（導入先では既定）
 
 `scripts/ai-dev-workflow` と `bin/plangate` は **3 経路のいずれでも導入先に
 配置されない**。根拠は経路ごとに異なる:
