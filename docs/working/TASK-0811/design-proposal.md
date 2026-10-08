@@ -134,7 +134,7 @@ A `deprecate` entry never automatically removes a rule or Hook.
 | A: project command example | Verified project README at pinned SHA; low blast radius; no execution | `approve` → project memory only; keep exact revision and owner; no global instruction |
 | B: repeated missing validation | Two separate RunEvidence refs, same root cause; deterministic CI invariant feasible | `prefer_automation` → test/CI rather than another `CLAUDE.md` paragraph; require negative control |
 | C: security Hook change | Incident evidence and high severity, Hook changes privileges or blocks operations | `needs_human_review`; gated HO approval and canary/rollback plan regardless of count |
-| D: legacy bypass advice in old digest | Historical digest claims a write workaround; policy intent/current wiring not verified | `reject` / `needs_evidence` on exact claim; **never** convert bypass advice into executable guidance |
+| D: legacy bypass advice in old digest | Historical digest claims a write workaround; policy intent/current wiring not verified | `needs_evidence` initially; `reject` only if current policy/source confirms an unsafe bypass. **Never** convert bypass advice into executable guidance |
 
 Scenario D is particularly important: `docs/working/improvement-digest.md`
 includes a historical recommendation about bypass-like write workarounds.
@@ -194,7 +194,7 @@ sealed fixtures or promotion authority that judges it.
 
 | ID | Necessary proof, not merely documentation |
 |---|---|
-| AC-1 | actual agent read of selected seeds/digest captured in a trace + control demonstrating use, while L0/L1 remain authoritative |
+| AC-1 | a trace of actual read at a pinned revision **plus** positive/negative control demonstrating downstream use; read-call presence alone does not prove useful consumption; L0/L1 remain authoritative |
 | AC-2 | old bad advice can be corrected via adopted digest / append-only supersession; raw seeds immutable |
 | AC-2b | bounded read budget, prefilter digest first; if oversized, return explicit truncation / remaining source refs and request targeted read |
 | AC-3 | stable candidate fingerprint + linked prior source/run ids, evidence of re-use on a later run |
