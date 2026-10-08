@@ -1,6 +1,9 @@
 #!/bin/sh
 # PG_EXTRA_CAPABILITY: standalone-capable
-# TA-90 — Context Lifecycle integration contract (#1410).
+# TA-90 — Context Lifecycle integration contract (#1410 / #1429).
+# Residual threat: keyword/negative-grep tests are not semantic parsers.
+# They pin observed regressions (R1 M2/M3/M6/M7) and known trigger lines;
+# novel paraphrases still require independent review.
 
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
   _pg_extra_mode=harness
@@ -61,7 +64,8 @@ fi
 
 if grep -q 'Fresh-context triggers' "$_T90_DOC" &&
    grep -q 'No new .*checkpoint.json' "$_T90_DOC" &&
-   grep -q 'River Review does not own execution-session memory' "$_T90_DOC"; then
+   grep -q 'River Review does not own execution-session memory' "$_T90_DOC" &&
+   ! grep -Eqi 'River Review (does|must|will) own execution-session memory' "$_T90_DOC"; then
   _t90_pass "TC-02 owner, triggers, and no-second-SSoT boundary documented"
 else
   _t90_fail "TC-02 lifecycle boundary text incomplete"
@@ -69,7 +73,8 @@ fi
 
 if grep -q 'worker / agent / model / runtime' "$_T90_WA" &&
    grep -q 'L0 → phase-required L1 → L2/L3 on demand' "$_T90_WA" &&
-   grep -q 'raw chat transcript' "$_T90_WA"; then
+   grep -q 'raw chat transcript' "$_T90_WA" &&
+   ! grep -Eqi 'light.*checkpoint[.]json.*(必須|must|required)' "$_T90_WA"; then
   _t90_pass "TC-03 working-context carries fresh-context transition contract"
 else
   _t90_fail "TC-03 working-context lifecycle contract incomplete"
@@ -95,8 +100,15 @@ else
   _t90_fail "TC-06 context-packager distribution drift"
 fi
 
-if [ ! -e "$_T90_ROOT/schemas/context-checkpoint.schema.json" ] &&
-   [ ! -e "$_T90_ROOT/schemas/context-lifecycle.schema.json" ]; then
+_t90_checkpoint_schema_found=0
+for _t90_candidate in "$_T90_ROOT"/schemas/*checkpoint*.schema.json \
+                      "$_T90_ROOT"/schemas/*context*state*.schema.json; do
+  if [ -e "$_t90_candidate" ] || [ -L "$_t90_candidate" ]; then
+    _t90_checkpoint_schema_found=1
+    break
+  fi
+done
+if [ "$_t90_checkpoint_schema_found" = 0 ]; then
   _t90_pass "TC-07 no duplicate checkpoint/context state schema introduced"
 else
   _t90_fail "TC-07 duplicate checkpoint/context state schema detected"
@@ -112,14 +124,24 @@ fi
 
 if grep -q 'Do not infer that' "$_T90_DOC" &&
    grep -q 'Human-owned PreCompact wiring' "$_T90_DOC" &&
-   grep -q '#938 remains the owner' "$_T90_DOC"; then
+   grep -q '#938 remains the owner' "$_T90_DOC" &&
+   ! grep -Eiq '(is active and enforced|PreCompact (is|already) (active|enforced))' "$_T90_DOC"; then
   _t90_pass "TC-09 staged enforcement and open wait/resume ownership stay explicit"
 else
   _t90_fail "TC-09 staged/open integration status is overstated or missing"
 fi
 
+_t90_must_count="$(sed -n '/^### MUST checkpoint/,/^### SHOULD checkpoint/p' "$_T90_DOC" | grep -Ec '^[1-4][.] ' || true)"
 if grep -q '必須（standard 以上）' "$_T90_WA" &&
    grep -q 'ultra-light / light では上記の「必須」も任意' "$_T90_WA" &&
+   grep -Fq 'MUST checkpoint and restart from canonical state (standard mode and above)' "$_T90_DOC" &&
+   grep -Fq 'For `ultra-light` / `light` tasks these triggers are optional' "$_T90_DOC" &&
+   [ "$_t90_must_count" = 4 ] &&
+   grep -q '^1[.] worker / agent / model / runtime changes;' "$_T90_DOC" &&
+   grep -q '^2[.] an independent reviewer starts;' "$_T90_DOC" &&
+   grep -q '^3[.] a task is handed from implementer to reviewer or between workers;' "$_T90_DOC" &&
+   grep -q '^4[.] execution is intentionally interrupted because of an external wait or usage limit[.]' "$_T90_DOC" &&
+   ! grep -Eqi 'light.*checkpoint[.]json.*(必須|must|required)' "$_T90_DOC" &&
    grep -q 'simple tasks do not gain mandatory ceremony' "$_T90_DOC"; then
   _t90_pass "TC-10 mandatory checkpoints are mode-scoped consistent with §8"
 else
