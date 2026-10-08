@@ -70,6 +70,34 @@ profile `max_context_policy` を読み、**mode 由来と profile 由来の保�
 （compact<standard<expanded の小さい方）を採用する（profile 方針と矛盾
 させない / V-3 MJ-1）。PyYAML 不在・profile 未定義時は mode 由来のみ。
 
+## 3-a. 動的コンテキストの段階的取得（search-first / opt-in）
+
+Context Engine の `dynamic_context` は **取得候補の記述子**であり、実際のファイル内容を
+自動取得・圧縮・注入しない。以下は呼び出し側が候補を解決する際の**推奨手順**で、
+新しい CLI 契約・強制ゲート・固定トークン閾値ではない。
+
+1. **対象を確定**: 現在の Goal / phase / allowed files と、答えるべき質問を特定する。
+   セッション再開時は working-context の **L0（INDEX.md → current-state.md）と
+   phase-required L1 を先に読む**。PBI / 承認済 Plan / test-cases / c3.json など
+   `contract_context` の取得・有効性確認をこの手順で代替しない。
+2. **候補を絞る**: リポジトリ内のコード・補助資料など **dynamic な working set** について、
+   まずパス一覧・ファイル名・シンボル・キーワード（例: `git ls-files`、
+   `rg --files`、`rg -n '<symbol>' <scoped-path>`）で関係する位置を探す。
+   **大量ファイルの全内容や巨大ログを、探索前に一括で読み込まない**。
+3. **必要範囲を読む**: 候補の該当行・周辺・関連する定義を読み、質問への十分性を確認する。
+   取得した行の前後関係、呼び出し元/先、設定/型/仕様が必要なら対象を広げる。
+4. **検証に必要な範囲は省略しない**: 変更後の振る舞いに関係するテスト、契約、
+   セキュリティ境界、エラーパス、review evidence は必ず確認する。
+   `docs/` や `tests/` を一律 `deny` して節約しない。
+5. **不足を明示する**: 検索不一致、アクセス不能、証跡欠損、未確認の依存関係は
+   「存在しない・安全・PASS」とみなさない。検索語・探索範囲を見直して拡張し、
+   必要な契約・検証情報が取得できなければ未検証として停止/エスカレーションする。
+
+段階的取得は **L0→L1→L2/L3 on demand** のうち補助的な検索・読み取りを効率化する
+ものであり、承認・Plan 束縛・Evidence・独立 Reviewer の責務を短絡しない。
+別モデル/worker/reviewer への引き継ぎは
+[Context Lifecycle](./context-lifecycle.md) の checkpoint → fresh-context を適用する。
+
 ## 4. stale plan / stale C-3 と Hook / validate の整合
 
 **EH-3（plan_hash 改竄検知）と矛盾しない**ことを保証する:
