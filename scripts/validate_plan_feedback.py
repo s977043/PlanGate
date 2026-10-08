@@ -37,14 +37,14 @@ def _exact_mapping(obj, fields, name):
     return obj
 
 
-def _source_digest(payload, label, filename, path):
+def _source_digest(payload, label, filename, path, raw=None):
     obj = _exact_mapping(payload, ("path", "sha256"), "source " + label)
     if obj["path"] != filename:
         raise ValueError("invalid source path for " + label)
     expected = obj["sha256"]
     if not isinstance(expected, str) or not SHA256_RE.fullmatch(expected):
         raise ValueError("invalid source SHA-256 for " + label)
-    actual = hashlib.sha256(_read(path)).hexdigest()
+    actual = hashlib.sha256(_read(path) if raw is None else raw).hexdigest()
     if not hmac.compare_digest(expected, actual):
         raise ValueError("stale source SHA-256: " + label)
 
@@ -93,7 +93,7 @@ def validate_feedback(work_dir, task_id, feedback_file):
     questions_path = os.path.join(work_dir, "review-questions.json")
     # Validate the same raw questions file for both integrity and schema.
     qbytes = _read(questions_path, 131072)
-    _source_digest(src["questions"], "questions", "review-questions.json", questions_path)
+    _source_digest(src["questions"], "questions", "review-questions.json", questions_path, qbytes)
     questions = _questions(qbytes)
     definitions = {q["id"]: q for q in questions}
 
