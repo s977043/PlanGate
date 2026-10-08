@@ -130,7 +130,7 @@ _t90_block() {
 # extra [FAIL] lines), first 20 differing lines.
 _t90_show_diff() {
   { printf '%s\n' "$1"; printf '%s\n' '@@T90-ACTUAL@@'; printf '%s\n' "$2"; } |
-    awk '
+    LC_ALL=C awk '
       !a && $0 == "@@T90-ACTUAL@@" { a = 1; next }
       !a { e[++ne] = $0; next }
       { g[++ng] = $0 }
