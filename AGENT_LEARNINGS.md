@@ -46,6 +46,16 @@
 
 ## 学び
 
+- [2026-10-08] Edit 後の整形で既存 `.md` の無関係な箇所まで変わったら、自分の hunk だけを stage する
+  - 事実: #1495 で `docs/ai/ai-loop-v2/ratchet-traceability.md` を 1 行編集したところ、Edit 後に走る整形が無関係な表の桁揃えまで変え、作業ツリーの差分が 18 行に膨らんだ（`git diff --stat` の作業中の観測値。整形差分は commit していないので履歴には残らない）。原本へ python や Bash の文字列置換で入れ直すと、書き込みが Edit/Write を通らず EH-3 の記録から外れる（下の 2026-08-04 の項の「Bash 直書き」と同じ扱いになる）
+  - 再利用条件: `git diff -U0 --output=<patch> -- <path>` で差分を書き出し、先頭 4 行（`diff` / `index` / `---` / `+++`）と、自分の hunk の `@@` 行から次の `@@` の直前までを別の patch に切り出す。`git apply --cached --unidiff-zero <patch>` で stage する（`-U0` の patch なので `--unidiff-zero` が無いと適用できない）。`git diff --cached` で確かめてから commit する。作業ツリーに残る整形差分は commit せず、破棄はユーザーに確認してから worktree ごと行う
+  - 根拠: #1495 の `207715dc`（commit された docs の差分は +1/-1 のみ）。手順は 2 hunk の差分から 1 hunk だけを stage できることを一時 repo で再現済み
+
+- [2026-10-08] push の直後に `gh pr checks --watch` を実行すると、CI を待たずに失敗する
+  - 事実: #1495 に push した直後に `gh pr checks 1495 --watch` を実行したところ、チェックがまだ登録されておらず `no checks reported on the '<branch>' branch` を出して exit 1 で終わった。CI を待つバックグラウンド処理が、CI の結果と無関係に「failed」で返った
+  - 再利用条件: `gh pr view <n> --json statusCheckRollup --jq '.statusCheckRollup | length'` が 0 より大きくなるまで待ってから `--watch` する。待機はスクリプトファイルにしてバックグラウンドで実行する。watch の exit code だけで判定せず、完了後に conclusion と head SHA を照合する。0 件のまま merge-ready と扱わない点は、下の 2026-09-25 の項と同じ
+  - 根拠: 2026-10-08 の #1495（push `0ce5eb9f`）。出力と exit code はセッション中のバックグラウンド実行の観測値で、PR 側には残らない。チェック登録後は同じコマンドが rc=0 で終わることを確認済み
+
 - [2026-09-09] 重複回避の探索範囲は「追記先のディレクトリ」ではなく「その規律が属する領域全体」
   - 事実: 「bot レビューが quota 超過のときはマージ可能と報告しない」を `docs/ai/subagent-delegation/behavior-norms.md` へ新規追記したが、**同じインシデント（外部 bot レビュアーの daily quota 切れで 6 本 30% が実質ノーレビューのままマージ）から作られた正本 `docs/ai/reviewer-silence-fallback.md` が既に存在**した。私は追記先ディレクトリ配下しか grep せず「無かった」と判断していた
   - 再利用条件: 規律を新規追記する前に、**その規律の主題語**（今回なら `quota` / `unavailable` / `fallback` / `レビュア`）で `docs/` 全体を grep する。既存があれば新規追加せずリンクで接続する（同じ規律が 2 箇所に分裂すると将来乖離する）
@@ -203,3 +213,13 @@
   - 事実: 各 PR の head を直接 `git merge-tree --write-tree --merge-base=origin/main A B` で比べると、base が古いブランチでは main 側の変更が「削除」として現れ、40 組以上の偽の衝突が出た。正しい方法で測った実数は 1 組だった。また zsh では `arr=($list)` が改行で分割されず、比較が 0 組のまま「衝突 0」と出た
   - 再利用条件: 各 PR について `git merge-tree --write-tree origin/main origin/<head>` の tree から commit を作り（`git commit-tree -p origin/main`）、その commit どうしを `--merge-base=origin/main` で比べる。配列のループは `bash -c` と `mapfile` で書き、比較した組数（n(n-1)/2）を出力して照合する。既知の衝突 1 組を陽性コントロールにする
   - 根拠: 2026-09-25 の open PR 14 本の横断検査（#1404 × #1405 の `tests/extras/ta-05-validate-schemas.sh`）
+
+- [2026-10-07] tag の直前の測り直しから tag を切るまでは、main への merge を凍結する
+  - 事実: v8.23.0 で、収録範囲を #1494 で締めると決めた後に #1493 が merge された。リリースノート PR #1498 の merge 後にも、#1497（`bin/plangate` の既定の対象 repo の変更）と #1499 が merge された。TAG-MAIN PARITY（tag は main の先頭に打つ）があるため、merge された PR は「締め切り」に関係なく収録される。その結果、CHANGELOG と semver の材料をそのたびに測り直した。#1497 は Stable core の `doctor` の挙動を変えたので、semver の再判定も必要になった
+  - 再利用条件: リリースノートの最終測定を始める時点で、Human に main への merge の凍結を提案し、Human が決定したら並行セッションへ周知する。tag と parity の確認が終わったら解除を通知する。「#NNNN で締める」という範囲の決定は、凍結と組み合わせないと成立しない
+  - 根拠: #1493 / #1497 / #1498 / #1499、`docs/working/_merge/v8.23.0-release-runbook.md` §1-3b / §1-3d
+
+- [2026-10-07] 確認ダイアログを増やさない Bash の書き方と、許可リストの作り方
+  - 事実: 連結コマンド（`&&` `;` `|` など）は、各部分がそれぞれ許可ルールに一致しないと確認が出る。別ディレクトリへの `cd` と `git` の組み合わせは、両方が読み取り専用でも確認が出る。また、会話記録（JSONL）には拒否された呼び出ししか残らず、承認した確認は記録されない。そのため、過去の記録から実績ベースの許可リストは作れなかった
+  - 再利用条件: Bash は `git -C <path>` と絶対パスを使い、連結しない単純なコマンドを 1 つずつ実行する。分割したら、各呼び出しの exit code と出力を確かめてから次を実行する。前段の失敗を見落とせない処理（commit → push など）は `set -e` 付きのスクリプトファイルにまとめて 1 回で呼び、push 前の branch の確認は省かない（`.claude/rules/responsibility-classes.md` の error guard 節）。許可リストは推測で作らない。Human が確認ダイアログで「Yes, and don't ask again」を選ぶ（`.claude/settings.local.json` に保存される）か、`PermissionRequest` hook で記録した実績から作る。AI は `.claude/settings*.json` を編集しない（HO）
+  - 根拠: [Configure permissions](https://code.claude.com/docs/en/permissions)（Compound commands / read-only commands）、[Hooks reference](https://code.claude.com/docs/en/hooks)（PermissionRequest）

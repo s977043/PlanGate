@@ -69,6 +69,21 @@ scope: project
 
 `source_set_digest` is recomputed from stable failure-instance tuples. A Candidate cannot self-attest the source set.
 
+### Expected prevention claim
+
+A Candidate that enters this Ratchet slice must make its prevention claim structurally explicit:
+
+```yaml
+expected_prevention:
+  mode: detect | prevent | stop | reduce_impact
+  pattern_refs: [pattern:...]
+  expected_effect: ...
+```
+
+The current `pattern_snapshot.pattern_id` must appear exactly once in a non-empty `pattern_refs` set, every ref must be a non-blank string, `mode` must be a string from the list above, and `expected_effect` must be non-empty. Missing, mistyped or mismatched claims are `INCONCLUSIVE / EXPECTED_PREVENTION_BINDING`. Refs other than the current pattern are recorded as part of the claim only; their existence and `pattern:` form are not validated.
+
+This binding proves only **what the Candidate claims it will improve**. It is not evidence that the change works. Paired replay, known mutants, negative controls, activation, and independent evaluation remain the effectiveness evidence.
+
 ## Evaluation plan authority
 
 The evaluation plan is supplied to the evaluator separately from the Candidate.
@@ -201,6 +216,7 @@ INCONCLUSIVE
 - a source RunEvent that is not `failure_recorded`, has a different `run_id`, carries a different FailureRecord payload, or disagrees with RunEvidence on `harness_manifest_ref` (`SOURCE_FAILURE_BINDING`)
 - a source `run_id` that differs from its RunEvidence `run_id` (`SOURCE_FAILURE_BINDING`)
 - a pattern snapshot missing `pattern_id` / `pattern_version` / `classifier_digest` / `source_set_digest` (`PATTERN_SNAPSHOT_INCOMPLETE`)
+- a missing or invalid `expected_prevention`, unsupported prevention mode, duplicate/missing current pattern ref, or empty expected effect (`EXPECTED_PREVENTION_BINDING`)
 - a sealed plan that does not pin the digests of the known-bad, negative-control, and known-mutant fixtures (`EVALUATION_PLAN_INCOMPLETE`)
 - a missing, empty, duplicate, or unsealed known-mutant set (`EVALUATION_PLAN_INCOMPLETE`)
 
@@ -288,6 +304,7 @@ The vertical slice verifies:
 - evaluator-owned plan digest
 - immutable source provenance, including owner-validated RunEvent content binding
 - source-set digest
+- Candidate expected-prevention claim binding (claim != effectiveness evidence)
 - evaluator-observed delta
 - sealed fixture integrity
 - protected-surface fail-closed
