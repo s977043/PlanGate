@@ -83,14 +83,19 @@
   for the proposal; no executable gate or real ledger record generated.
 - **G-3 / Real failure case**: #1525 / PR #1526 demonstrate observed
   TA-114 collision detected by pre-existing deterministic TC-20.
-  Avoid a duplicate memory rule. Until exact-head CI passes and later
-  recurrence evidence exists, this is a *candidate*, not validated
-  prevention. PASS for proposal quality; effectiveness is NOT PROVEN.
+  PR #1526 passed all four workflow checks on exact head
+  `88f4c39c4720540c31b4051be86ecdd0b3494946` and was subsequently
+  merged as fixed `main` `5c1651abe3a15a661a453672fb9d4e841761aeaf`.
+  Avoid a duplicate memory rule; long-term recurrence improvement is
+  still NOT PROVEN. PASS for proposal quality and single fix verification,
+  **not** an adopted Memory Promotion decision.
 
-The CI result for planning PR #1522 itself may remain failing until
-its inherited TC-20 collision on main is resolved, and its **own**
-exact-head checks complete successfully after reconciliation. Do not
-waive or misclassify the failing Test as a PASS.
+The previous Test on planning PR #1522's old head conclusively failed
+with TC-20 duplicate TA-114 (`1517 passed / 1 failed`). Its underlying
+cause is now fixed on main, but that historical run is **still FAIL**:
+do not relabel it. Check a new workflow run against the updated main
+merge ref and pin the exact PR head. Do not infer quality from #1526
+passing on a different commit.
 
 ## Merge meaning
 
