@@ -106,13 +106,15 @@ These requirements are not discharged merely by authoring Gate documentation:
 
 ## Proposed one-line HO patch (NOT APPLIED)
 
-Append one responsibility classification example under the current 4-class table
-**only after Human C-3, by the Human-owned execution path**:
+Proposed **one new bullet** under `## 境界の原則` in
+`.claude/rules/responsibility-classes.md` (NOT a fifth row in the
+four-class table; do not change that table), **only after Human C-3
+and by the Human-owned execution path**:
 
-`| Memory Promotion Gate（Rule / Skill / Hook への恒久昇格） | AI-owned: 候補・Evidence・差分案の作成 / CI-owned: contract 検証 / Workflow-owned: 承認待ち追跡 / Human-owned: 高リスク昇格判断・HO実適用・C-4/merge |`
+`- Memory Promotion Gate: AI-owned は知見候補・Evidence・差分案の作成、CI-owned は契約検証、Workflow-owned は承認待ち追跡。高リスクまたは恒久的な Rule / Skill / Hook 昇格判断、HO 実適用、C-4 / merge は Human-owned。`
 
-The exact wording must be reviewed for table structure / links and accepted at G1;
-this line is a **proposal**, not the currently operative policy.
+This is precisely a suggested one-line insertion for the Human to
+approve/reword at G1, **not current policy**; AI must not apply it.
 
 ## Decision / remaining unknowns
 
