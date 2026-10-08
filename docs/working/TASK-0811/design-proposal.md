@@ -115,7 +115,13 @@ Always return `candidate_id`, `decision`, `reason_codes[]`,
 `rationale`, `evidence_refs[]`, `target_ref` or `null`,
 `scope`, `conditions[]`, `human_review_required`,
 `canary_plan_ref` or `null`, `rollback_ref` or `null`,
-`revalidate_at` or `null`.
+`revalidate_at` or `null`. The record additionally identifies
+`candidate_revision` and `decision_record_id` for later provenance;
+for a **proposal**, `approval_authority_ref` and `applied_artifact_ref`
+are `null`. They become non-null only after verifying the **actual**
+existing Human / policy authority record and the independently observed
+applied revision. A claimed `actor` string or model name never
+authenticates a Human decision.
 
 **Fail-closed**: missing source, scope, revision or permission cannot
 produce an actionable `approve`. `needs_human_review` is not approval.
@@ -145,7 +151,7 @@ schema described here / eventually in canonical doc). Empty committed log
 does not mean any Gate decision occurred.
 
 ```json
-{"candidate_id":"memory-promotion-2026-001","record_type":"proposal","decision":"needs_human_review","reason_codes":["HUMAN_AUTHORITY_REQUIRED"],"reason":"Hook scope expansion","evidence_refs":["issue-or-commit-ref"],"promoted_to":null,"model":"model-id-if-known","evidence_count":1,"human_intervention":false,"canary_scope":null,"before":null,"after":null,"rollback_count":0,"revalidate_at":null,"actor":"agent-or-human-id","recorded_at":"2026-10-08T09:00:00+09:00"}
+{"candidate_id":"memory-promotion-2026-001","candidate_revision":"proposal-revision-1","decision_record_id":"proposal-001","record_type":"proposal","decision":"needs_human_review","reason_codes":["HUMAN_AUTHORITY_REQUIRED"],"rationale":"Hook scope expansion","evidence_refs":["issue-or-commit-ref"],"target_ref":null,"scope":"project","conditions":["explicit Human approval"],"human_review_required":true,"canary_plan_ref":null,"rollback_ref":null,"promoted_to":null,"model":"model-id-if-known","evidence_count":1,"human_intervention":false,"canary_scope":null,"before":null,"after":null,"rollback_count":0,"revalidate_at":null,"actor":"agent-or-human-id","approval_authority_ref":null,"applied_artifact_ref":null,"recorded_at":"2026-10-08T09:00:00+09:00"}
 ```
 
 Record `record_type=proposal` is not an accepted Human decision.
@@ -156,6 +162,14 @@ canary scope and effective revision. The Trust Ledger is evidence of
 check the external artifact and matching SHA. Never backdate a proposed
 decision as Human-approved. Changes / retractions are additional
 append-only records referencing the superseded ID; do not edit history.
+
+An append-only text file and Git history do **not** authenticate the
+`actor` nor make the log tamper-proof. The consuming gate must independently
+verify any approval against the applicable trusted Human/CI/Workflow
+source, target revision and allowed scope; missing, inconsistent or
+spoofable approval refs remain `needs_human_review`. If a source is
+private, persist only a source reference permitted by its ACL: a public
+audit log must never contain private excerpts or access tokens.
 
 ## 7. Canary, effect measurement, rollback
 
