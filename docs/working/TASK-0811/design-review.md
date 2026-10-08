@@ -97,6 +97,32 @@ do not relabel it. Check a new workflow run against the updated main
 merge ref and pin the exact PR head. Do not infer quality from #1526
 passing on a different commit.
 
+## Current-main reconciliation: three review/adaptation loops (2026-10-08)
+
+1. **検討 → evidence review → correction → review**: The previous
+   #1522 Test failure was reproduced in the exact failed job log:
+   `ta-61-extra-contract.sh` TC-20 detected duplicate numeric ID 114
+   (1517 passed, 1 failed). Compare against `main` and #1526: duplicate
+   TA-114 was already present before this documentation PR. **Adapted**
+   the proposal to cite the merged PR #1526 and issue #1525 closed.
+   Final review: no false claim that historical FAIL was PASS.
+2. **検討 → owner/security review → correction → review**: Validate
+   `main` at `5c1651abe3a15a661a453672fb9d4e841761aeaf`; the current
+   planning PR still adds only four `docs/working/TASK-0811/*`
+   proposal/tracking files. **Adapted** Git/revision disclosure and
+   maintained the unapproved `plan-proposal.md` path. Final review:
+   no change to HO, Hook, production rule, runtime, canonical Plan or
+   approval authority. This is NOT independent Human C-3/C-4 review.
+3. **検討 → acceptance/CI review → correction → review**: Merge of
+   #1526 does not retroactively repair the historical #1522 Test.
+   **Adapted** `todo.md` to require this PR's latest-head Test +
+   CI + CodeQL + Issue Link on the current merged base and the separate
+   Human-owned C-4 decision. Final review: PASS for documentary
+   truthfulness and bounded changes; **CI/approval may remain pending**.
+
+Do not count these self-review loops as the future 17-item C-1
+independent review or as proof of #1157's real cross-run seed usage.
+
 ## Merge meaning
 
 This preparatory PR may be considered only as a **non-authoritative
