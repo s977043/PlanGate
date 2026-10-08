@@ -83,6 +83,33 @@ Review finding status.
 python3 -m unittest discover -s tests -p test_review_questions.py
 ~~~
 
+## Optional local feedback validation (#1533)
+
+An exported JSON file is untrusted until checked against the **current**
+task files. Run the standalone validator before discussing its contents:
+
+~~~sh
+python3 scripts/validate_plan_feedback.py --task TASK-XXXX \
+  --feedback docs/working/TASK-XXXX/TASK-XXXX-review-feedback.json
+~~~
+
+You may pass `--work-dir PATH` if the task folder is elsewhere. Success
+prints `VALID_REVIEW_FEEDBACK` with answer counts and explicit
+`approval_granted: false`; errors exit 2 and produce no success JSON.
+
+Validation requires exact source SHA-256 hashes and question IDs. It
+rejects unsupported fields, duplicate JSON properties, missing answers,
+malformed statuses, forged approval, and stale or symlinked source files.
+Choices must match the local question definitions. Deferred answers
+require a reason; unanswered entries must remain empty.
+
+Source hash matching proves file freshness at validation time, **not**
+reviewer identity or authorization. This validator does not import or
+write feedback, modify PlanGate C-3 approval, or change River Review gate.
+
+~~~sh
+python3 -m unittest discover -s tests -p test_validate_plan_feedback.py -v
+~~~
 ## Follow-ups
 
 See River Review #2577 for optional validator/importer and read-only
