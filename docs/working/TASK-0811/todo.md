@@ -15,7 +15,8 @@ Memory Promotion Gate.
 - [x] Prepare `plan-proposal.md` (non-canonical pre-C-3) and `design-proposal.md` (non-canon)
 - [x] Complete three AI self-review/adaptation loops on PR #1522, recorded in `design-review.md` (not independent C-4 approval)
 - [x] Define Git's evidence / source revision / PR and merged SHA role in non-canon `design-proposal.md` §9, plus three additional Git-boundary self-review passes
-- [ ] Confirm latest-head CI/links/mergeability. Existing Test failure on this docs-only PR was traced to inherited duplicate TA-114; separate fix PR #1526 / issue #1525 (all checks must pass on the relevant final head). C-4 is Human-owned
+- [x] Reconcile current `main` (`5c1651abe3a15a661a453672fb9d4e841761aeaf`): TA-114 collision fix PR #1526 merged, issue #1525 closed, four fix-head checks green; historical PR #1522 Test failure is still a FAIL.
+- [ ] Confirm **this PR's own latest-head checks** include Test PASS against the fixed merged base, Issue Link, CodeQL, CI, mergeability and independent review. Do not borrow #1526's green Test. C-4 is Human-owned
 
 ## Unresolved blockers and next actions
 
