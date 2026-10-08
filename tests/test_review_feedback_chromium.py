@@ -101,10 +101,13 @@ class ChromiumPlanFeedbackTest(unittest.TestCase):
 """.replace("__NOTE__", '""' if invalid else '"Need evidence"')
         test_page = self.page.read_text(encoding="utf8").replace("</body></html>", script + "</body></html>")
         self.page.write_text(test_page, encoding="utf8")
-        cmd = [self.browser, "--headless", "--no-sandbox", "--disable-gpu",
+        cmd = [self.browser, "--headless", "--disable-gpu",
                "--disable-dev-shm-usage", "--disable-background-networking",
                "--no-first-run", "--no-default-browser-check",
                "--virtual-time-budget=3000", "--dump-dom", self.page.as_uri()]
+        # Only root requires --no-sandbox. Keep Chrome sandboxing enabled on CI.
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            cmd.insert(2, "--no-sandbox")
         proc = subprocess.run(cmd, capture_output=True, text=True, check=False,
                               timeout=30, env={**os.environ, "HOME": str(self.dir)})
         self.assertEqual(proc.returncode, 0, proc.stderr[-3000:])
