@@ -25,6 +25,8 @@ import os
 import re
 import sys
 
+from review_questions import render_review_questions
+
 # C-3 対象 7 種（表示順）
 C3_ARTIFACTS = [
     ("pbi-input.md", "PBI INPUT PACKAGE"),
@@ -422,7 +424,7 @@ def build_perspective_nav(all_headings):
     return '<nav class="perspectives"><strong>承認観点ナビ</strong>' + "".join(items) + "</nav>"
 
 
-def build_html(task_id, sections, perspective_nav=""):
+def build_html(task_id, sections, perspective_nav="", feedback_widget=""):
     toc = "".join('<a href="#%s">%s</a>' % (sid, html.escape(title)) for sid, title, _ in sections)
     body = []
     for sid, title, content in sections:
@@ -440,8 +442,9 @@ def build_html(task_id, sections, perspective_nav=""):
 <nav class="toc"><strong>目次</strong>%s</nav>
 %s
 %s
+%s
 </div></body></html>
-""" % (html.escape(task_id), CSS, html.escape(task_id), toc, perspective_nav, "\n".join(body))
+""" % (html.escape(task_id), CSS, html.escape(task_id), toc, perspective_nav, feedback_widget, "\n".join(body))
 
 
 def main():
@@ -480,9 +483,14 @@ def main():
         return 1
 
     perspective_nav = build_perspective_nav(all_headings)
+    try:
+        feedback_widget = render_review_questions(work_dir, args.task)
+    except (ValueError, OSError) as exc:
+        sys.stderr.write("error: invalid review questions: %s\n" % exc)
+        return 2
     out = args.out or os.path.join(work_dir, "%s-c3-review.html" % args.task)
     with open(out, "w", encoding="utf-8") as f:
-        f.write(build_html(args.task, sections, perspective_nav))
+        f.write(build_html(args.task, sections, perspective_nav, feedback_widget))
     sys.stdout.write("rendered %d artifact(s) -> %s\n" % (found, out))
     return 0
 
