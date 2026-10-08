@@ -203,3 +203,13 @@
   - 事実: 各 PR の head を直接 `git merge-tree --write-tree --merge-base=origin/main A B` で比べると、base が古いブランチでは main 側の変更が「削除」として現れ、40 組以上の偽の衝突が出た。正しい方法で測った実数は 1 組だった。また zsh では `arr=($list)` が改行で分割されず、比較が 0 組のまま「衝突 0」と出た
   - 再利用条件: 各 PR について `git merge-tree --write-tree origin/main origin/<head>` の tree から commit を作り（`git commit-tree -p origin/main`）、その commit どうしを `--merge-base=origin/main` で比べる。配列のループは `bash -c` と `mapfile` で書き、比較した組数（n(n-1)/2）を出力して照合する。既知の衝突 1 組を陽性コントロールにする
   - 根拠: 2026-09-25 の open PR 14 本の横断検査（#1404 × #1405 の `tests/extras/ta-05-validate-schemas.sh`）
+
+- [2026-10-07] tag の直前の測り直しから tag を切るまでは、main への merge を凍結する
+  - 事実: v8.23.0 で、収録範囲を #1494 で締めると決めた後に #1493 が merge された。リリースノート PR #1498 の merge 後にも、#1497（`bin/plangate` の既定の対象 repo の変更）と #1499 が merge された。TAG-MAIN PARITY（tag は main の先頭に打つ）があるため、merge された PR は「締め切り」に関係なく収録される。その結果、CHANGELOG と semver の材料をそのたびに測り直した。#1497 は Stable core の `doctor` の挙動を変えたので、semver の再判定も必要になった
+  - 再利用条件: リリースノートの最終測定を始める時点で、Human に main への merge の凍結を提案し、Human が決定したら並行セッションへ周知する。tag と parity の確認が終わったら解除を通知する。「#NNNN で締める」という範囲の決定は、凍結と組み合わせないと成立しない
+  - 根拠: #1493 / #1497 / #1498 / #1499、`docs/working/_merge/v8.23.0-release-runbook.md` §1-3b / §1-3d
+
+- [2026-10-07] 確認ダイアログを増やさない Bash の書き方と、許可リストの作り方
+  - 事実: 連結コマンド（`&&` `;` `|` など）は、各部分がそれぞれ許可ルールに一致しないと確認が出る。別ディレクトリへの `cd` と `git` の組み合わせは、両方が読み取り専用でも確認が出る。また、会話記録（JSONL）には拒否された呼び出ししか残らず、承認した確認は記録されない。そのため、過去の記録から実績ベースの許可リストは作れなかった
+  - 再利用条件: Bash は `git -C <path>` と絶対パスを使い、連結しない単純なコマンドを 1 つずつ実行する。分割したら、各呼び出しの exit code と出力を確かめてから次を実行する。前段の失敗を見落とせない処理（commit → push など）は `set -e` 付きのスクリプトファイルにまとめて 1 回で呼び、push 前の branch の確認は省かない（`.claude/rules/responsibility-classes.md` の error guard 節）。許可リストは推測で作らない。Human が確認ダイアログで「Yes, and don't ask again」を選ぶ（`.claude/settings.local.json` に保存される）か、`PermissionRequest` hook で記録した実績から作る。AI は `.claude/settings*.json` を編集しない（HO）
+  - 根拠: [Configure permissions](https://code.claude.com/docs/en/permissions)（Compound commands / read-only commands）、[Hooks reference](https://code.claude.com/docs/en/hooks)（PermissionRequest）
