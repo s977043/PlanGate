@@ -504,7 +504,7 @@ def _evaluate_verification_skipped(bundle, sealed_plan, *, repository_observatio
         or not isinstance(pattern_refs, list)
         or not pattern_refs
         or not all(isinstance(ref, str) and ref.strip() for ref in pattern_refs)
-        or len(set(pattern_refs)) != len(pattern_refs)
+        or len({ref.strip() for ref in pattern_refs}) != len(pattern_refs)
         or pattern.get("pattern_id") not in pattern_refs
         or not isinstance(expected_prevention.get("expected_effect"), str)
         or not expected_prevention["expected_effect"].strip()
