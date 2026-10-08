@@ -15,8 +15,11 @@
 #   rule for "all modes" that never says light, "required" instead of 必須, "送付"
 #   instead of 添付, "会話ログ全文" instead of transcript); claims in files this test
 #   does not read; claims that never name PreCompact or River Review; schemas whose
-#   names miss every TC-07 glob (checkpoint / context*state / lifecycle / snapshot /
-#   session).
+#   names miss every TC-07 pattern (checkpoint / context*state / lifecycle / snapshot /
+#   session); non-ASCII homoglyphs and full-width letters in anchor words (the
+#   normalization drops them, e.g. Cyrillic "а" in PreCompаct or ＰｒｅＣｏｍｐａｃｔ);
+#   sentences cut by an in-sentence ". " (cf. / approx. / v2.), which splits the anchor
+#   and the claim into separate sentences.
 # - Guarantor of semantic correctness is C-4 Human review; this file is one layer of
 #   defense in depth, not a completeness claim.
 
@@ -69,6 +72,7 @@ _T90_UPDATE_HINT="if the text was changed on purpose, review it at C-4 and updat
 # Exact-sentence allowlists (sentences as produced by _t90_sentences).
 _T90_ALLOW_RR_MEMORY='**River Review does not own execution-session memory'
 _T90_ALLOW_CPJSON_DOC='No new `checkpoint.json`, Context Manifest, or RunState is introduced by this policy.'
+_T90_ALLOW_LIGHT_DOC='For `ultra-light` / `light` tasks these triggers are optional (see §8: simple tasks do not gain mandatory ceremony)'
 _T90_ALLOW_LIGHT_SKILL='ultra-light / light では上記の「必須」も任意とする。`docs/ai/context-lifecycle.md` §8 （simple tasks do not gain mandatory ceremony）を満たすため、既存の working-context ファイル以上の checkpoint を簡易タスクへ課さない。'
 _T90_ALLOW_TRANSCRIPT='- **生の会話履歴（raw transcript）は packet に含めず、受け手にも渡さない**。受け手は canonical state（`INDEX.md` → `current-state.md` → phase-required L1）から fresh context で再開する（Context Lifecycle: `docs/ai/context-lifecycle.md`。導入先で解決できなくても本ルールは維持する）'
 
@@ -112,9 +116,36 @@ _t90_doc_s3() {
   awk '/^## 3\./ { f = 1; next } /^## / { f = 0 } f' "$_T90_DOC" 2>/dev/null
 }
 
-# §3 MUST block: from the MUST heading up to (not including) the next heading.
+# Pinned block of stdin: from the first heading line starting with $1 up to (not
+# including) the next heading of the same or a higher level (#### etc. stay inside).
+_t90_block() {
+  awk -v h="$1" '
+    f && /^#+[[:space:]]/ { match($0, /^#+/); if (RLENGTH <= lvl) { f = 0; done = 1 } }
+    !f && !done && index($0, h) == 1 { f = 1; match($0, /^#+/); lvl = RLENGTH }
+    f
+  '
+}
+
+# Expected vs actual block for a failing pin: indented detail lines on stderr (no
+# extra [FAIL] lines), first 20 differing lines.
+_t90_show_diff() {
+  { printf '%s\n' "$1"; printf '%s\n' '@@T90-ACTUAL@@'; printf '%s\n' "$2"; } |
+    awk '
+      !a && $0 == "@@T90-ACTUAL@@" { a = 1; next }
+      !a { e[++ne] = $0; next }
+      { g[++ng] = $0 }
+      END {
+        n = (ne > ng ? ne : ng); shown = 0
+        for (i = 1; i <= n && shown < 20; i++) if (e[i] != g[i]) {
+          printf "    line %d expected: %s\n    line %d actual:   %s\n", i, e[i], i, g[i]; shown++
+        }
+      }
+    ' >&2
+}
+
+# §3 MUST block: from the MUST heading up to the next heading of level <= 3.
 _t90_must_block() {
-  _t90_doc_s3 | awk '/^### MUST/ { f = 1; print; next } /^#/ { f = 0 } f'
+  _t90_doc_s3 | _t90_block '### MUST'
 }
 
 _t90_expect_must_block() {
@@ -131,9 +162,9 @@ gain mandatory ceremony). The same rule is stated in the `working-context` skill
 EOF
 }
 
-# §7 PreCompact subsection: from its heading up to (not including) the next heading.
+# §7 PreCompact subsection: from its heading up to the next heading of level <= 3.
 _t90_precompact_section() {
-  awk '/^### PreCompact memory guard/ { f = 1; print; next } /^#/ { f = 0 } f' "$_T90_DOC" 2>/dev/null
+  { _t90_block '### PreCompact memory guard' < "$_T90_DOC"; } 2>/dev/null
 }
 
 _t90_expect_precompact_section() {
@@ -159,9 +190,9 @@ the Human-owned PreCompact wiring is active from this document.** Its enforcemen
 EOF
 }
 
-# working-context trigger block: from its heading up to (not including) the next heading.
+# working-context trigger block: from its heading up to the next heading of level <= 3.
 _t90_wc_trigger_block() {
-  awk '/^### checkpoint → fresh context の trigger/ { f = 1; print; next } /^#/ { f = 0 } f' "$_T90_WA" 2>/dev/null
+  { _t90_block '### checkpoint → fresh context の trigger' < "$_T90_WA"; } 2>/dev/null
 }
 
 _t90_expect_wc_trigger_block() {
@@ -199,15 +230,18 @@ fi
 
 _t90_rr_bad="$({ _t90_sentences "$_T90_DOC" | _t90_anchor riverreview | _t90_anchor memory |
   grep -v -x -F -e "$_T90_ALLOW_RR_MEMORY"; } || true)"
+_t90_must_act="$(_t90_must_block)"
+_t90_must_exp="$(_t90_expect_must_block)"
 if [ -r "$_T90_DOC" ] &&
    grep -q 'Fresh-context triggers' "$_T90_DOC" &&
-   [ "$(_t90_must_block)" = "$(_t90_expect_must_block)" ] &&
+   [ "$_t90_must_act" = "$_t90_must_exp" ] &&
    _t90_doc_s3 | grep -q '^### SHOULD' &&
    _t90_sentences "$_T90_DOC" | grep -q -x -F -e "$_T90_ALLOW_RR_MEMORY" &&
    [ -z "$_t90_rr_bad" ]; then
   _t90_pass "TC-02 owner, triggers, and no-second-SSoT boundary documented"
 else
   _t90_fail "TC-02 MUST block differs from _t90_expect_must_block, or River Review+memory sentences other than _T90_ALLOW_RR_MEMORY: [$_t90_rr_bad] ($_T90_UPDATE_HINT)"
+  if [ "$_t90_must_act" != "$_t90_must_exp" ]; then _t90_show_diff "$_t90_must_exp" "$_t90_must_act"; fi
 fi
 
 if grep -q 'worker / agent / model / runtime' "$_T90_WA" 2>/dev/null &&
@@ -239,11 +273,12 @@ else
 fi
 
 # RunState / Context Manifest are not globbed: #1025 may legitimately add them.
-# find (not a shell glob) so that zsh does not abort on a no-match pattern.
-_t90_schema_hits="$({ find "$_T90_ROOT/schemas" -maxdepth 1 -type f \( \
-    -name '*checkpoint*' -o -name '*context*state*' -o -name '*lifecycle*' \
-    -o -name '*snapshot*' -o -name '*session*' \) 2>/dev/null |
-  sed 's#.*/##' | awk -v allow=" $_T90_SCHEMA_ALLOW " 'index(allow, " " $0 " ") == 0' |
+# find (not a shell glob) so that zsh does not abort on a no-match pattern; any depth,
+# case-insensitive, regular files and symlinks.
+_t90_schema_hits="$({ find "$_T90_ROOT/schemas" \( -type f -o -type l \) \( \
+    -iname '*checkpoint*' -o -iname '*context*state*' -o -iname '*lifecycle*' \
+    -o -iname '*snapshot*' -o -iname '*session*' \) 2>/dev/null |
+  awk -v p="$_T90_ROOT/schemas/" 'index($0, p) == 1 { $0 = substr($0, length(p) + 1) } 1' | awk -v allow=" $_T90_SCHEMA_ALLOW " 'index(allow, " " $0 " ") == 0' |
   sort | tr '\n' ' '; } || true)"
 if [ -d "$_T90_ROOT/schemas" ] && [ -z "$_t90_schema_hits" ]; then
   _t90_pass "TC-07 no duplicate checkpoint/context state schema introduced"
@@ -271,19 +306,22 @@ else
   _t90_fail "TC-09 PreCompact section / doc PreCompact lines differ from _t90_expect_precompact_section / _t90_expect_precompact_lines, working-context names PreCompact: [$_t90_pc_wc], or #938 ownership missing ($_T90_UPDATE_HINT)"
 fi
 
-_t90_lm="$({ _t90_sentences "$_T90_WA" |
+_t90_lm="$({ { _t90_sentences "$_T90_WA"; _t90_sentences "$_T90_DOC"; } |
   LC_ALL=C grep -i -E '(^|[^A-Za-z0-9_])light([^A-Za-z0-9_]|$)' |
   grep -i -E '必須|mandatory|must' |
-  grep -v -x -F -e "$_T90_ALLOW_LIGHT_SKILL"; } || true)"
+  grep -v -x -F -e "$_T90_ALLOW_LIGHT_SKILL" -e "$_T90_ALLOW_LIGHT_DOC"; } || true)"
+_t90_wct_act="$(_t90_wc_trigger_block)"
+_t90_wct_exp="$(_t90_expect_wc_trigger_block)"
 _t90_cj="$({ _t90_sentences "$_T90_WA"; _t90_sentences "$_T90_DOC"; } |
   { _t90_anchor checkpointjson | grep -v -x -F -e "$_T90_ALLOW_CPJSON_DOC"; } || true)"
 if [ -r "$_T90_WA" ] &&
-   [ "$(_t90_wc_trigger_block)" = "$(_t90_expect_wc_trigger_block)" ] &&
+   [ "$_t90_wct_act" = "$_t90_wct_exp" ] &&
    grep -q 'simple tasks do not gain mandatory ceremony' "$_T90_DOC" &&
    [ -z "$_t90_lm" ] && [ -z "$_t90_cj" ]; then
   _t90_pass "TC-10 mandatory checkpoints are mode-scoped consistent with §8"
 else
-  _t90_fail "TC-10 trigger block differs from _t90_expect_wc_trigger_block, light+mandatory sentences other than _T90_ALLOW_LIGHT_SKILL: [$_t90_lm], or checkpoint.json sentences other than _T90_ALLOW_CPJSON_DOC: [$_t90_cj] ($_T90_UPDATE_HINT)"
+  _t90_fail "TC-10 trigger block differs from _t90_expect_wc_trigger_block, light+mandatory sentences other than _T90_ALLOW_LIGHT_SKILL / _T90_ALLOW_LIGHT_DOC: [$_t90_lm], or checkpoint.json sentences other than _T90_ALLOW_CPJSON_DOC: [$_t90_cj] ($_T90_UPDATE_HINT)"
+  if [ "$_t90_wct_act" != "$_t90_wct_exp" ]; then _t90_show_diff "$_t90_wct_exp" "$_t90_wct_act"; fi
 fi
 
 _t90_tr="$({ _t90_sentences "$_T90_LA" | _t90_anchor transcript |
