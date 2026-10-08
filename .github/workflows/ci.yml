@@ -119,7 +119,8 @@ jobs:
           persist-credentials: false
       - name: Test feedback renderer
         run: python3 -m unittest discover -s tests -p test_review_questions.py -v
-
+      - name: Test review feedback validation
+        run: python3 -m unittest discover -s tests -p test_validate_plan_feedback.py -v
   interactive-browser-e2e:
     name: Interactive Review Browser E2E
     runs-on: ubuntu-latest
