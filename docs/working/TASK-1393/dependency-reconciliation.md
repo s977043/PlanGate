@@ -14,7 +14,7 @@
 | #1395 owner-backed Delivery E2E | OPEN | `delivery_runtime.py` / TA-93 consume provisional state/Decision | Migrate to #1392 + #1393, true observer-owned changed paths, I3+ independent evidence |
 | #1422 Decision Input Binding | OPEN | issue contract B-1–B-13 | Human owner/timing assignment remains unconfirmed; ensure stream completeness before production owner-Decision |
 | #1383 Delivery E2E release gate | OPEN | non-authoritative TA-87 / provisional TA-93 | no owner-backed unblock verdict for Evolution |
-| #1381 Ratchet vertical slice | OPEN | TA-92 synthetic paired evaluation; repository-backed delta via #1516 | **AC-6 remains OPEN** until a real verifier changes an owner Decision |
+| #1381 Ratchet vertical slice | OPEN | TA-92 synthetic paired evaluation; repository-backed delta via #1516; expected-prevention claim binding via #1495 (`34420151`, claim != effectiveness evidence) | **AC-6 remains OPEN** until a real verifier changes an owner Decision |
 | #1329 canon I1 exception | OPEN | operational semantic invalidation rule | execution-enforcement changes are invalidation candidates; separate I4 review of canon, no self-exemption |
 
 **Already resolved, do not re-open as new implementation**: `ratchet.py -> decision_core._canonical_path` private dependency was removed by PR #1516 (`e20cf1dac50a24a3d82bc9584ecf5f8e86d4d519`). Scope observation is now in `scripts/ai-loop-v2/scope_observer.py` and can be consumed by #1395 after its own artifact/source binding review.
