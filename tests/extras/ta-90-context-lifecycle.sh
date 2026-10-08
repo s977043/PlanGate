@@ -1,6 +1,13 @@
 #!/bin/sh
 # PG_EXTRA_CAPABILITY: standalone-capable
-# TA-90 — Context Lifecycle integration contract (#1410).
+# TA-90 — Context Lifecycle integration contract (#1410 / R1 follow-up #1429).
+#
+# Residual threat model: these checks are grep/regex based. They detect the known
+# regression shapes (dropped trigger lists, keyword-preserving negation, contradictory
+# appended rules, renamed duplicate schemas, distribution drift), but they do not
+# prove the meaning of the prose. A rewording that avoids every pattern can still
+# pass. The guarantor of semantic correctness is C-4 Human review; this file is one
+# layer of defense in depth, not a completeness claim.
 
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
   _pg_extra_mode=harness
@@ -40,6 +47,12 @@ _T90_WP="$_T90_ROOT/plugin/plangate/skills/working-context/SKILL.md"
 _T90_CA="$_T90_ROOT/.agents/skills/context-packager/SKILL.md"
 _T90_CC="$_T90_ROOT/.codex/skills/context-packager/SKILL.md"
 _T90_CP="$_T90_ROOT/plugin/plangate/skills/context-packager/SKILL.md"
+_T90_LA="$_T90_ROOT/.agents/skills/local-exec-handoff/SKILL.md"
+_T90_LC="$_T90_ROOT/.codex/skills/local-exec-handoff/SKILL.md"
+_T90_LP="$_T90_ROOT/plugin/plangate/skills/local-exec-handoff/SKILL.md"
+# Existing schema files that legitimately match the TC-07 globs (space separated
+# basenames). Empty today; add a name here only with a reviewed reason.
+_T90_SCHEMA_ALLOW=""
 
 printf 'TA-90: Context Lifecycle integration contract (#1410)\n'
 
@@ -53,18 +66,63 @@ _t90_fail() {
   fail=$((fail + 1))
 }
 
+# One sentence per output line. Headings, table rows, and list items start a new
+# sentence; paragraph lines are joined before splitting on sentence punctuation.
+_t90_sentences() {
+  awk '
+    function flush(   n, i) {
+      if (buf == "") return
+      n = split(buf, parts, /[.!?][*`]*[[:space:]]+/)
+      for (i = 1; i <= n; i++) if (parts[i] ~ /[^[:space:]]/) print parts[i]
+      buf = ""
+    }
+    /^[[:space:]]*$/ { flush(); next }
+    /^#/ || /^\|/ { flush(); buf = $0; flush(); next }
+    /^[[:space:]]*([-*]|[0-9]+\.)[[:space:]]/ { flush() }
+    { sub(/^[[:space:]]+/, ""); buf = (buf == "" ? $0 : buf " " $0) }
+    END { flush() }
+  ' "$1"
+}
+
+# Body of doc §3 (Fresh-context triggers), up to the next "## " heading.
+_t90_doc_s3() {
+  awk '/^## 3\./ { f = 1; next } /^## / { f = 0 } f' "$_T90_DOC"
+}
+
+# Numbered items between the MUST heading and the SHOULD heading of §3.
+_t90_must_count() {
+  _t90_doc_s3 | awk '
+    /^### MUST/ { f = 1; next }
+    /^### / { f = 0 }
+    f && /^[0-9]+\.[[:space:]]/ { n++ }
+    END { print n + 0 }
+  '
+}
+
+# Lines mentioning light together with a mandatory marker but no optional marker.
+_t90_light_mandatory() {
+  grep -E 'light' "$1" | grep -E '必須|mandatory' | grep -v -E '任意|optional' | wc -l | tr -d ' '
+}
+
 if [ -r "$_T90_DOC" ]; then
   _t90_pass "TC-01 integration map exists"
 else
   _t90_fail "TC-01 integration map missing"
 fi
 
+_t90_must_n="$(_t90_must_count)"
+_t90_rr_neg="$(_t90_sentences "$_T90_DOC" |
+  grep -c -i -E 'River Review (does |shall |must |will |should |now )?(owns?|is the owner of|is responsible for)[^.]*memory')"
 if grep -q 'Fresh-context triggers' "$_T90_DOC" &&
+   _t90_doc_s3 | grep -q -E '^### MUST .*\(standard mode and above\)' &&
+   _t90_doc_s3 | grep -q '^### SHOULD' &&
+   [ "$_t90_must_n" -eq 4 ] &&
    grep -q 'No new .*checkpoint.json' "$_T90_DOC" &&
-   grep -q 'River Review does not own execution-session memory' "$_T90_DOC"; then
+   grep -q 'River Review does not own execution-session memory' "$_T90_DOC" &&
+   [ "$_t90_rr_neg" -eq 0 ]; then
   _t90_pass "TC-02 owner, triggers, and no-second-SSoT boundary documented"
 else
-  _t90_fail "TC-02 lifecycle boundary text incomplete"
+  _t90_fail "TC-02 lifecycle boundary text incomplete (MUST items=$_t90_must_n, want 4; River Review ownership claims=$_t90_rr_neg, want 0)"
 fi
 
 if grep -q 'worker / agent / model / runtime' "$_T90_WA" &&
@@ -95,11 +153,19 @@ else
   _t90_fail "TC-06 context-packager distribution drift"
 fi
 
-if [ ! -e "$_T90_ROOT/schemas/context-checkpoint.schema.json" ] &&
-   [ ! -e "$_T90_ROOT/schemas/context-lifecycle.schema.json" ]; then
+_t90_schema_hits=""
+for _t90_f in "$_T90_ROOT"/schemas/*checkpoint* "$_T90_ROOT"/schemas/*context*state* \
+              "$_T90_ROOT"/schemas/*lifecycle*; do
+  [ -e "$_t90_f" ] || continue
+  case " $_T90_SCHEMA_ALLOW " in
+    *" ${_t90_f##*/} "*) continue ;;
+  esac
+  _t90_schema_hits="$_t90_schema_hits ${_t90_f##*/}"
+done
+if [ -z "$_t90_schema_hits" ]; then
   _t90_pass "TC-07 no duplicate checkpoint/context state schema introduced"
 else
-  _t90_fail "TC-07 duplicate checkpoint/context state schema detected"
+  _t90_fail "TC-07 duplicate checkpoint/context state schema detected:$_t90_schema_hits"
 fi
 
 if grep -q 'Do not persist or mechanically replay' "$_T90_DOC" &&
@@ -110,20 +176,43 @@ else
   _t90_fail "TC-08 privacy/history exclusions incomplete"
 fi
 
+_t90_pc_over="$(_t90_sentences "$_T90_DOC" | grep 'PreCompact' |
+  grep -E '(is|are) (active|enforced|wired)' |
+  grep -v -i -E '(^|[^[:alpha:]])not([^[:alpha:]]|$)' | wc -l | tr -d ' ')"
 if grep -q 'Do not infer that' "$_T90_DOC" &&
    grep -q 'Human-owned PreCompact wiring' "$_T90_DOC" &&
-   grep -q '#938 remains the owner' "$_T90_DOC"; then
+   grep -q '#938 remains the owner' "$_T90_DOC" &&
+   [ "$_t90_pc_over" -eq 0 ]; then
   _t90_pass "TC-09 staged enforcement and open wait/resume ownership stay explicit"
 else
-  _t90_fail "TC-09 staged/open integration status is overstated or missing"
+  _t90_fail "TC-09 staged/open integration status is overstated or missing (PreCompact active claims=$_t90_pc_over, want 0)"
 fi
 
+_t90_lm=0
+_t90_cj=0
+for _t90_f in "$_T90_WA" "$_T90_WC" "$_T90_WP"; do
+  _t90_lm=$((_t90_lm + $(_t90_light_mandatory "$_t90_f")))
+  _t90_cj=$((_t90_cj + $(grep -c 'checkpoint\.json' "$_t90_f")))
+done
+_t90_lm=$((_t90_lm + $(_t90_light_mandatory "$_T90_DOC")))
+_t90_cj=$((_t90_cj + $(grep 'checkpoint\.json' "$_T90_DOC" | grep -c -v '^No new ')))
 if grep -q '必須（standard 以上）' "$_T90_WA" &&
    grep -q 'ultra-light / light では上記の「必須」も任意' "$_T90_WA" &&
-   grep -q 'simple tasks do not gain mandatory ceremony' "$_T90_DOC"; then
+   grep -q 'simple tasks do not gain mandatory ceremony' "$_T90_DOC" &&
+   _t90_doc_s3 | grep -q 'For `ultra-light` / `light` tasks these triggers are optional' &&
+   [ "$_t90_lm" -eq 0 ] && [ "$_t90_cj" -eq 0 ]; then
   _t90_pass "TC-10 mandatory checkpoints are mode-scoped consistent with §8"
 else
-  _t90_fail "TC-10 mandatory checkpoints not mode-scoped (conflicts with §8)"
+  _t90_fail "TC-10 mandatory checkpoints not mode-scoped (light+mandatory lines=$_t90_lm, checkpoint.json mentions=$_t90_cj, want 0/0)"
+fi
+
+if cmp -s "$_T90_LA" "$_T90_LC" && cmp -s "$_T90_LA" "$_T90_LP" &&
+   grep -q '生の会話履歴（raw transcript）は packet に含めず' "$_T90_LA" &&
+   grep -q 'canonical state' "$_T90_LA" &&
+   grep -q 'docs/ai/context-lifecycle.md' "$_T90_LA"; then
+  _t90_pass "TC-11 local-exec-handoff resumes from canonical state (3 surfaces byte-identical)"
+else
+  _t90_fail "TC-11 local-exec-handoff transcript rule missing or distribution drift"
 fi
 
 pg_extra_contract_finalize
