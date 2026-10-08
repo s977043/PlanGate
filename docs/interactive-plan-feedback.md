@@ -123,6 +123,8 @@ python3 -m unittest discover -s tests -p test_review_feedback_chromium.py -v
 ~~~
 
 The CI job requires Chrome/Chromium and fails if it is unavailable.
+The browser smoke probes `--version` and records the exact executable path and
+reported browser version in the CI test log; it fails if that evidence is missing.
 Local tests report an explicit skip if a browser is not installed.
 GitHub's isolated hosted test runner sets `PLANGATE_CHROME_NO_SANDBOX=1`
 because its Chrome user-namespace sandbox cannot initialize. The test page
