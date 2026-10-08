@@ -43,6 +43,9 @@ _T90_WP="$_T90_ROOT/plugin/plangate/skills/working-context/SKILL.md"
 _T90_CA="$_T90_ROOT/.agents/skills/context-packager/SKILL.md"
 _T90_CC="$_T90_ROOT/.codex/skills/context-packager/SKILL.md"
 _T90_CP="$_T90_ROOT/plugin/plangate/skills/context-packager/SKILL.md"
+_T90_HA="$_T90_ROOT/.agents/skills/local-exec-handoff/SKILL.md"
+_T90_HC="$_T90_ROOT/.codex/skills/local-exec-handoff/SKILL.md"
+_T90_HP="$_T90_ROOT/plugin/plangate/skills/local-exec-handoff/SKILL.md"
 
 printf 'TA-90: Context Lifecycle integration contract (#1410)\n'
 
@@ -146,6 +149,22 @@ if grep -q '必須（standard 以上）' "$_T90_WA" &&
   _t90_pass "TC-10 mandatory checkpoints are mode-scoped consistent with §8"
 else
   _t90_fail "TC-10 mandatory checkpoints not mode-scoped (conflicts with §8)"
+fi
+
+if grep -q 'Fresh-context handoff' "$_T90_HA" &&
+   grep -q 'review package + diff + evidence' "$_T90_HA" &&
+   grep -q 'missing / stale' "$_T90_HA" &&
+   grep -q 'raw transcript' "$_T90_HA"; then
+  _t90_pass "TC-11 local-exec-handoff carries fresh-context state/evidence boundary"
+else
+  _t90_fail "TC-11 local-exec-handoff fresh-context guidance incomplete"
+fi
+
+if cmp -s "$_T90_HA" "$_T90_HC" &&
+   cmp -s "$_T90_HA" "$_T90_HP"; then
+  _t90_pass "TC-12 local-exec-handoff distributed surfaces are byte-identical"
+else
+  _t90_fail "TC-12 local-exec-handoff distribution drift"
 fi
 
 pg_extra_contract_finalize
