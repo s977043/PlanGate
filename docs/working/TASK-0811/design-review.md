@@ -123,6 +123,41 @@ passing on a different commit.
 Do not count these self-review loops as the future 17-item C-1
 independent review or as proof of #1157's real cross-run seed usage.
 
+## 2026-10-08 current-main owner crosswalk — three review loops
+
+**Loop 1 — owner overlap / correction / re-review.**
+Finding: #811's proposed promotion decision can look like a new L4
+adoption authority, while newly merged `docs/ai/growth-harness.md`
+(#1506, #1530) owns L1-L4. Correction: design §1 now explicitly
+maps each stage and fixes #811 as advisory knowledge-placement and
+risk assessment, not new scheduler, `PromotionDecision`, or
+approval. Re-review: no new authority and no duplicate SSoT proposed.
+
+**Loop 2 — claims vs experimental evidence / correction / re-review.**
+Finding: the #1495 Ratchet claim-binding implementation can be
+misread as completed adoption or effect measurement. Correction:
+separate structurally bound `expected_prevention` from evaluator-owned
+paired replay, mutants, negative controls, activation, and
+`PromotionDecision`; the actual memory candidate → Ratchet path
+remains unimplemented. Re-review: any `approve` label in #811
+is **proposal-only**, not executable L4 PASS.
+
+**Loop 3 — lifecycle and HO dependency / correction / re-review.**
+Finding: Growth Harness, #1157 seed read-path proposal, and #811
+responsibility-classes patch refer to distinct HO changes, some to
+the same `working-context.md` owner and mirror. Correction: document
+source/revision, exact dependency order and need to regenerate a patch
+against the Human-applied upstream state; `todo.md` tracks after-C-3
+integration. Re-review: no HO edits in this PR; L3 not falsely
+declared active. Growth Harness provisional N=5/M=3 settings never
+constitute approval or proof of effect.
+
+**Scope of this review:** comparison against merged `main`
+`e02c7a45808fbd5861428be170a06abf0742d21f`.
+These are **AI self-review and documentation corrections only**:
+no new real-run memory evidence, independent Human C-3 / C-4,
+or production Gate activation is claimed.
+
 ## Merge meaning
 
 This preparatory PR may be considered only as a **non-authoritative
