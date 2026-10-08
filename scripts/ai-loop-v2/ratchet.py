@@ -10,12 +10,22 @@ exit 2
 ":"""
 from __future__ import annotations
 
-import fnmatch
 import hashlib
 import json
 
-from decision_core import DecisionError, _canonical_path, decide
+from decision_core import DecisionError, decide
 from run_event import EventContractError, validate_event
+from scope_observer import (
+    ManifestObservationError,
+    NonCanonicalPath,
+    ScopeObservationError,
+    canonical_path,
+    changed_paths_within_scope,
+    observe_manifest_delta,
+    observe_repository_delta,
+    paths_intersect,
+    scope_patterns_intersect,
+)
 
 ACTIVATION = {
     "installed": 1,
@@ -33,14 +43,6 @@ FORBIDDEN_KEYS = {
 
 class RatchetError(ValueError):
     pass
-
-
-class _ManifestIndeterminate(RatchetError):
-    """The actual delta cannot be derived; ``str(exc)`` is the reason code."""
-
-
-class _NonCanonicalPath(RatchetError):
-    """A changed path is not canonical, so scope cannot be proven."""
 
 
 PATTERN_REQUIRED_FIELDS = (
@@ -132,101 +134,6 @@ def compute_source_set_digest(refs):
         for ref in refs
     )
     return canonical_digest(stable)
-
-
-def _index_components(manifest):
-    components = manifest.get("components")
-    if not isinstance(components, list):
-        raise _ManifestIndeterminate("MANIFEST_COMPONENT_IDENTITY")
-    index = {}
-    for item in components:
-        component_id = item.get("component_id") if isinstance(item, dict) else None
-        # A dict keyed by component_id keeps only the last entry, so a
-        # duplicate could shadow a changed component.
-        if not isinstance(component_id, str) or not component_id or component_id in index:
-            raise _ManifestIndeterminate("MANIFEST_COMPONENT_IDENTITY")
-        index[component_id] = item
-    return index
-
-
-def _component_paths(component):
-    paths = component.get("paths")
-    # A changed component without paths would make the scope check vacuous
-    # (``all([])`` is True), so it is not evidence of staying in scope.
-    if not isinstance(paths, list) or not paths:
-        raise _ManifestIndeterminate("COMPONENT_PATHS_MISSING")
-    return paths
-
-
-def observed_component_delta(baseline, candidate):
-    """Derive the actual harness delta from the two manifests.
-
-    For every changed component the paths of BOTH sides are counted, so a
-    protected component relocated under ``allowed_paths`` is still seen on
-    its baseline path. Every counted path must be canonical
-    (``decision_core._canonical_path``): ``fnmatch``'s ``*`` crosses ``/``,
-    so ``harness/verifiers/../../x`` would otherwise match
-    ``harness/verifiers/*`` while resolving elsewhere.
-    """
-    before = _index_components(baseline)
-    after = _index_components(candidate)
-    deltas = []
-    changed_paths = set()
-    for component_id in sorted(set(before) | set(after)):
-        left = before.get(component_id)
-        right = after.get(component_id)
-        if left == right:
-            continue
-        deltas.append({
-            "component_id": component_id,
-            "before_content_sha": left.get("content_sha") if left else None,
-            "after_content_sha": right.get("content_sha") if right else None,
-        })
-        for side in (left, right):
-            if side is None:
-                continue
-            for path in _component_paths(side):
-                try:
-                    changed_paths.add(_canonical_path(path))
-                except DecisionError as exc:
-                    raise _NonCanonicalPath(str(exc)) from exc
-    return deltas, sorted(changed_paths)
-
-
-def _paths_within(paths, allowed):
-    return all(
-        any(fnmatch.fnmatch(path, pattern) for pattern in allowed)
-        for path in paths
-    )
-
-
-def _paths_intersect(paths, protected):
-    return any(
-        any(fnmatch.fnmatch(path, pattern) for pattern in protected)
-        for path in paths
-    )
-
-
-def _scope_patterns_intersect(declared, protected):
-    def prefix(pattern):
-        indexes = [
-            index for token in ("*", "?", "[")
-            if (index := pattern.find(token)) >= 0
-        ]
-        return pattern[:min(indexes)] if indexes else pattern
-
-    for left in declared:
-        for right in protected:
-            if fnmatch.fnmatch(left, right) or fnmatch.fnmatch(right, left):
-                return True
-            left_prefix = prefix(left)
-            right_prefix = prefix(right)
-            if (
-                left_prefix.startswith(right_prefix)
-                or right_prefix.startswith(left_prefix)
-            ):
-                return True
-    return False
 
 
 def _completion_component(manifest):
@@ -352,6 +259,7 @@ def _finish(
     paired=None,
     activation=None,
     known_mutants=None,
+    delta_observation=None,
 ):
     baseline = bundle.get("baseline_manifest")
     candidate_manifest = bundle.get("candidate_manifest")
@@ -387,6 +295,8 @@ def _finish(
         "result": result_value,
         "reason_codes": list(reason_codes),
     }
+    if delta_observation is not None:
+        experiment["delta_observation"] = delta_observation
     if policy_verdict is not None:
         experiment["policy_verdict"] = policy_verdict
     experiment_ref = canonical_digest(experiment)
@@ -407,7 +317,7 @@ def _finish(
     }
 
 
-def evaluate_verification_skipped(bundle, sealed_plan):
+def _evaluate_verification_skipped(bundle, sealed_plan, *, repository_observation=None):
     _reject_private(bundle)
     _reject_private(sealed_plan)
 
@@ -606,10 +516,10 @@ def evaluate_verification_skipped(bundle, sealed_plan):
         )
 
     try:
-        deltas, changed_paths = observed_component_delta(
+        deltas, manifest_changed_paths = observe_manifest_delta(
             baseline, candidate_manifest
         )
-    except _NonCanonicalPath:
+    except NonCanonicalPath:
         return _finish(
             bundle,
             sealed_plan,
@@ -617,7 +527,7 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             ["NON_CANONICAL_CHANGED_PATH"],
             policy_verdict="HUMAN_REQUIRED",
         )
-    except _ManifestIndeterminate as exc:
+    except ManifestObservationError as exc:
         return _finish(bundle, sealed_plan, "INCONCLUSIVE", [str(exc)])
     if not deltas:
         return _finish(
@@ -626,11 +536,78 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             "INCONCLUSIVE",
             ["NO_OBSERVED_HARNESS_DELTA"],
             deltas=deltas,
-            changed_paths=changed_paths,
+            changed_paths=manifest_changed_paths,
+            delta_observation=repository_observation,
         )
 
-    allowed_paths = candidate.get("target", {}).get("allowed_paths") or []
-    if _scope_patterns_intersect(allowed_paths, protected_paths):
+    changed_paths = manifest_changed_paths
+    if repository_observation is not None:
+        if (
+            repository_observation.get("baseline_commit")
+            != baseline.get("source_commit")
+            or repository_observation.get("candidate_commit")
+            != candidate_manifest.get("source_commit")
+        ):
+            return _finish(
+                bundle,
+                sealed_plan,
+                "INCONCLUSIVE",
+                ["REPOSITORY_DELTA_BINDING"],
+                deltas=deltas,
+                changed_paths=manifest_changed_paths,
+                delta_observation=repository_observation,
+            )
+        observed = repository_observation.get("changed_paths")
+        try:
+            changed_paths = [canonical_path(path) for path in observed]
+        except (TypeError, NonCanonicalPath):
+            return _finish(
+                bundle,
+                sealed_plan,
+                "INCONCLUSIVE",
+                ["REPOSITORY_DELTA_UNAVAILABLE"],
+                deltas=deltas,
+                changed_paths=manifest_changed_paths,
+                delta_observation=repository_observation,
+            )
+        if not changed_paths:
+            return _finish(
+                bundle,
+                sealed_plan,
+                "INCONCLUSIVE",
+                ["REPOSITORY_DELTA_UNAVAILABLE"],
+                deltas=deltas,
+                changed_paths=manifest_changed_paths,
+                delta_observation=repository_observation,
+            )
+        if not set(manifest_changed_paths).issubset(set(changed_paths)):
+            return _finish(
+                bundle,
+                sealed_plan,
+                "INCONCLUSIVE",
+                ["MANIFEST_REPOSITORY_DELTA_MISMATCH"],
+                deltas=deltas,
+                changed_paths=changed_paths,
+                delta_observation=repository_observation,
+            )
+
+    allowed_paths = candidate.get("target", {}).get("allowed_paths")
+    if (
+        not isinstance(allowed_paths, list)
+        or not allowed_paths
+        or not all(isinstance(path, str) and path for path in allowed_paths)
+    ):
+        return _finish(
+            bundle,
+            sealed_plan,
+            "FAIL",
+            ["CANDIDATE_SCOPE_INVALID"],
+            policy_verdict="HUMAN_REQUIRED",
+            deltas=deltas,
+            changed_paths=changed_paths,
+            delta_observation=repository_observation,
+        )
+    if scope_patterns_intersect(allowed_paths, protected_paths):
         return _finish(
             bundle,
             sealed_plan,
@@ -639,13 +616,11 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             policy_verdict="HUMAN_REQUIRED",
             deltas=deltas,
             changed_paths=changed_paths,
+            delta_observation=repository_observation,
         )
-    # Protected authority is checked on the actual delta before the
-    # allowed-paths subset check: a changed path on a protected surface is
-    # reported as such even when it is also outside allowed_paths (e.g. a
-    # protected component relocated under allowed_paths is seen on its
-    # baseline path).
-    if _paths_intersect(changed_paths, protected_paths):
+    # Protected authority is checked on the observer-owned actual delta
+    # before the allowed-paths subset check.
+    if paths_intersect(changed_paths, protected_paths):
         return _finish(
             bundle,
             sealed_plan,
@@ -654,8 +629,13 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             policy_verdict="HUMAN_REQUIRED",
             deltas=deltas,
             changed_paths=changed_paths,
+            delta_observation=repository_observation,
         )
-    if not _paths_within(changed_paths, allowed_paths):
+    try:
+        within_scope = changed_paths_within_scope(changed_paths, allowed_paths)
+    except ScopeObservationError:
+        within_scope = False
+    if not within_scope:
         return _finish(
             bundle,
             sealed_plan,
@@ -664,6 +644,7 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             policy_verdict="HUMAN_REQUIRED",
             deltas=deltas,
             changed_paths=changed_paths,
+            delta_observation=repository_observation,
         )
 
     mutant_trials = {}
@@ -703,6 +684,7 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             deltas=deltas,
             changed_paths=changed_paths,
             known_mutants=known_mutants,
+            delta_observation=repository_observation,
         )
 
     paired = {
@@ -741,6 +723,7 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             deltas=deltas,
             changed_paths=changed_paths,
             paired=paired,
+            delta_observation=repository_observation,
             activation=activation,
             known_mutants=known_mutants,
         )
@@ -754,6 +737,7 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             deltas=deltas,
             changed_paths=changed_paths,
             paired=paired,
+            delta_observation=repository_observation,
             activation=activation,
             known_mutants=known_mutants,
         )
@@ -768,6 +752,7 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             deltas=deltas,
             changed_paths=changed_paths,
             paired=paired,
+            delta_observation=repository_observation,
             activation=activation,
             known_mutants=known_mutants,
         )
@@ -784,6 +769,7 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             deltas=deltas,
             changed_paths=changed_paths,
             paired=paired,
+            delta_observation=repository_observation,
             activation=activation,
             known_mutants=known_mutants,
         )
@@ -800,6 +786,7 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             deltas=deltas,
             changed_paths=changed_paths,
             paired=paired,
+            delta_observation=repository_observation,
             activation=activation,
             known_mutants=known_mutants,
         )
@@ -817,6 +804,47 @@ def evaluate_verification_skipped(bundle, sealed_plan):
         deltas=deltas,
         changed_paths=changed_paths,
         paired=paired,
+        delta_observation=repository_observation,
         activation=activation,
         known_mutants=known_mutants,
+    )
+
+
+
+def evaluate_verification_skipped(bundle, sealed_plan):
+    """Evaluate the deterministic synthetic Ratchet fixture path."""
+    return _evaluate_verification_skipped(bundle, sealed_plan)
+
+
+def evaluate_verification_skipped_repository(bundle, sealed_plan, repo_root):
+    """Run the vertical slice with observer-owned repository changed paths.
+
+    Synthetic fixture evaluation remains available through
+    evaluate_verification_skipped(). This entry point is for a real candidate
+    checkout where baseline/candidate Harness manifests bind exact commit IDs.
+    """
+    preflight = evaluate_verification_skipped(bundle, sealed_plan)
+    if preflight["experiment_result"]["result"] != "PASS":
+        return preflight
+
+    baseline = bundle.get("baseline_manifest") or {}
+    candidate_manifest = bundle.get("candidate_manifest") or {}
+    try:
+        observation = observe_repository_delta(
+            repo_root,
+            baseline.get("source_commit"),
+            candidate_manifest.get("source_commit"),
+        )
+    except ScopeObservationError:
+        return _finish(
+            bundle,
+            sealed_plan,
+            "INCONCLUSIVE",
+            ["REPOSITORY_DELTA_UNAVAILABLE"],
+        )
+
+    return _evaluate_verification_skipped(
+        bundle,
+        sealed_plan,
+        repository_observation=observation,
     )

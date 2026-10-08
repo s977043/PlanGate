@@ -2,6 +2,7 @@
 
 > **Status**: ai-loop V2 の責務解釈ガイド。正本は [`north-star.md`](./north-star.md) と companion canon であり、本書はそれらに従属する。
 > **Purpose**: Loop / Graph / Harness の境界を明確にし、二重正本や不要な Graph runtime を作らずに設計判断できるようにする。
+> **Maintainer**: #894（本書全体の保守担当。2026-10-01 Human 決定、記録 #894 issuecomment-5924518240）。§2 の concern ごとの owner とも、§2 の「Canon / Trust Boundary の維持」の行（#1275）とも別。
 > **Derived from**: canon 6 本（`north-star.md` / `taxonomy.md` / `harness-manifest.md` / `evaluation-trust-boundary.md` / `artifact-responsibilities.md` / `phase0-migration.md`）@ `b1217b41`。**本書は canon ではないため `phase0-migration.md` §7 の canon 7 本には加えない。** 下記が `b1217b41` 以外を返したら canon が動いているので、§2 の責務表と §3 の境界規則を読み直すこと。
 >
 > ```sh
@@ -121,6 +122,7 @@ parallel worker 数、context subset、approved template の specialization な�
 runtime が決めてよい対象:
 
 - approved template（WorkItemGraph の `work_item_templates[]`）からの work item instance の specialization。specialization してよい field は allowlist に限り、**新しい AC を追加しない・template / parent の scope を拡大しない**
+- 既存 work item の partition（分割）。parent work item からの instance として event stream に記録し、active な WorkItemGraph は編集しない。新しい AC・権限・scope を追加しない。分割後の所有・join 条件・検証単位は #1385 の WorkItemGraph Contract が定める（2026-10-01 Human 決定、記録 #1385 issuecomment-5924407778）
 - bounded な worker 数と assignment
 - context subset
 - allowed edge 内の branch / join
@@ -165,7 +167,7 @@ graph_decision:
   reason_code: ""
 ```
 
-`action` に終了（terminate）を置かない。Terminal Outcome / Stop Reason の決定は Decision Engine の責務である（[`artifact-responsibilities.md`](./artifact-responsibilities.md)）。Graph は `convergence_decision_ref` が指す決定に従って terminal へ route するだけで、その場合も `action: route` として記録する。ここでの convergence は Loop の収束判断（#894）を指し、RunState の `PR_CONVERGING` や `pr_convergence`（PR の収束観測）とは別の概念である。
+`action` に終了（terminate）を置かない。Terminal Outcome / Stop Reason の決定は Decision Engine の責務である（[`artifact-responsibilities.md`](./artifact-responsibilities.md)）。Graph は `convergence_decision_ref` が指す決定に従って terminal へ route するだけで、その場合も `action: route` として記録する。ここでの convergence は Loop の収束判断（#894）を指し、RunState の `PR_CONVERGING` や `pr_convergence`（PR の収束観測）とは別の概念である（ただし `PR_CONVERGING` の間は、`pr_convergence` が Decision Engine の入力の 1 つになる。#1393）。
 
 原則:
 
@@ -196,6 +198,87 @@ Does runtime need to instantiate bounded topology?
 ```
 
 この区別は Work Item Graph / Assignment の宣言と接続する。Graph runtime の generic engine を先に作らず、durable state・convergence / stop・trajectory evaluation・event stream は §2 の既存 owner を再利用する。
+
+### Execution Strategy is orthogonal to Graph topology
+
+参考一次情報: GitHub の [Project HydraFusion](https://github.blog/ai-and-ml/github-copilot/project-hydrafusion-frontier-quality-via-multi-model-orchestration/) と [VS Code 1.140](https://code.visualstudio.com/updates/v1_140)。ここでは research preview の runtime を依存として採用せず、公開された execution pattern / guardrail を設計入力としてのみ扱う。
+
+HydraFusion で示された `single / cascade / critique` は、上記の Static Workflow / Adaptive Routing /
+Bounded Dynamic Graph と同じ taxonomy ではない。前者は **1 つの approved Work Item / Graph node をどの実行構成で解くか**、
+後者は **責務や node をどう配置・遷移させるか** を表す。
+
+したがって PlanGate では Execution Strategy を、Model / Effort / Role / Graph topology / Judgment authority から
+独立した execution-time lens として扱う。Execution Strategy を選んでも WorkItemGraph の scope、Acceptance Criteria、
+Human-owned authority、Verifier / Gate の authority は変わらない。
+
+```text
+Approved Work Item / Graph node
+        ↓
+Execution Strategy
+  ├─ single
+  ├─ cascade
+  └─ critique
+        ↓
+RunEvidence / Verification
+        ↓
+Gate / Human authority
+```
+
+| Strategy | Vendor-neutral semantics | 適する条件 | 境界 |
+|---|---|---|---|
+| `single` | 1 worker / 1 solving path で実行する | bounded・低不確実性・追加独立判断の便益が小さい | 失敗時に strategy 内で無制限 retry せず #894 の convergence / stop に従う |
+| `cascade` | 低コスト側の path を先に実行し、事前定義した quality signal が不足した場合だけ別の stronger path へ escalation する | cost / latency を抑えつつ quality floor を守りたい | cascade 内の quality check は PlanGate Gate そのものではない。terminal authority を持たない |
+| `critique` | Builder の候補を read-only Reviewer が独立に批評し、Builder が bounded な修正を行う | ambiguity / risk / independent judgment need が高い | Reviewer は patch / merge authority を持たない。Reviewer と Verifier は別責務であり、review 完了を verification 成功とみなさない |
+
+`critique` の independence は「モデル数」だけでは証明しない。少なくとも execution provenance を残し、
+必要な trust level に応じて model/provider/context/tool/host の分離を評価する。external verifier が必要な境界は
+[`adr-007-external-runtime-verifier-boundary.md`](../../decisions/adr-007-external-runtime-verifier-boundary.md) と
+Evaluation Trust Boundary の既存規則を正とする。
+
+#### Strategy selection inputs
+
+strategy recommendation は、少なくとも次を入力候補とする。
+
+- task complexity / uncertainty
+- risk class / protected-surface proximity
+- cost / latency / token budget
+- independent judgment need
+- prior Run の failure / repair evidence
+- provider / model capability availability
+
+ただし、deterministic rule で十分な場合は LLM router を使わない。未知・矛盾・evidence 不足を
+`single` へ都合よく丸めず、shadow recommendation または Human escalation とする。
+
+strategy の declaration / selection / observation の owner を本節で新設しない。Work Item / Assignment の宣言は #911、runtime の実行事実は #874、recommendation / outcome の評価は #908、strategy rule 自体の改善は #869 を正とする。persisted field が必要になった場合は、先に owner 側 Contract を変更し、本書から新しい SSoT を作らない。
+
+#### Orchestration guardrails
+
+HydraFusion の運用原則は新しい owner を作らず、既存責務へ次のように対応付ける。
+
+| Guardrail | PlanGate interpretation | Owner / evidence |
+|---|---|---|
+| Complete accounting | 成功した最終 leg だけでなく draft / critique / revision / escalation / retry / fallback / cancelled / failed を含む全 leg の model/provider、token、time、cost、outcome を追跡可能にする | #874 RunEvent / RunEvidence、#908 operational evaluation |
+| Bounded execution | timeout / retry / fallback / parallelism / token / time / cost を budget と stop policy の内側に置き、停止時は可能な範囲で in-flight leg と retry backoff へ cancellation を伝播する | #894 convergence / stop policy、Harness / host の execution primitive、Work Item の `budget_profile` / `budget_ref` |
+| Isolated review | critique の Reviewer を Builder の write authority から分離し、必要な independence を provenance で説明可能にする | Evaluation Trust Boundary、ADR-007、River Review の review / verifier contract |
+| Fail-safe application | review / verification / routing が failed / cancelled / unknown のとき変更適用や authority 昇格へ進めず、partial result を clean success に変換しない | Verifier / Gate / Human-owned C-4・merge boundary |
+| Validated routing | 実行前に strategy definition / provider・model availability / fallback / budget compatibility を検証し、default-on 前には shadow / paired evaluation で便益も検証する | Harness preflight、#908 Run Eval、#869 Harness Evolution |
+
+ここでいう `fail-safe application` は PlanGate が patch application を新たに所有するという意味ではない。
+既存どおり、Execution Strategy は protected authority を変更せず、不可逆な採用判断を代替しない。
+
+`bounded execution` を満たすには、単に caller が待機を打ち切るだけでは不十分である。host / provider が cancellation を提供する場合は in-flight request と backoff へ伝播し、提供できない場合はその limitation を Evidence に残して bounded と断定しない。fallback は事前に許可・予算化された経路に限定し、routing / fallback validation が失敗した場合は実行を開始しないか Human escalation へ送る。
+
+#### Adoption rule
+
+Execution Strategy の runtime 自動選択は、最初から production default にしない。
+
+1. **Interpretation only**: taxonomy と owner mapping を明文化する。
+2. **Observe-only**: 実際に使った strategy と、推奨 strategy を別々に記録する。
+3. **Paired evaluation**: #869 / #908 で quality / coverage / repair round / cost / latency /
+   Human correction burden を baseline と比較する。
+4. **Opt-in routing**: critical regression がなく、routing の便益が evidence で示された範囲だけ有効化する。
+5. **Evolution**: strategy / threshold / routing rule の改善は active Run の self-modification ではなく
+   #869 の Candidate として次の Harness version に反映する。
 
 ## 5. Minimum topology principle
 
@@ -412,9 +495,50 @@ Harness の設計判断では、部品数や layer 数を増やすことを進�
 
 したがって、外部事例から新しい「層」を取り込む場合も、まず既存 primitive へ写像し、**既存責務で表せない具体的な gap がある場合だけ**新しい component / artifact / owner を検討する。これは North Star §11 の Reuse Before Create と §12 の simplification を、Harness 全体の構成判断へ適用するための解釈である。
 
+
+## 12. Persistent operational state / failure ratchet
+
+外部の file-oriented Harness で見かける `receipt` / `checkpoint` / `guard` / independent grader / failure-to-rule の形は、そのファイル名や JSON shape をそのまま輸入するのではなく、**会話や単一 process の寿命を越えて必要な operational state を外部化する設計パターン**として解釈する。
+
+PlanGate では、resume・Evidence・policy binding・改善 provenance を conversation history / raw transcript / hidden CoT に依存させない。再現・再開・判定に必要な事実は、§2 の既存 owner が管理する canonical artifact / event / evidence から復元できることを優先する。
+
+外部パターンを読むときは次のように既存責務へ接続する。**これは第2の owner 対応表ではない。owner / 正本は §2 の表だけを正とする。**
+
+- **receipt-like record**: Worker の成功自己申告ではなく、RunEvidence / event stream / verifier output から検証可能な Evidence を残す。receipt-like record は少なくとも対象 Run / artifact / verifier または policy identity へ束縛できることを要求し、repository に自己記述 JSON が存在するだけでは強い Evidence に昇格させない。deterministic verifier の FAIL を LLM self-report や independent grader の PASS で上書きしない。
+- **checkpoint-like state**: durable state / wait-resume / recovery の意味は Graph + Harness の既存責務を使う。conversation の直前発話や live process 内 memory を再開位置の正本にしない。resume 時は #1025 の revision / CAS 境界に従い、stale / conflict を都合よく上書きしない。
+- **guard / budget / kill-switch-like control**: permission / policy / budget / verifier availability 等の Harness enforcement と、Loop の stop / escalate 判断を合成する。新しい guard file が独自 authority を持つとは解釈しない。
+- **independent grade**: deterministic verification の代替ではなく、#908 / #910 が扱う evaluation / calibrated soft signal の側に置く。Candidate が自分を裁く authority を変更しない。
+- **failure-to-rule / failure-to-harness change**: #1376 の Ratchet Traceability を通じて #869 の Evolution Candidate へ接続する。失敗を「次は気をつける」という会話上の注意だけに戻さず、必要なら regression / prevention evidence を伴う Harness N+1 Candidate に変換する。source identity は immutable な failure instance / event / evidence ref を基礎にし、分類ロジックで変化し得る fingerprint や pattern label を恒久 identity にしない。
+
+このパターンを PlanGate で使うときの不変条件:
+
+1. **Persist facts, not conversation memory.** 再開・判定・改善に必要な事実は canonical state / event / evidence / provenance へ残す。
+2. **Evidence before judgment.** receipt-like な記録は claim の保存ではなく、artifact / verifier / policy と照合できる Evidence binding を持つ。
+3. **Bound autonomy with existing authority.** timeout / budget / deny / stop / escalation は既存 policy / Human-owned authority を迂回・弱体化せず、未知・不足・衝突は fail-closed または escalation とする。
+4. **Do not self-modify an active Run.** Active Run の `harness_manifest_ref` は固定し、改善は別 Task / branch / Run の Harness N+1 Candidate として評価する。
+5. **Ratchet with regression evidence.** 再発防止を主張する変更は、known-bad replay / negative control / deterministic invariant / incident regression 等の evidence を少なくとも1つ持ち、#1376 の provenance chain で source failure まで辿れるようにする。
+6. **Reuse before new artifacts.** `receipt.json` / `checkpoint.json` 等の名前を理由に新しい top-level schema / SSoT を追加しない。既存 owner で表せない具体的 gap が Evidence で確認された場合だけ、最小の新規 component を検討する。
+
+典型的な failure-driven evolution は次の流れとして読む。
+
+```text
+Run / Failure Evidence
+  -> Retrospective / Pattern
+  -> Harness Improvement Candidate
+  -> isolated Harness N+1 change
+  -> regression / prevention check
+  -> independent evaluation
+  -> PASS | FAIL | INCONCLUSIVE
+  -> Promotion Ready
+  -> Human-owned merge / promotion
+```
+
+これは Active Run の自己書き換えでも、Production auto-promotion でもない。Delivery と Evolution の境界、Evaluation Trust Boundary、C-4 / merge の Human-owned authority は維持する。
+
 ## References
 
 Informative only. Repository canon takes precedence.
 
 - #923 — Harness / Loop / Graph Engineering responsibility separation (SUPERSEDED)
 - https://x.com/Sumanth_077/status/2097689190712692965 — Loop vs Graph Engineering discussion
+- https://github.com/mrbuzzoni/loop-rat — file-oriented persistent harness pattern（informative only; dependency / canon ではない）

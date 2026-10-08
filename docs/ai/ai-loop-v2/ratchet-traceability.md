@@ -126,11 +126,19 @@ If actual changed paths intersect protected Evaluation Harness / sealed fixture 
 
 How actual changed paths are derived:
 
-- For every changed component, the paths of **both** the baseline and the candidate side are counted. Moving a protected component under `allowed_paths` is still seen on its baseline path.
-- Every counted path must be canonical, using the same rule as the Decision Engine (`decision_core._canonical_path`): no empty string, no leading `/`, no `.` / `..` / empty segment. `fnmatch`'s `*` crosses `/`, so `harness/verifiers/../../x` would otherwise match `harness/verifiers/*`. A non-canonical path is `FAIL` (`NON_CANONICAL_CHANGED_PATH`).
+- Path canonicalization and scope matching are owned by `scripts/ai-loop-v2/scope_observer.py`; Ratchet no longer imports a private path helper from the provisional Decision core.
+- For every changed Harness component, the paths of **both** the baseline and the candidate side are counted. Moving a protected component under `allowed_paths` is still seen on its baseline path.
+- Every counted path must be canonical: no empty string, no leading `/`, and no `.` / `..` / duplicate segment. `fnmatch`'s `*` crosses `/`, so `harness/verifiers/../../x` would otherwise match `harness/verifiers/*`. A non-canonical path is `FAIL` (`NON_CANONICAL_CHANGED_PATH`).
 - A changed component without a non-empty `paths` list is `INCONCLUSIVE` (`COMPONENT_PATHS_MISSING`): an empty path set would make the subset check vacuous.
 - A manifest whose components lack a `component_id` or repeat one is `INCONCLUSIVE` (`MANIFEST_COMPONENT_IDENTITY`): a duplicate could shadow a changed component.
-- Protected authority is checked on the actual delta before the `allowed_paths` subset check, so a change on a protected surface is reported as `PROTECTED_AUTHORITY_CHANGED` even when it is also outside `allowed_paths`.
+- Synthetic fixture evaluation continues to use the manifest-observed delta for deterministic regression compatibility.
+- Repository-backed evaluation additionally observes changed paths from an exact baseline/candidate commit pair using `git diff --no-ext-diff --name-only -z --no-renames`. Only full lowercase commit object IDs are accepted, the repository root is verified, and observation failure is `INCONCLUSIVE`.
+- Repository-observed baseline/candidate commit IDs must equal the corresponding HarnessManifest `source_commit` values.
+- Every manifest-observed changed component path must also appear in the repository-observed changed path set. A mismatch is `INCONCLUSIVE / MANIFEST_REPOSITORY_DELTA_MISMATCH`; the Candidate cannot hide a manifest change by supplying another repository delta.
+- Scope and protected-authority checks use the repository-observed path set in repository-backed mode. An extra repository path outside `allowed_paths` is `FAIL / ACTUAL_DELTA_OUTSIDE_ALLOWED_PATHS`; an extra protected path is `FAIL / PROTECTED_AUTHORITY_CHANGED`.
+- Protected authority is checked before the `allowed_paths` subset check, so a protected mutation is not downgraded into a generic scope error.
+
+Repository-backed evaluation is a stronger evidence path; it does not turn the current synthetic vertical-slice fixture into Production evidence. The real completion verifier / owner Decision integration required by #1381 AC-6 remains separate.
 
 ## Verification-skipped paired evaluation
 
@@ -186,6 +194,7 @@ FAIL
   known-bad is not stopped
   negative control regresses
   Candidate known-mutant detection power falls below baseline
+  Candidate allowed scope is malformed
   actual delta exceeds allowed scope
   protected authority is changed
 
@@ -284,6 +293,7 @@ Raw conversation transcript, hidden CoT, credentials, and unbounded session memo
 ## Current executable evidence
 
 - `scripts/ai-loop-v2/ratchet.py`
+- `scripts/ai-loop-v2/scope_observer.py`
 - `scripts/ai-loop-v2/test_ratchet.py`
 - `tests/fixtures/ai-loop-v2/ratchet/verification-skipped.json`
 - `tests/fixtures/ai-loop-v2/ratchet/evolution-input-non-success.json`

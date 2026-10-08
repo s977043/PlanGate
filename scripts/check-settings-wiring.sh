@@ -51,7 +51,15 @@
 #       **道具として実行している**だけで、checks 表の内容は検証していない。
 #   （HO / tests/extras を担い手として書かない。実測で存在しない。)
 set -eu
-ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+SOURCE_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+if [ -n "${PLANGATE_PROJECT_ROOT:-}" ]; then
+  ROOT=$(CDPATH= cd -- "$PLANGATE_PROJECT_ROOT" 2>/dev/null && pwd) || {
+    printf 'error: PLANGATE_PROJECT_ROOT is not an accessible directory: %s\n' "$PLANGATE_PROJECT_ROOT" >&2
+    exit 2
+  }
+else
+  ROOT="$SOURCE_ROOT"
+fi
 target=user
 case "${1:-}" in --target) target=${2:-user} ;; --target=*) target=${1#--target=} ;; esac
 case "$target" in

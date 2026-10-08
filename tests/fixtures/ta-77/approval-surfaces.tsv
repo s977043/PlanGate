@@ -23,15 +23,15 @@
 .agents/skills/intent-classifier/SKILL.md	DECL	9014dac9caec
 .agents/skills/local-exec-handoff/SKILL.md	DECL	8b368bb3f212
 .agents/skills/plan-review-gate/SKILL.md	CHAIN	17e7ed953b6c
-.agents/skills/plangate-setup/SKILL.md	DECL	3ff5b08b9abc
+.agents/skills/plangate-setup/SKILL.md	DECL	7c54e0a79a30
 .claude/rules/working-context.md	CHAIN	e3795e3490cd
 .claude/skills/intent-classifier/SKILL.md	DECL	9014dac9caec
-.claude/skills/plangate-setup/SKILL.md	DECL	3ff5b08b9abc
+.claude/skills/plangate-setup/SKILL.md	DECL	7c54e0a79a30
 .codex/skills/ai-dev-plan/SKILL.md	DECL	79c0d8551308
 .codex/skills/intent-classifier/SKILL.md	DECL	9014dac9caec
 .codex/skills/local-exec-handoff/SKILL.md	DECL	8b368bb3f212
 .codex/skills/plan-review-gate/SKILL.md	CHAIN	17e7ed953b6c
-.codex/skills/plangate-setup/SKILL.md	DECL	3ff5b08b9abc
+.codex/skills/plangate-setup/SKILL.md	DECL	7c54e0a79a30
 docs/ai/hook-enforcement.md	DECL	e6dda48ec42d
 docs/ai/review-gate-decision-mapping.md	DECL	1cdfda0272c2
 docs/ai/settings-wiring-contract.md	DECL	31168ee60e79
@@ -51,4 +51,4 @@ plugin/plangate/skills/ai-loop-cycle/references/stop-rollback.md	DECL	914a06e663
 plugin/plangate/skills/intent-classifier/SKILL.md	DECL	9014dac9caec
 plugin/plangate/skills/local-exec-handoff/SKILL.md	DECL	8b368bb3f212
 plugin/plangate/skills/plan-review-gate/SKILL.md	CHAIN	17e7ed953b6c
-plugin/plangate/skills/plangate-setup/SKILL.md	DECL	3ff5b08b9abc
+plugin/plangate/skills/plangate-setup/SKILL.md	DECL	7c54e0a79a30
