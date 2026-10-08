@@ -22,7 +22,7 @@ These duties may overlap at enforcement points but have one *proposed accountabl
 | Rule | Accountable owner (proposal) | Where to enforce / prove | Independent negative or mutation oracle |
 |---|---|---|---|
 | B-1 tree identity | **#1395** | input construction + observer, audit against exact Git tree | using SHA-256 of JSON-quoted `"git-tree:<oid>"` instead of raw UTF-8 must reject; same tree, different commit must not change identity |
-| B-2 latest contract boundary | **#1391** | `validate_append` + `validate_stream` on load/audit | Replan→new `plan_contract_bound`→revert tree: pre-boundary PASS remains unusable; sticky FAIL cannot be washed out |
+| B-2 latest contract boundary | **#1391** | `validate_append` + `validate_stream` on load/audit prove boundary identity; #1393 pure core applies PASS/FAIL semantics | Replan→new `plan_contract_bound`→revert tree: pre-boundary PASS remains unusable; sticky FAIL cannot be washed out |
 | B-3 last input seq / transaction adjacency | **#1392** | lock + commit/CAS + recovery/load; #1391 audit | insert another event before `decision_made`, same-transaction second decision, other writer intervenes: reject |
 | B-4 decided state binding | **#1392** | under-lock snapshot check at commit, recovery/load | decide as VERIFYING while stored RunState is DIAGNOSING: reject without state/event mutation |
 | B-5 state/action transition | **#1392** | derive transition at commit and compare; load replay | submitted target differs from allowed `(state, action)` edge: reject |
@@ -48,10 +48,10 @@ Each fixture must be used first to show a real gap in the *provisional* runtime 
 | `binding-replan-revert` (B-2) | accepted PASS for tree A under contract C1, `plan_contract_bound` C2, tree returns to A | PASS from before C2 **unavailable**, unless there is a current C2 PASS. Same-tree deterministic FAIL remains sticky |
 | `binding-decision-adjacent` (B-3) | DecisionInput observed at event seq N, another writer accepts event N+1 before decision commit | CAS/seq conflict; no accepted `decision_made` using stale input. On load, altered `input_last_event_seq` rejects |
 | `binding-state-snapshot` (B-4/B-5) | valid event draft but stale `decided_in_state` or forbidden action/transition | no durable mutation of RunState or stream |
-| `binding-required-set` (B-6) | contract C1 binds deterministic D1; `decision_made` claims D2 without a new contract event | reject on commit and on replay, not merely an application warning |
+| `binding-required-set` (B-6) | contract C1 binds deterministic D1; `decision_made` claims D2 without a new contract event | reject on commit and on replay, not merely an application warning; valid Replan C2 can replace required verifier IDs only through an accepted new contract-bound event |
 | `binding-fr-complete` (B-9/B-12) | bound FAIL accepted, latest FailureRecord omitted from DecisionInput | reject; do not treat empty FR set as safe completion |
 | `binding-previous-decision` (B-10) | two accepted decisions establish baselines; caller selects older one | reject on binding validation; no retries by selecting favorable baseline |
-| `binding-replay` (B-11) | record accepted stream, then change action/stop-reason only in stored decision | independent recomputation detects mismatch and treats evidence as invalid |
+| `binding-replay` (B-11) | replay an otherwise structurally valid attacker-modified decision event, with its canonical event_ref and downstream stream references recomputed so hash/sequence checks alone cannot detect the substitution | independent owner-Decision recomputation from the preceding accepted facts disagrees and rejects; simple digest mismatch is NOT sufficient to pass B-11 |
 | `binding-observed-blockers` (B-13) | Worker self-reports resolved blocker; independent observer sees no blocker delta | ignore unsupported claim; do not suppress NO_PROGRESS |
 
 For every case, measure BOTH:
@@ -78,6 +78,6 @@ Do not mark a case complete from `run_event.validate_stream` alone when the cond
 4. Only after #1391/#1392/#1422 preflights, build #1393 pure core, migrate all callers, and run #1395 Path A/B with independent I3/I4 review.
 5. Recheck #1381 AC-6: actual verifier → accepted VerificationResult → bound DecisionInput → Decision that blocks known-bad; negative-control passes. No automatic C-4, merge or Promotion.
 6. Under #1329, treat any runtime policy/Verifier/Gate enforcement addition as semantic invalidation candidate; do not modify canon 7 inside the same implementation PR to self-exempt.
-7. Reviewer silence/quota is `unavailable`, never a substituted PASS. Run a real independent reviewer/fallback, record exact reviewed SHA, then request GitHub C-4 Human approval.
+7. Reviewer silence/quota is `unavailable`, never a substituted PASS. Run a real independent reviewer/fallback, record exact reviewed SHA, then request GitHub C-4 Human approval. Post-merge review debt is tracked separately: #1519 was reopened on 2026-10-09 because PR #1520 merged without recorded independent-review evidence; this proposal must not repeat that precedent.
 
 This proposal is complete when it allows Human to decide ownership and developers to write failing tests; it is **not** evidence that any B-1–B-13 owner runtime passes.
