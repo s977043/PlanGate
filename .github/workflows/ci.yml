@@ -107,3 +107,15 @@ jobs:
             docs/pages/explanation/product/philosophy.md
             docs/pages/guides/governance/oss-governance.md
             docs/workflows/**/*.md
+
+  interactive-feedback-tests:
+    name: Interactive Plan Feedback unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test feedback renderer
+        run: python3 -m unittest discover -s tests -p test_review_questions.py -v
