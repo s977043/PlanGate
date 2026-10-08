@@ -105,8 +105,10 @@ class ChromiumPlanFeedbackTest(unittest.TestCase):
                "--disable-dev-shm-usage", "--disable-background-networking",
                "--no-first-run", "--no-default-browser-check",
                "--virtual-time-budget=3000", "--dump-dom", self.page.as_uri()]
-        # Only root requires --no-sandbox. Keep Chrome sandboxing enabled on CI.
-        if hasattr(os, "geteuid") and os.geteuid() == 0:
+        # Prefer Chrome sandbox locally. CI opts out only on isolated hosted
+        # runners where Linux user-namespace sandbox initialization fails.
+        allow_unsandboxed = os.environ.get("PLANGATE_CHROME_NO_SANDBOX") == "1"
+        if (hasattr(os, "geteuid") and os.geteuid() == 0) or allow_unsandboxed:
             cmd.insert(2, "--no-sandbox")
         proc = subprocess.run(cmd, capture_output=True, text=True, check=False,
                               timeout=30, env={**os.environ, "HOME": str(self.dir)})
