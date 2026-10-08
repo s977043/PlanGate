@@ -1,7 +1,7 @@
 # TASK-0811 — Memory Promotion Gate design proposal (pre-C-3 / non-canon)
 
 > **Not implemented or approved.** Review aid for issue #811 and
-> `docs/working/TASK-0811/plan.md`. The 2026-07-12 Human decision selected a
+> `docs/working/TASK-0811/plan-proposal.md`. The 2026-07-12 Human decision selected a
 > medium documentation approach. This proposal cannot modify the existing
 > C-3/C-4, HO, verifier or Evolution `PromotionDecision` authorities.
 
