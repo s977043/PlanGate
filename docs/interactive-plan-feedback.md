@@ -110,6 +110,27 @@ write feedback, modify PlanGate C-3 approval, or change River Review gate.
 ~~~sh
 python3 -m unittest discover -s tests -p test_validate_plan_feedback.py -v
 ~~~
+## Browser E2E smoke (#1535)
+
+The optional browser smoke executes the generated HTML in a real
+Chrome/Chromium renderer. It verifies DOM interaction, response
+validation, SHA-256 metadata, escaped input, and exported Blob JSON.
+The test intercepts the anchor click to inspect Blob content; it does
+**not** claim the browser wrote a file into a downloads folder.
+
+~~~sh
+python3 -m unittest discover -s tests -p test_review_feedback_chromium.py -v
+~~~
+
+The CI job requires Chrome/Chromium and fails if it is unavailable.
+The browser smoke probes `--version` and records the exact executable path and
+reported browser version in the CI test log; it fails if that evidence is missing.
+Local tests report an explicit skip if a browser is not installed.
+GitHub's isolated hosted test runner sets `PLANGATE_CHROME_NO_SANDBOX=1`
+because its Chrome user-namespace sandbox cannot initialize. The test page
+uses fixed local fixtures only. Local non-root runs keep sandboxing enabled
+unless the operator explicitly opts in to this compatibility flag.
+No external requests or third-party browser-test dependencies are needed.
 ## Follow-ups
 
 See River Review #2577 for optional validator/importer and read-only
