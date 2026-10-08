@@ -9,7 +9,8 @@
 # TC-09 PreCompact section) the text is pinned to an exact expected value instead, so
 # an intended doc change fails here until the expectation is updated after C-4 review.
 # Not detected: claims that avoid every pinned/listed surface (e.g. a PreCompact claim
-# that never names PreCompact), and schemas whose names miss the TC-07 globs. The
+# that never names PreCompact), and schemas whose names miss every TC-07 glob
+# (checkpoint / context*state / lifecycle / snapshot / session). The
 # guarantor of semantic correctness is C-4 Human review; this file is one layer of
 # defense in depth, not a completeness claim.
 
@@ -204,7 +205,8 @@ fi
 
 _t90_schema_hits=""
 for _t90_f in "$_T90_ROOT"/schemas/*checkpoint* "$_T90_ROOT"/schemas/*context*state* \
-              "$_T90_ROOT"/schemas/*lifecycle*; do
+              "$_T90_ROOT"/schemas/*lifecycle* "$_T90_ROOT"/schemas/*snapshot* \
+              "$_T90_ROOT"/schemas/*session*; do
   [ -e "$_t90_f" ] || continue
   case " $_T90_SCHEMA_ALLOW " in
     *" ${_t90_f##*/} "*) continue ;;
