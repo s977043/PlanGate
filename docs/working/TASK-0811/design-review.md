@@ -71,6 +71,27 @@
 - Re-review expectation: assert there is **no** `plan.md` in this PR tree,
   and that all references point to `plan-proposal.md`.
 
+## Git evidence follow-up: three design review passes (2026-10-08)
+
+- **G-1 / SSoT**: Git is a revisioned evidence and change ledger only;
+  original RunEvidence, canonical Plan, Human C-3/C-4, Permission and
+  Evolution PromotionDecision remain separate authorities. PASS for
+  non-canon design §9; no runtime changes.
+- **G-2 / Provenance + privacy**: exact source SHA and source scope are
+  required; Git history / merged status cannot prove Human identity or
+  effect. Redact or decline forbidden cross-scope propagation. PASS
+  for the proposal; no executable gate or real ledger record generated.
+- **G-3 / Real failure case**: #1525 / PR #1526 demonstrate observed
+  TA-114 collision detected by pre-existing deterministic TC-20.
+  Avoid a duplicate memory rule. Until exact-head CI passes and later
+  recurrence evidence exists, this is a *candidate*, not validated
+  prevention. PASS for proposal quality; effectiveness is NOT PROVEN.
+
+The CI result for planning PR #1522 itself may remain failing until
+its inherited TC-20 collision on main is resolved, and its **own**
+exact-head checks complete successfully after reconciliation. Do not
+waive or misclassify the failing Test as a PASS.
+
 ## Merge meaning
 
 This preparatory PR may be considered only as a **non-authoritative
