@@ -204,7 +204,71 @@ These proof obligations are **not met by this proposal**. They need
 C-3-approved implementation and real usage evidence; don't check off the
 migrated ACs from a Markdown link alone.
 
-## 9. Proposed adoption decision (pending Human C-3)
+## 9. Git as an evidence and change ledger (not an autonomous memory engine)
+
+Git is useful to **version and trace the artifacts that the existing
+owners already produce**. It does not itself validate truth, grant
+execution permission, authenticate the claimed Human approver or
+make an unsafe memory record safe to replay.
+
+| Responsibility | Existing Git-backed surface | Trust interpretation |
+|---|---|---|
+| Raw historical observations | `docs/working/improvement-seeds.md` and approved evidence refs | Historical claims; append-only does not mean verified/current |
+| Consolidated knowledge view | `docs/working/improvement-digest.md` when adopted | Derived, scoped summary. The source seeds/revisions remain traceable |
+| Proposed promotion review | TASK-scoped candidate/design/proposed decision | Draft; no authority until the applicable Human/policy gate |
+| Accepted rule/Skill/test | Branch diff + PR + exact merged commit SHA | Changed implementation; recheck activation, regression and permissions |
+| Audit decision history | Proposed `memory-promotion-log.jsonl`, append-only | Records submitted claims/decisions; separately authenticate authority |
+| Correction / revocation | New linked supersession/deprecation record and a new PR | Preserve previous events; remove or revert active guidance only through existing gate |
+
+### Identity, binding and safe reuse
+
+A future candidate or decision record should refer to `repository`,
+`source_path`, `source_commit_sha` (or immutable external evidence ID),
+`candidate_id`, `decision_record_id`, `applied_commit_sha` (only after
+actually observing application), `owner_scope` and `source_visibility`.
+When links point at a moving branch (`main`, a mutable tag or a PR URL),
+resolve its exact revision **before** relying on the content. Store the
+resolved immutable reference and re-check its target at use time.
+
+A `git show <sha>:<path>` lookup establishes **which bytes were present**,
+not that the memory was correct, used, safe, permitted or causally effective.
+A GitHub PR marked merged establishes the changed tree, not proof of
+Human C-3/C-4 identity, external runtime activation, successful canary or
+independent evaluation. A test PASS is bound to its exact checked commit
+and does not transfer to another head automatically.
+
+Do not duplicate RunState, canonical Plan, decision-log, RunEvidence or
+PromotionDecision into a second git-based memory SSoT. Retrieval indices,
+embeddings and summary caches, if separately introduced in the future,
+must remain rebuildable, non-authoritative views with source revisions.
+Never commit secrets, raw private session histories, sensitive personal
+content or broader-access copies of owner-scoped memory. Redaction is not
+a substitute for source authorization.
+
+### Minimal closed-loop example (design, not a performed promotion)
+
+```text
+Run/CI fail at verified commit A
+ -> source-bound failure Evidence and candidate
+ -> check existing Rule/Test first (Reuse Before Create)
+ -> candidate decision proposed: duplicate | prefer_automation | needs_evidence
+ -> bounded test/Skill/Rule diff on branch (if appropriate)
+ -> PR review + exact-head CI + existing Human C-3/C-4 gates
+ -> merged commit B, followed by independent activation and recurrence evidence
+ -> later supersession/rollback decision C if effect is absent or adverse
+```
+
+For issue #1525 the existing `ta-61-extra-contract.sh` TC-20 already
+detects duplicate numeric test IDs. A candidate stating that this
+needs a new always-on `CLAUDE.md` rule should first be triaged as
+`duplicate` (existing deterministic enforcement) or
+`prefer_automation` (move an existing check earlier, only with proof
+of need). PR #1526 proposes to restore unique test IDs; it is **not**
+an accepted Memory Promotion decision, a confirmed rollout or
+independent evidence of improved long-term recurrence. Record actual
+CI outcomes and any future reuse in their proper owners instead.
+
+## 10. Proposed adoption decision (pending Human C-3)
 
 **Partial adoption / documentation-first** is recommended because it
 preserves existing owner contracts and allows adversarial review before
