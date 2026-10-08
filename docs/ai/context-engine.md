@@ -112,6 +112,28 @@ Context Engine の `dynamic_context` は **取得候補の記述子**であり�
 別モデル/worker/reviewer への引き継ぎは
 [Context Lifecycle](./context-lifecycle.md) の checkpoint → fresh-context を適用する。
 
+## 3-b. 効果検証（品質を削らない paired comparison）
+
+この節の手順は計測ガイドであり、CLI が自動収集する新指標ではない。
+
+1. **同一条件を固定**: 同じ task/revision・モデル/effort・試行条件で、
+   baseline（従来の読込）と candidate（§3-a search-first）を比較する。
+   特定順序による cache 偏りや試行ばらつきを記録し、可能なら順序を入れ替えて再試行する。
+2. **費用・時間を測る**: input / cache read / output tokens、API 換算コスト、
+   wall-clock 時間、tool/read 件数、取得したファイル/行の範囲を記録する。
+   subscription の usage limit と API 換算コストは同じ指標として扱わない。
+3. **品質を同時に測る**: acceptance criteria と関連 unit / integration / E2E の
+   結果、独立レビューの重大指摘、依存/セキュリティの見落とし、再作業回数を照合する。
+   失敗・未実行テストは PASS に丸めない。
+4. **採否を決める**: 品質が同等以上で、費用・所要時間・不要な read のうち
+   意味のある改善を示せる場合に限り採用候補とする。十分な試行・証拠が無い場合は
+   `INCONCLUSIVE` とし、全タスクでの効果を断定しない。
+
+外部の記事での削減率は、その著者が試した環境の観測値であり PlanGate の実測値ではない。
+複雑な bug / review / refactor と、単純な Q&A は別に評価する。
+計測に秘密・個人データを含めず、既存の
+[metrics privacy](./metrics-privacy.md) に従う。
+
 ## 4. stale plan / stale C-3 と Hook / validate の整合
 
 **EH-3（plan_hash 改竄検知）と矛盾しない**ことを保証する:
