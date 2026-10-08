@@ -78,7 +78,7 @@ Context Engine の `dynamic_context` は **取得候補の記述子**であり�
 
 1. **対象を確定**: 現在の Goal / phase / allowed files と、答えるべき質問を特定する。
    セッション再開時は working-context の **L0（INDEX.md → current-state.md）と
-   phase-required L1 を先に読む**。PBI / 承認済 Plan / test-cases / c3.json など
+   phase-required L1 を先に読む**。PBI / 承認済 Plan / test-cases など
    `contract_context` の取得・有効性確認をこの手順で代替しない。
 2. **候補を絞る**: リポジトリ内のコード・補助資料など **dynamic な working set** について、
    まずパス一覧・ファイル名・シンボル・キーワード（例: `git ls-files`、
