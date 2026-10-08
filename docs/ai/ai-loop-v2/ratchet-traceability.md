@@ -80,7 +80,7 @@ expected_prevention:
   expected_effect: ...
 ```
 
-The current `pattern_snapshot.pattern_id` must appear exactly once in a non-empty `pattern_refs` set, and `expected_effect` must be non-empty. Missing or mismatched claims are `INCONCLUSIVE / EXPECTED_PREVENTION_BINDING`.
+The current `pattern_snapshot.pattern_id` must appear exactly once in a non-empty `pattern_refs` set, every ref must be a non-blank string, `mode` must be a string from the list above, and `expected_effect` must be non-empty. Missing, mistyped or mismatched claims are `INCONCLUSIVE / EXPECTED_PREVENTION_BINDING`. Refs other than the current pattern are recorded as part of the claim only; their existence and `pattern:` form are not validated.
 
 This binding proves only **what the Candidate claims it will improve**. It is not evidence that the change works. Paired replay, known mutants, negative controls, activation, and independent evaluation remain the effectiveness evidence.
 

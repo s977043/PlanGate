@@ -289,14 +289,18 @@ class RatchetVerticalSliceTests(unittest.TestCase):
         )
 
     def test_expected_prevention_mode_must_be_supported(self):
-        value = copy.deepcopy(self.base)
-        value["candidate"]["expected_prevention"]["mode"] = "wish"
-        result = self.evaluate(value)
-        self.assertEqual(result["experiment_result"]["result"], "INCONCLUSIVE")
-        self.assertIn(
-            "EXPECTED_PREVENTION_BINDING",
-            result["experiment_result"]["reason_codes"],
-        )
+        for mode in ("wish", ["stop"], {"a": 1}):
+            with self.subTest(mode=mode):
+                value = copy.deepcopy(self.base)
+                value["candidate"]["expected_prevention"]["mode"] = mode
+                result = self.evaluate(value)
+                self.assertEqual(
+                    result["experiment_result"]["result"], "INCONCLUSIVE"
+                )
+                self.assertIn(
+                    "EXPECTED_PREVENTION_BINDING",
+                    result["experiment_result"]["reason_codes"],
+                )
 
     def test_expected_prevention_must_bind_current_pattern(self):
         for pattern_refs in (
@@ -304,6 +308,7 @@ class RatchetVerticalSliceTests(unittest.TestCase):
             ["pattern:other"],
             ["pattern:verification-skipped", "pattern:verification-skipped"],
             [{"pattern_id": "pattern:verification-skipped"}],
+            ["pattern:verification-skipped", "  "],
         ):
             with self.subTest(pattern_refs=pattern_refs):
                 value = copy.deepcopy(self.base)
