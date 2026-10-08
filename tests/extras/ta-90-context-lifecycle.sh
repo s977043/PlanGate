@@ -6,7 +6,7 @@
 # auxiliary layer, name what is not detected):
 # - Pinned to an exact expected value: doc §3 MUST block (TC-02), doc §7 PreCompact
 #   section and every doc line naming PreCompact (TC-09), the working-context trigger
-#   block (TC-10), the local-exec-handoff transcript rule (TC-11). Any edit inside a
+#   block (TC-10), the local-exec-handoff "Resume from canonical state" section (TC-11). Any edit inside a
 #   pinned range fails until the expectation is updated after C-4 review.
 # - Auxiliary heuristics run on sentences (not lines). Anchor words are matched after
 #   removing non-alphanumerics and lower-casing (PreCompact / River Review variants).
@@ -215,9 +215,16 @@ provider 非依存の token 閾値は推測で作らない。usage が信頼で�
 EOF
 }
 
-# local-exec-handoff transcript rule: the Rules item line, pinned.
+# local-exec-handoff transcript rule: its own section, kept outside "## Rules" so it
+# does not join the C-3 exec-gate declaration block that ta-77 digests.
+_t90_le_rule_block() {
+  { _t90_block '## Resume from canonical state' < "$_T90_LA"; } 2>/dev/null
+}
+
 _t90_expect_le_rule() {
   cat <<'EOF'
+## Resume from canonical state
+
 - **生の会話履歴（raw transcript）は packet に含めず、受け手にも渡さない**。受け手は canonical state（`INDEX.md` → `current-state.md` → phase-required L1）から fresh context で再開する（Context Lifecycle: `docs/ai/context-lifecycle.md`。導入先で解決できなくても本ルールは維持する）
 EOF
 }
@@ -328,7 +335,7 @@ _t90_tr="$({ _t90_sentences "$_T90_LA" | _t90_anchor transcript |
   grep -i -E '添付|含め|渡し|attach|include|pass' |
   grep -v -x -F -e "$_T90_ALLOW_TRANSCRIPT"; } || true)"
 if [ -r "$_T90_LA" ] && cmp -s "$_T90_LA" "$_T90_LC" && cmp -s "$_T90_LA" "$_T90_LP" &&
-   grep -q -x -F -e "$(_t90_expect_le_rule)" "$_T90_LA" &&
+   [ "$(_t90_le_rule_block)" = "$(_t90_expect_le_rule)" ] &&
    [ -z "$_t90_tr" ]; then
   _t90_pass "TC-11 local-exec-handoff resumes from canonical state (3 surfaces byte-identical)"
 else
