@@ -60,6 +60,17 @@
 - [ ] Candidate examples validated against executable fixtures.
 - [ ] End-to-end trust ledger / production promotion measured.
 
+## Additional guard review: unapproved Plan path
+
+- Finding: placing the draft at `docs/working/TASK-0811/plan.md` risks an
+  operational consumer treating a proposal as canonical Plan despite its
+  status text. This is a status-vs-path authority confusion.
+- Correction: moved it to `plan-proposal.md` with explicit non-canon
+  frontmatter. Formal `plan.md` must be created only through G0 / Human
+  review, and synchronous C-3 binds to its exact revision.
+- Re-review expectation: assert there is **no** `plan.md` in this PR tree,
+  and that all references point to `plan-proposal.md`.
+
 ## Merge meaning
 
 This preparatory PR may be considered only as a **non-authoritative
