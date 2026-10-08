@@ -25,6 +25,32 @@ class ChromiumPlanFeedbackTest(unittest.TestCase):
         cls.browser = next((shutil.which(exe) for exe in BROWSER_CANDIDATES if shutil.which(exe)), None)
         if cls.browser is None:
             raise unittest.SkipTest("real Chromium/Chrome unavailable; E2E not verified")
+        browser_version = subprocess.run(
+            [cls.browser, "--version"], capture_output=True, text=True,
+            check=False, timeout=10
+        )
+        if browser_version.returncode != 0:
+            raise AssertionError(
+                f"browser version probe failed for {cls.browser}: "
+                f"{browser_version.stderr.strip()}"
+            )
+        cls.browser_version = (
+            browser_version.stdout.strip() or browser_version.stderr.strip()
+        )
+        if not cls.browser_version or not any(
+            character.isdigit() for character in cls.browser_version
+        ):
+            raise AssertionError(
+                f"browser version is not verifiable: {cls.browser_version!r}"
+            )
+        print(
+            f"Browser E2E executable={cls.browser!r} "
+            f"version={cls.browser_version!r}", flush=True
+        )
+
+    def test_browser_executable_and_version_are_recorded(self):
+        self.assertTrue(Path(self.browser).is_file())
+        self.assertTrue(self.browser_version)
 
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
