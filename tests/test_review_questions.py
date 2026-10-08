@@ -56,6 +56,22 @@ class PlanFeedbackTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             render_review_questions(self.root, "TASK-0001")
 
+    def test_reject_duplicate_json_properties(self):
+        (self.root / "review-questions.json").write_text(
+            '{"version":1,"version":1,"questions":[{"id":"Q","prompt":"x"}]}',
+            encoding="utf8"
+        )
+        with self.assertRaises(ValueError):
+            render_review_questions(self.root, "TASK-0001")
+
+    def test_deferred_requires_note_and_nonapproval_is_explicit(self):
+        self.put([{"id": "Q", "prompt": "Choose", "choices": ["A", "B"]}])
+        content = render_review_questions(self.root, "TASK-0001")
+        self.assertIn("data-note", content)
+        self.assertIn('state === "deferred" && !note', content)
+        self.assertIn('state !== "answered" && response', content)
+        self.assertIn("approval_granted: false", content)
+
     def test_render_cli_with_questions_and_bad_input(self):
         import subprocess
         renderer = Path(__file__).resolve().parents[1] / "scripts" / "render_review.py"
