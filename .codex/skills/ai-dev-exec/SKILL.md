@@ -132,34 +132,34 @@ PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** �
 
 ## CLI 呼び出し
 
-> **前提（Human 決定 #1144）**: plugin / `install.sh --claude` / Codex が導入先へ配るのは
-> **読み物層（`skills` / `rules` / `agents` / `commands`）だけ**であり、**CLI（PlanGate CLI 本体）も
-> enforcement 層（`scripts/hooks/`）も配布物に含まれない**。したがって下表の「上流リポジトリの cwd」
-> 列にしか成立しない手順は、導入先では **上流リポジトリ（`s977043/plangate`）の clone が無いかぎり
-> 実行できない**。そこへ到達したら「CLI が無いため実行できない／上流リポジトリの clone が必要」と
-> **明示して停止する**か、同表の代替手順へ置き換える。**CLI が無いことを理由に手順を黙って省略し、
-> 実施済みと読める記録を残してはならない。**
+> **配布と対象 project root は別の問題（#962 / #1144）**: plugin / `install.sh --claude` / Codex は
+> `bin/plangate` と enforcement scripts を導入先へ配布しない。そのため CLI を使うには
+> PlanGate の clone と、その `bin/plangate` への PATH または絶対パスが必要。
+> ただし #1497 以降、CLI が利用できる場合の対象 project root は全コマンド共通で
+> **`--project-root` → `PLANGATE_PROJECT_ROOT` → cwd の git root → CLI root fallback**
+> の順に解決される。導入先の git repo で PATH 上の `plangate` を実行すれば、その導入先が
+> 既定の対象になる。CLI が無いことを理由にゲートや検証を黙って省略してはならない。
+>
+> #1497 で downstream 契約を明示検証したのは `status` / `validate` / `approve` /
+> read-only `doctor`（および work-dir を明示する `render`）。`doctor --fix` は #1144 の
+> enforcement 配布が解決するまで downstream では **rc=2 / no-write** で fail-closed。
+> script-relative helper に委譲するコマンドは、root resolver が存在しても自動的に
+> downstream 対応になるとは扱わず、下表・フォールバックの個別契約に従う。
 
-**呼び出し表記は実行環境で変わる**。相対パス形式（`bin/plangate` / `./scripts/...`）が成立するのは
-**上流リポジトリ（`s977043/plangate`）を clone した cwd に居るときだけ**で、導入先には `bin/` も
-`scripts/`（の CLI 本体）も配置されない。導入先で PATH を通した場合のコマンド名は
-**`plangate`**（`bin/plangate` ではない）。どちらの環境かを確定してから使う。
+**呼び出し表記**: 上流 clone の cwd では `bin/plangate`、導入先で PATH を通している場合は
+`plangate`。別対象を明示する場合は `--project-root <dir>` を使う。
 
 | 用途 | 上流リポジトリの cwd | 導入先 + PATH に `plangate` あり | 導入先 + PATH に無い（**既定**） |
 |------|---------------------|----------------------------------|--------------------------------|
-| exec dispatch | `bin/plangate exec TASK-XXXX [--mode <mode>]` | `plangate exec TASK-XXXX` は**実在するが対象が CLI 側**（下記注意）→ 導入先の TASK には使えず手動で TDD 実行 | 手動で TDD 実行 |
-| plan_hash / artifact 機械検証 | `bin/plangate validate TASK-XXXX` | `plangate validate --dir docs/working/TASK-XXXX` | 次節のフォールバック（sha256 突合） |
+| exec dispatch | `bin/plangate exec TASK-XXXX [--mode <mode>]` | `plangate exec TASK-XXXX`（selected project root の C-3 / plan / HEAD を検査。agent 固有実行は各 runner 契約に従う） | 手動で TDD 実行 |
+| plan_hash / artifact 機械検証 | `bin/plangate validate TASK-XXXX` | `plangate validate TASK-XXXX` | 次節のフォールバック（sha256 突合） |
 
-> **注意: `TASK-XXXX` 位置引数は cwd ではなく CLI 本体の位置を基準に解決される。**
-> `bin/plangate` は自身のパスから `plangate_root`（= `bin/` の親）を求め、
-> `<CLI の repo root>/docs/working/TASK-XXXX` を読み書きする。`bin/` は導入先に配置されない
-> ため、PATH 上の `plangate` は必ず**別の場所にある上流 clone** の実体を指す。つまり導入先で
-> `plangate exec TASK-XXXX` を実行しても、対象は導入先の `docs/working/` ではなく
-> **その clone 側の `docs/working/`** になる。cwd 非依存でパスを明示できる `--dir` を持つのは
-> `validate` / `validate-schemas` **だけ**で、`exec` / `resume` / `status` / `review` / `eval` /
-> `metrics` / `context` / `render` / `approve` に相当オプションは無い。
+> **project root 契約**: 位置引数は CLI 本体位置ではなく、共通 resolver が選んだ project root の
+> `docs/working/TASK-XXXX` を基準に解決する。明示的に別repoを操作する場合は
+> `--project-root <dir>` を使う。agent runner 自身が相対パスを使う場合は target repo の cwd から
+> 実行すること。
 
-- 並行で `./scripts/ai-dev-workflow TASK-XXXX exec` も利用可（**上流リポジトリの cwd のみ**。`scripts/ai-dev-workflow` は配布対象外）
+- 並行で `./scripts/ai-dev-workflow- 並行で `./scripts/ai-dev-workflow TASK-XXXX exec` も利用可（**上流リポジトリの cwd のみ**。`scripts/ai-dev-workflow` は配布対象外）
 - **Codex CLI 経由の場合は `scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto` を推奨**（**上流リポジトリの cwd のみ**。pre-flight で validate + doctor --check-settings 実行、post-flight で plan.md drift 検知）
 
 > ❌ ~~**Codex CLI 物理 hook 等価達成 (PR #347)**~~ **未達成（2026-08-13 実測）**: `.codex/hooks.json` は設定ファイル全体が parse 拒否されており、**hook は 1 件も登録されていない**。**EH-1/2/3/6/9 は Codex session で一度も発火していない**。`scripts/codex-guarded.sh` の session 前後検知は正規入口を経由した場合のみ機能する（入口を強制する機械ゲートは無い）。**Codex session 中の write は物理 block されないものとして扱い、ゲートは人手で維持すること。** 詳細は同梱 `references/settings-wiring-contract.md` §Codex CLI parity を参照。**これらは配布対象外**でもあるため、導入先では下記フォールバックでゲートを人手維持する。
@@ -208,10 +208,9 @@ PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** �
    機械検証できない旨を `decision-log.jsonl` に記録して **exec を保留する**
 3. **hook も配布されない前提で運用する** — plan_hash を照合する hook（EH-3）は導入先には配線され
    ないため、item 2 の突合は **exec 開始前に自分で実行する**。CLI が無いことを理由に C-3 を省略しない
-4. CLI による機械検証が必要なら、上流リポジトリを clone して
-   `bin/plangate validate --dir <導入先の TASK ディレクトリの絶対パス>` を実行する。
-   **位置引数形式（`validate TASK-XXXX`）は使わない** — 上表の注意のとおり clone 側の
-   `docs/working/TASK-XXXX` を見に行ってしまい、導入先の TASK は検査されない
+4. CLI による機械検証が必要なら PlanGate の clone を用意し、導入先 repo の cwd から
+   `plangate validate TASK-XXXX`、または任意の cwd から
+   `plangate --project-root <導入先repo> validate TASK-XXXX` を実行する
 
 ## 次フェーズへ
 
