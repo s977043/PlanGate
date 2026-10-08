@@ -71,7 +71,8 @@ The intended deliverables **after C-3** are:
 | P1 | Reconcile #811 Human decisions / migrated #1157 ACs with existing owners | AI | Requirements inventory grounded in repo / comments |
 | P2 | Prepare non-normative candidate / decision / ledger examples | AI | Reviewable proposal; no authority granted |
 | P3 | Three planning review loops: SSoT, security, measurability | AI | All findings corrected or open issue with owner |
-| G1 | **Synchronous C-3** on this concrete Plan and HO one-line proposal | **Human-owned** | Existing valid approval artifact for exact plan/hash; no inference from chat/PR |
+| G0 | Human reviews design and authorizes formalization into a canonical `plan.md` | **Human-owned** | Proposal is not silently treated as executable Plan |
+| G1 | **Synchronous C-3** on the final canonical `plan.md` and HO one-line proposal | **Human-owned** | Existing valid approval artifact bound to that exact plan/hash; no inference from chat/PR |
 | E1 | Create canonical doc and template, choose audit log materialization | AI only after G1 | Documentation ACs + #1157 linkage |
 | E2 | Independently verify examples, risk/authority boundaries, acceptance evidence | Verifier | FAIL / INCONCLUSIVE never treated as PASS |
 | G2 | Apply HO rule addition, if still desired | **Human-owned** | Human application / independent verification |
@@ -92,8 +93,11 @@ These requirements are not discharged merely by authoring Gate documentation:
 
 ## Verification / stopping rules
 
+- Do not treat `plan-proposal.md` as the canonical `plan.md`. Prior to
+  execution, a Human reviews the proposal, a formal `plan.md` is created,
+  and synchronous C-3 is recorded against **that exact revision**.
 - Before modifying normative/HO files: obtain real C-3 evidence bound to the
-  approved Plan revision. Absence => **BLOCKED**, not 'approved in prior chat'.
+  approved canonical Plan revision. Absence => **BLOCKED**, not 'approved in prior chat'.
 - Check documentation completeness against all #811 DoD items and the migrated ACs.
 - Check minimal scope, reviewer independence, source/owner privacy, no instruction
   or evidence laundering, no duplicate authority or runtime subsystem.
