@@ -13,7 +13,7 @@ Memory Promotion Gate.
       `improvement-digest.md` exist, and distinguish raw historical evidence
       from derived, adoption-gated digest
 - [x] Prepare `plan.md` (pre-C-3) and `design-proposal.md` (non-canon)
-- [ ] Complete review/adaptation loops on this exact PR and record outcomes
+- [x] Complete three AI self-review/adaptation loops on PR #1522, recorded in `design-review.md` (not independent C-4 approval)
 - [ ] Confirm latest-head CI/links/mergeability; C-4 is Human-owned
 
 ## Unresolved blockers and next actions
