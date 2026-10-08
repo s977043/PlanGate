@@ -46,6 +46,16 @@
 
 ## 学び
 
+- [2026-10-08] Edit 後の整形で既存 `.md` の無関係な箇所まで変わったら、自分の hunk だけを stage する
+  - 事実: #1495 で `docs/ai/ai-loop-v2/ratchet-traceability.md` を 1 行編集したところ、Edit 後に走る整形が無関係な表の桁揃えまで変え、差分が 18 行に膨らんだ。原本へ python の文字列置換で入れ直す方法は、repo への書き込みが EH-3 の監査を通らないので使えない
+  - 再利用条件: `git diff -U0 --output=<patch> -- <path>` で差分を書き出し、ヘッダと自分の hunk だけを別の patch にして `git apply --cached --unidiff-zero` で stage する。`git diff --cached` で確かめてから commit する。作業ツリーに残る整形差分は commit せず、破棄はユーザーに確認してから worktree ごと行う
+  - 根拠: #1495 の `207715dc`（docs の差分は 1 行のみ）
+
+- [2026-10-08] push の直後に `gh pr checks --watch` を実行すると、CI を待たずに失敗する
+  - 事実: #1495 に push した直後に `gh pr checks 1495 --watch` を実行したところ、チェックがまだ登録されておらず `no checks reported on the '<branch>' branch` を出して exit 1 で終わった。CI を待つバックグラウンド処理が、CI の結果と無関係に「failed」で返った
+  - 再利用条件: `gh pr view <n> --json statusCheckRollup --jq '.statusCheckRollup | length'` が 0 より大きくなるまで待ってから `--watch` する。待機はスクリプトファイルにしてバックグラウンドで実行する。watch の exit code だけで判定せず、完了後に conclusion と head SHA を照合する。0 件のまま merge-ready と扱わない点は、下の 2026-09-25 の項と同じ
+  - 根拠: 2026-10-08 の #1495（push `0ce5eb9f`）
+
 - [2026-09-09] 重複回避の探索範囲は「追記先のディレクトリ」ではなく「その規律が属する領域全体」
   - 事実: 「bot レビューが quota 超過のときはマージ可能と報告しない」を `docs/ai/subagent-delegation/behavior-norms.md` へ新規追記したが、**同じインシデント（外部 bot レビュアーの daily quota 切れで 6 本 30% が実質ノーレビューのままマージ）から作られた正本 `docs/ai/reviewer-silence-fallback.md` が既に存在**した。私は追記先ディレクトリ配下しか grep せず「無かった」と判断していた
   - 再利用条件: 規律を新規追記する前に、**その規律の主題語**（今回なら `quota` / `unavailable` / `fallback` / `レビュア`）で `docs/` 全体を grep する。既存があれば新規追加せずリンクで接続する（同じ規律が 2 箇所に分裂すると将来乖離する）
