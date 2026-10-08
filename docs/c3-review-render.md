@@ -58,3 +58,16 @@ C-3 gate -> Plan : REJECT
 - 隣接ノードは直線矢印、非隣接（後戻り等）は右側を回す破線
 - ノード名・ラベルは HTML エスケープ（XSS 防止）。`mermaid.js` 等の外部依存は使わない
 - 対象は**状態遷移図/フロー図**（矩形+矢印）。影響範囲図・リスク可視化等は範囲外（#548 V2）
+
+
+## Optional interactive review questions (#1521)
+
+A task may include an explicit local `review-questions.json` alongside
+`plan.md`. When present, `plangate render` shows a review-only answer panel.
+Human responses are saved to a local JSON file with source digests.
+
+**This is not C-3 approval** and does not change execution or merge rights.
+The default HTML stays unchanged when no questions file is present.
+
+See [Interactive Plan Feedback](interactive-plan-feedback.md) for the input
+contract, validation, security boundaries, and limitations.
