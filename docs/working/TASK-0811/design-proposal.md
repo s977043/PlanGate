@@ -263,10 +263,13 @@ detects duplicate numeric test IDs. A candidate stating that this
 needs a new always-on `CLAUDE.md` rule should first be triaged as
 `duplicate` (existing deterministic enforcement) or
 `prefer_automation` (move an existing check earlier, only with proof
-of need). PR #1526 proposes to restore unique test IDs; it is **not**
-an accepted Memory Promotion decision, a confirmed rollout or
-independent evidence of improved long-term recurrence. Record actual
-CI outcomes and any future reuse in their proper owners instead.
+of need). PR #1526 **merged** and issue #1525 closed: on fixed `main`
+`5c1651abe3a15a661a453672fb9d4e841761aeaf`, guidance uses unique TA-115,
+while the existing TA-114 verifier test is unchanged. PR #1526's exact-head
+Test / CI / CodeQL / Issue Link were green before merge. This is **not**
+an accepted Memory Promotion decision or independent evidence of reduced
+long-term recurrence; CI evidence is commit-scoped and the next-run outcome
+must be separately observed. Record future reuse in its proper owner.
 
 ## 10. Proposed adoption decision (pending Human C-3)
 
