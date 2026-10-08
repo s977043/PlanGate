@@ -24,9 +24,18 @@ def _text(value, name, maxlen):
         raise ValueError("invalid " + name)
     return value
 
+def _strict_object(pairs):
+    out = {}
+    for key, value in pairs:
+        if key in out:
+            raise ValueError("duplicate JSON property")
+        out[key] = value
+    return out
+
+
 def _questions(raw):
     try:
-        data = json.loads(raw.decode("utf-8"))
+        data = json.loads(raw.decode("utf-8"), object_pairs_hook=_strict_object)
     except (UnicodeError, ValueError) as exc:
         raise ValueError("invalid questions JSON") from exc
     if not isinstance(data, dict) or set(data) != {"version", "questions"}:
