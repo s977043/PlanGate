@@ -133,4 +133,7 @@ jobs:
       - name: Require real Chrome/Chromium
         run: command -v google-chrome || command -v chromium || command -v chromium-browser
       - name: Run real browser DOM and export tests
+        # Only on GitHub-hosted ephemeral runner: Chrome namespace sandbox is unavailable.
+        env:
+          PLANGATE_CHROME_NO_SANDBOX: '1'
         run: python3 -m unittest discover -s tests -p test_review_feedback_chromium.py -v
