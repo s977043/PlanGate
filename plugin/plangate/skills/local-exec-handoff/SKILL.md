@@ -68,34 +68,32 @@ PlanGate は Claude Code / Codex CLI ともローカル実行が原則。本 ski
 
 ## CLI 呼び出し
 
-> **前提（Human 決定 #1144）**: plugin / `install.sh --claude` / Codex が導入先へ配るのは
-> **読み物層（`skills` / `rules` / `agents` / `commands`）だけ**であり、**CLI（PlanGate CLI 本体）も
-> enforcement 層（`scripts/hooks/`）も配布物に含まれない**。したがって下表の「上流リポジトリの cwd」
-> 列にしか成立しない手順は、導入先では **上流リポジトリ（`s977043/plangate`）の clone が無いかぎり
-> 実行できない**。そこへ到達したら「CLI が無いため実行できない／上流リポジトリの clone が必要」と
-> **明示して停止する**か、同表の代替手順へ置き換える。**CLI が無いことを理由に手順を黙って省略し、
-> 実施済みと読める記録を残してはならない。**
-
-**呼び出し表記は実行環境で変わる**。相対パス形式（`bin/plangate` / `./scripts/...`）が成立するのは
-**上流リポジトリ（`s977043/plangate`）を clone した cwd に居るときだけ**で、導入先には `bin/` も
-`scripts/`（の CLI 本体）も配置されない。導入先で PATH を通した場合のコマンド名は
-**`plangate`**（`bin/plangate` ではない）。
+> **配布と対象 project root は別の問題（#962 / #1144）**: plugin / `install.sh --claude` / Codex は
+> `bin/plangate` と enforcement scripts を導入先へ配布しない。そのため CLI を使うには
+> PlanGate の clone と、その `bin/plangate` への PATH または絶対パスが必要。
+> ただし #1497 以降、CLI が利用できる場合の対象 project root は全コマンド共通で
+> **`--project-root` → `PLANGATE_PROJECT_ROOT` → cwd の git root → CLI root fallback**
+> の順に解決される。導入先の git repo で PATH 上の `plangate` を実行すれば、その導入先が
+> 既定の対象になる。CLI が無いことを理由にゲートや検証を黙って省略してはならない。
+>
+> #1497 で downstream 契約を明示検証したのは `status` / `validate` / `approve` /
+> read-only `doctor`（および work-dir を明示する `render`）。`doctor --fix` は #1144 の
+> enforcement 配布が解決するまで downstream では **rc=2 / no-write** で fail-closed。
+> script-relative helper に委譲するコマンドは、root resolver が存在しても自動的に
+> downstream 対応になるとは扱わず、下表・フォールバックの個別契約に従う。
 
 | 用途 | 上流リポジトリの cwd | 導入先 + PATH に `plangate` あり | 導入先 + PATH に無い（**既定**） |
 |------|---------------------|----------------------------------|--------------------------------|
-| current-state 表示 | `bin/plangate resume TASK-XXXX` | **導入先の TASK には使えない**（`--dir` 相当なし）→ `current-state.md` を直接読む | `current-state.md` を直接読む |
-| フェーズ確認 | `bin/plangate status TASK-XXXX` | 同上 → `status.md` / `INDEX.md` を直接読む | `status.md` / `INDEX.md` を直接読む |
-| exec 継続 | `bin/plangate exec TASK-XXXX` | 同上 → 手動で TDD 実行（ゲート確認は `ai-dev-exec` skill） | 手動で TDD 実行 |
-| 検証 | `bin/plangate validate TASK-XXXX` | `plangate validate --dir docs/working/TASK-XXXX` | `ai-dev-exec` skill の sha256 突合フォールバック |
+| current-state 表示 | `bin/plangate resume TASK-XXXX` | `plangate resume TASK-XXXX` | `current-state.md` を直接読む |
+| フェーズ確認 | `bin/plangate status TASK-XXXX` | `plangate status TASK-XXXX` | `status.md` / `INDEX.md` を直接読む |
+| exec 継続 | `bin/plangate exec TASK-XXXX` | `plangate exec TASK-XXXX`（target repo cwd 推奨。agent runner固有契約に従う） | 手動で TDD 実行 |
+| 検証 | `bin/plangate validate TASK-XXXX` | `plangate validate TASK-XXXX` | `ai-dev-exec` skill の sha256 突合フォールバック |
 
-> **注意: `TASK-XXXX` 位置引数は cwd ではなく CLI 本体の位置を基準に解決される。**
-> `bin/plangate` は自身のパスから `plangate_root`（= `bin/` の親）を求め、
-> `<CLI の repo root>/docs/working/TASK-XXXX` を読み書きする。`bin/` は導入先に配置されない
-> ため、PATH 上の `plangate` は必ず**別の場所にある上流 clone** の実体を指す。cwd 非依存で
-> パスを明示できる `--dir` を持つのは `validate` / `validate-schemas` **だけ**で、
-> `resume` / `status` / `exec` に相当オプションは無い。
+> **project root 契約**: `resume` / `status` / `exec` / `validate` は selected project root を参照する。
+> CLIを別cwdから使う場合は `--project-root <dir>` を明示する。exec の agent runner が相対パスを
+> 使う可能性があるため、実行は target repo の cwd を推奨する。
 
-packet 自体は手動構築。専用 CLI は環境を問わず未提供（CLI がある環境では `resume` + `status` の出力を整形し、無い環境では `current-state.md` / `status.md` を読んで整形する）。
+packet 自体は手動構築。packet 自体は手動構築。専用 CLI は環境を問わず未提供（CLI がある環境では `resume` + `status` の出力を整形し、無い環境では `current-state.md` / `status.md` を読んで整形する）。
 
 ## ツール別読み替え
 

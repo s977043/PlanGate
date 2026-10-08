@@ -34,48 +34,40 @@ settings.json の wiring 適用、`apply-claude-settings.sh` の実行、Hook �
 
 ## CLI 不在時のフォールバック（導入先では既定）
 
-**呼び出し表記は実行環境で変わる**。相対パス形式（`bin/plangate`）が成立するのは上流リポジトリ（`s977043/plangate`）を clone した cwd に居るときだけで、導入先には `bin/` が配置されない。導入先で PATH を通した場合のコマンド名は **`plangate`**（`bin/plangate` ではない）。
+**CLI の存在と対象 project root は別に判定する（#962 / #1144）**。導入先に `bin/` は配布されないが、
+PlanGate clone の `bin/plangate` を PATH に通していれば `plangate` を利用できる。
 
-存在確認は **`command -v plangate`（PATH 解決）と `[ -x ./bin/plangate ]`（上流 cwd）の両方**で行う。`command -v bin/plangate` はスラッシュを含む語を PATH 検索しない（相対パスのファイル確認になる）ため、PATH 導入済みの環境を「不在」と誤判定する。
+存在確認は **`command -v plangate` と `[ -x ./bin/plangate ]` の両方**で行う。
 
-| 判定結果 | 実行する doctor |
-|---------|----------------|
-| `[ -x ./bin/plangate ]` が真（上流 cwd） | `bin/plangate doctor --json` |
-| PATH に `plangate` あり | `plangate doctor --json`（下記注意） |
-| どちらも無い（**既定**） | doctor をスキップし degrade 手順へ |
+| 判定結果 | 実行する doctor | 対象 |
+|---------|----------------|------|
+| `[ -x ./bin/plangate ]` が真 | `bin/plangate doctor --json` | cwd の git root（通常は上流 clone） |
+| PATH に `plangate` あり | `plangate doctor --json` | cwd の git root |
+| 別repoを明示 | `plangate --project-root <dir> doctor --json` | `<dir>` |
+| CLI が無い | doctor を実行せず degrade | 手動確認 |
 
-> **注意: doctor の検査対象は cwd ではなく CLI 本体の位置で決まる。**
-> `doctor --json` は `scripts/doctor_check.py` へ委譲され、同スクリプトは
-> `_paths.REPO_ROOT`（= `bin/` の親）を検査対象とする。`doctor` に `--dir` 相当の
-> オプションは無いため、PATH 上の `plangate` を導入先で実行しても検査されるのは
-> **上流 clone 側**であり、導入先リポジトリではない。導入先の設定を確認する場合は
-> `.claude/settings.json` を直接読む。
+> #1497 以降、read-only doctor の対象は
+> **`--project-root` → `PLANGATE_PROJECT_ROOT` → cwd git root → CLI root fallback** で決まる。
+> schema / doctor implementation は CLI clone 側を使い、project-owned state は selected root を見る。
+> downstream `doctor --fix` は #1144 の enforcement 配布が解決するまで **rc=2 / no-write**。
 
-**degrade 手順（CLI 不在時）**: doctor をスキップし、次の 3 点を案内して停止する（command not found でユーザーを放置しない）。
-
-1. clone と PATH 追加: `git clone https://github.com/s977043/plangate.git ~/plangate && export PATH="$HOME/plangate/bin:$PATH"`
-2. 導入しない場合は [`plangate-setup`](../skills/plangate-setup/SKILL.md) Skill のチェックリストを手動突合で代替し、**「doctor で検証済み」と記録しない**
-3. ゲートの厳密な強制（EH-3 / plan_hash / presence gate）には CLI + hooks の導入が必要
+**degrade 手順（CLI 不在時）**:
+1. clone + PATH を案内する
+2. 導入しない場合は plangate-setup Skill のチェックリストを手動突合し、doctor PASS と記録しない
+3. hooks が未配布であるため、read-only doctor PASS と enforcement 発火を同一視しない
 
 ### CLI 必須 / 不要 の分離（#1144）
 
-**plugin 配布物には CLI（`bin/plangate`）も enforcement 層（`scripts/hooks/`）も
-含まれない**（読み物層のみ配布）。したがって本 Agent の手順のうち CLI を要するものは
-**導入先では実行できない**。手順は削除しない（上流 clone の cwd では従来どおり有効）。
+| 手順 | CLI が利用可能 | CLI が無い |
+|------|---------------|-----------|
+| Step 1 / Step 3 `doctor --json` | selected project root を検査 | 手動突合 |
+| Step 4 `doctor --check-settings` | selected project root を read-only 検査 | PASS 扱いにしない |
+| Step 0 TASK ID 解決 | CLI 不要 | 同左 |
+| Step 2 Human-owned 操作提示 | CLI 不要 | 同左 |
+| Step 5 永続記録 | CLI 不要 | 同左 |
 
-| 手順 | 種別 | 導入先での扱い |
-|------|------|--------------|
-| Step 1 / Step 3 の `doctor --json` | **CLI 必須** | 実行不可。下記規則に従い停止 |
-| Step 4 の `doctor --check-settings`（settings タスクロック） | **CLI 必須** | 実行不可。PASS 扱いにしない |
-| Step 0 の TASK ID 動的解決 | CLI 不要 | `ls` / cwd 判定のみで完結 |
-| Step 2 の Human-owned 操作の提示 | CLI 不要 | 提示文の出力のみ（元々 Agent は実行しない） |
-| Step 5 / 永続記録（status.md・decision-log.jsonl への追記） | CLI 不要 | ファイル追記のみ |
-| 上記「呼び出し表記」「存在確認」の説明 | CLI 不要 | どう呼ぶかの説明であって手順ではない |
-
-**CLI 必須の手順に到達したときの規則**: 導入先に `bin/plangate` は配布されないため、
-**上流リポジトリの clone（および PATH 追加）が必要である旨をユーザーに告げて停止する**。
-黙ってスキップして「doctor で検証済み」と記録してはならない。clone しない選択をした
-場合は degrade（未検証）として `status.md` に記録し、Gate は未 PASS のまま保持する。
+**重要**: downstream repair はまだ未対応。設定修復を必要とする場合、`doctor --fix` を成功扱いせず
+#1144 の配布境界を明示する。
 
 ## 対話フロー
 
