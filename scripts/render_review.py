@@ -425,6 +425,9 @@ def build_perspective_nav(all_headings):
 
 
 def build_html(task_id, sections, perspective_nav="", feedback_widget=""):
+    # Preserve byte-for-byte legacy HTML when the optional questions file is absent.
+    if feedback_widget:
+        perspective_nav = perspective_nav + "\n" + feedback_widget
     toc = "".join('<a href="#%s">%s</a>' % (sid, html.escape(title)) for sid, title, _ in sections)
     body = []
     for sid, title, content in sections:
@@ -442,9 +445,8 @@ def build_html(task_id, sections, perspective_nav="", feedback_widget=""):
 <nav class="toc"><strong>目次</strong>%s</nav>
 %s
 %s
-%s
 </div></body></html>
-""" % (html.escape(task_id), CSS, html.escape(task_id), toc, perspective_nav, feedback_widget, "\n".join(body))
+""" % (html.escape(task_id), CSS, html.escape(task_id), toc, perspective_nav, "\n".join(body))
 
 
 def main():
