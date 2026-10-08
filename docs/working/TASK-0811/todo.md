@@ -12,14 +12,16 @@ Memory Promotion Gate.
 - [x] Verify the current `improvement-seeds.md` and
       `improvement-digest.md` exist, and distinguish raw historical evidence
       from derived, adoption-gated digest
-- [x] Prepare `plan.md` (pre-C-3) and `design-proposal.md` (non-canon)
+- [x] Prepare `plan-proposal.md` (non-canonical pre-C-3) and `design-proposal.md` (non-canon)
 - [x] Complete three AI self-review/adaptation loops on PR #1522, recorded in `design-review.md` (not independent C-4 approval)
 - [ ] Confirm latest-head CI/links/mergeability; C-4 is Human-owned
 
 ## Unresolved blockers and next actions
 
-- [ ] **G1 Human-owned synchronous C-3**: approve/revise/reject the concrete
-      proposed Plan, candidate/ledger terms, and HO one-line wording. Do not
+- [ ] **G0 Human-owned**: review the proposal and authorize preparing a formal
+      canonical `plan.md`. Do not let the proposal path act as execution Plan.
+- [ ] **G1 Human-owned synchronous C-3**: approve/revise/reject that formal
+      canonical Plan, candidate/ledger terms, and HO one-line wording. Do not
       infer this from an Issue/PR comment or broad automation request.
 - [ ] **E1 after G1**: move approved design to
       `docs/ai/memory-promotion-gate.md`, add
