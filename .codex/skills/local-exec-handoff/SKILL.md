@@ -95,6 +95,20 @@ PlanGate は Claude Code / Codex CLI ともローカル実行が原則。本 ski
 
 packet 自体は手動構築。packet 自体は手動構築。専用 CLI は環境を問わず未提供（CLI がある環境では `resume` + `status` の出力を整形し、無い環境では `current-state.md` / `status.md` を読んで整形する）。
 
+## Fresh-context handoff（Context Lifecycle #1410）
+
+モデル・worker・runtime の切替や独立 reviewer への引き継ぎでは、**standard 以上**の
+タスクについて、既存の canonical artifacts（L0: INDEX / current-state、phase-required L1、
+decision-log、参照可能な evidence）を checkpoint してから **fresh context** で再開する。
+`ultra-light` / `light` はこの追加 checkpoint を任意とする。
+
+この packet は直前の conversation history / raw transcript の圧縮コピーではない。
+独立 reviewer には **review package + diff + evidence** を渡し、実装担当の会話や
+非公開の推論を渡さない。必要な canonical state が missing / stale の場合は、
+再開可能と主張せず、欠落・未検証を報告して是正する。
+新しい checkpoint schema、承認権限、実行 state は導入しない。
+参照: `docs/ai/context-lifecycle.md`（上流 clone に存在する場合）。
+
 ## ツール別読み替え
 
 - **Codex CLI**: `.codex/` 配下にパケットを置く必要なし。`plangate resume` 出力（無ければ `current-state.md`）と本 skill Deliverable で十分。**上流リポジトリで作業する場合の exec 再開は `scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto`** を推奨（pre/post-flight で plan_hash 整合・settings タスクロック検証）。~~session 中の物理 hook は `.codex/hooks.json` で EH-1/2/3/6/9 が自動発火する (PR #347)。~~ **← 誤り。2026-08-13 の実測で `.codex/hooks.json` は parse 拒否され hook が 1 件も登録されていないことが判明した（EH-1/2/3/6/9 は未発火）。session 中の物理 block は無いものとして扱うこと。****`scripts/codex-guarded.sh` と `.codex/hooks.json` はどちらも配布対象外**なので、Codex への導入経路（skills のみ配置）ではこれらは存在せず、ゲートは packet 内の手順で人手維持する。
