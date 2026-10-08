@@ -1,41 +1,38 @@
 # TASK-1393 Current State
 
-> 更新: 2026-09-29
+> 更新: 2026-10-08（#1519 reconciliation）
 
 ## フェーズ: BLOCKED
+
 ## 進捗: plan Revision 2.5 / C-2 R1・R2 完了（収束）/ 簡易 C-1 PASS / **C-3 APPROVED**（Human、2026-09-28T22:45:37Z）/ PR #1407 merged（22:39Z）
 
 ## 直近の完了タスク
 
-- 範囲レビュー（2026-09-29）で、依存 issue #1391 / #1392 / #1395 が #1402 の merge で CLOSED になったこと、#1409 の ratchet が decision_core の非公開 API に依存していることを確認 → BLOCKED（詳細は INDEX）
-
-- Human y: R-071（pbi-input Required 3 に DENIED 時の BLOCKED を追記）/ #1422 に B-1 表記と B-13 を追加（2026-09-28）
-- C-2 R2（Codex gpt-6-luna は FAIL・新クラス 2 と主張 / Claude は WARN・収束）→ 新クラス 0 と裁定し R-070〜R-080 を記録、10 件を Revision 2.5 で反映（2026-09-28）
-- Human 決定 R-055 / R-058 を反映（Revision 2.4）。#1402 本文を Refs #1393 に変更、#1422 に B-12 追加・B-8 / B-2 拡張（2026-09-28）
-- C-2 R1（設計妥当性 = Codex gpt-6-luna FAIL / コードベース整合 = Claude WARN）を R-055〜R-069 として記録し、Revision 2.3 で 13 件を反映。簡易 C-1 PASS（2026-09-25 20:xx）
-- #1422 本文に B-2 書き直し・B-7 置き換え・B-8〜B-11 を追加、担当案をコメント（Human 承認）
-- Human 裁定（Rev2-R5 は収束扱い）に沿って R-047〜R-054 を是正（Revision 2.2）、C-1 再実行 PASS（2026-09-25 17:xx）
-- Revision 2.1: 保証範囲を DecisionInput に絞り、stream 束縛を #1422 へ切り出し（Human 決定）。contract_bound_seq / artifact_verdicts / P-3 / I-7 の順序 / I-10 / budget 5 を追加（2026-09-25 16:1x）
-- 敵対レビュー Rev2-R5: 新クラス 0 件（レビュアー判定）、R-047〜R-054 open（2026-09-25 16:4x）
-
-- Human 設計判断 4 件と受理 state C'（3 state）を反映し plan / test-cases を作り直した（Revision 2、2026-09-25 12:xx）
-- pbi-input の受入基準 1 件（PLAN_VERIFYING）を Deferred へ（Human 承認済み）
-- 敵対レビュー Rev2-R1 / R2 を反映（R-022〜R-036）。freshness を artifact 単位の verdict（sticky FAIL）に作り直し、Trust boundary 節と脅威モデルを追加
-- #1406 に依頼 3 件（遷移導出 / decided_in_state 照合 / event_seq の CAS）
+- 2026-10-08: #1391 / #1392 / #1393 / #1395 / #1422 の live issue が OPEN と再確認。#1402 が provisional runtime に過ぎない点は不変
+- #1516（2026-10-07）で `scope_observer.py` を導入。Ratchet の `_canonical_path` private import 解消、repository-backed actual deltaの観測を追加
+- #1393 の `plan.md` は C-3 APPROVED の Revision 2.5 を維持。reapproved と偽らず、計画追加範囲は Human 未裁定
+- 経緯と旧レビュー指摘は `INDEX.md` / `review-external.md` / `decision-log.jsonl` に保持
 
 ## 現在のタスク
 
-- なし（Human 判断待ち）
+- 承認済み plan の PF-1〜PF-8 を Human scope ruling後に実施
+- #1391/#1392/#1422 で未実装の必須 event binding / store / policy vocabulary を収束
+- #1393 owner Decision を置換し、Ratchet/TA-92 と Delivery/TA-93 の全 caller migrationを設計通り処理
+- #1395 owner-backed E2E → #1381 AC-6 real verifier verification
+- 詳細な依存・exit証拠: `dependency-reconciliation.md`
 
 ## ブロッカー
 
-- blocker: 依存 issue #1391 / #1392 / #1395 が CLOSED（#1402 の `Closes`）。#1392 のモデル B は未実装。ratchet.py の decision_core 依存が PF-1 の範囲外
-- owner: Human
-- unblock_condition: Dependency の振り分け（実装済み / open な issue）と ratchet の扱いの決定
+- #1391 / #1392 / #1422 の未確定/未実装 owner seam、#1392 model B 未実装
+- #1393 approved plan の PF-1 caller 範囲に Ratchet / TA-92 を追加する際の Human 判定・必要時 C-3 再発行
+- #1395 real verifier・owner E2E / I3+ external review が未充足
+- owner: Human（計画裁定）と各 owner Issue（実装）
 
 ## 次のアクション
 
-- BLOCKED の解除（Human）→ exec 前に Preflight PF-1〜PF-8
+- Human から scope / reapproval / #1422 ownership の判定を得る
+- blocker解除後に PF-1〜PF-8 / RED-GREEN / I3+ independent review
+- TA-92 simulation を #1381 AC-6 の production evidence として扱わない
 
 ## 計画からの乖離
 
