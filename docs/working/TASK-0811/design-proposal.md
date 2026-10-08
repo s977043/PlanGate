@@ -21,6 +21,56 @@
 documents is not permission to change an active Hook, global rule,
 security setting, or production Promotion Policy.
 
+### Crosswalk to the merged Growth Harness and Ratchet (2026-10-08)
+
+The newly merged [Growth Harness](../../ai/growth-harness.md) design
+(PR #1506, corrected by #1530 on `main`
+`e02c7a45808fbd5861428be170a06abf0742d21f`) already owns the
+**L1 observation → L2 consolidation → L3 feedback → L4 adoption**
+loop. This Memory Promotion Gate proposal **must not become a competing
+loop, scheduler, scoring authority, or new knowledge SSoT**.
+
+| Growth Harness owner | Already established | #811 contribution, if authorized |
+|---|---|---|
+| L1 / `retro-phase.md` | WF-06 opt-in and Human `confirmed_by` for new seeds; `AGENT_LEARNINGS.md` remains a separate view | Candidate evidence validation; no silent seeds capture, editing or second intake |
+| L2 / `seeds-hygiene.md` | Append-only seeds; derived digest with adopted PR/Human C-4 | Source revisions, contradictions, supersession, ACL and bounded-read checks; no second digest generator |
+| L3 / `growth-harness.md` | Reference digest in plan/dispatch; two same-root-cause failures can nominate a test candidate | Risk/scope/destination assessment only; a candidate threshold **never** authorizes Rule/Hook/Test adoption |
+| L4 / Ratchet | `HarnessImprovementCandidate.expected_prevention` binding is merged (#1495); **claim != effect evidence**. Actual candidate→Ratchet wiring remains unimplemented (Growth Harness §6) | Advisory candidate adjudication and Human/permission escalation; reuse Ratchet's sealed paired checks and existing `PromotionDecision`, not another executable validator |
+
+Growth Harness L2's **N=5 seeds** and L4's **M=3 runs** are
+*provisional scheduling/closure settings* in that document, not an
+approval-score algorithm for #811. In particular, M must not count
+runs while the Ratchet candidate wiring is missing; no unverifiable
+memory candidate may be auto-accepted simply because a threshold
+expired. High-impact and security observations are escalated on their
+own risk, including on first occurrence.
+
+The merged Ratchet traceability contract
+([`docs/ai/ai-loop-v2/ratchet-traceability.md`](../../ai/ai-loop-v2/ratchet-traceability.md))
+already binds `expected_prevention.mode`, `pattern_refs` and
+`expected_effect`; structurally valid claims are not prevention proof.
+Effect needs evaluator-owned paired replay, mutants, negative controls,
+scope observation, activation and independent decisions.
+The #811 `approve`/other vocabulary below labels a **proposed
+knowledge-placement decision only**, never Ratchet's `PASS`,
+a Production `PromotionDecision`, or permission to merge.
+
+**HO dependency sequencing:** Growth Harness §4 points to
+`docs/working/_reports/1157-seeds-read-path-patch.md` §6.2 and
+`docs/working/_reports/growth-harness-ho-patch.md` as separate,
+not-yet-applied Human changes to working-context. #811 has its own
+proposed responsibility-classes one-line patch. None of these patches
+are authorized by this PR; do not infer that merging docs wires L3.
+After Human review, reconcile overlap and sequencing *before* any
+actual HO application to avoid accidentally superseding an earlier
+Human-applied edit.
+
+**Observed vs unobserved:** GitHub confirms that #1495, #1506 and
+#1530 are merged; the #1506 document itself declares runtime L1-L4
+handoffs still unimplemented. This crosswalk is a consistency review,
+not evidence of active seed reads, Ratchet invocation, proven
+recurrence reduction or any Memory Promotion decision.
+
 ## 2. Candidate intake contract (design only)
 
 The proposed candidate can be expressed as YAML or a structured Markdown form.
