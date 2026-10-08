@@ -105,12 +105,12 @@ mode 別の適用範囲は `.claude/rules/mode-classification.md`（fallback `<p
 
 `plangate doctor --check-settings` PASS を **V-1 / handoff 完了の前提**として要求（`.claude/rules/working-context.md` → fallback `<plugin_root>/rules/working-context.md` が正本）。未配線時は **Shadow Configuration 防止**のため handoff を完了扱いにできない。settings 適用は Human-owned（`sh scripts/apply-claude-settings.sh` を Human が実行。**`scripts/apply-claude-settings.sh` は配布対象外**なので、導入先には存在しない）。
 
-> **導入先では `doctor --check-settings` で検証できない**。`doctor` 系は cwd ではなく
-> **CLI 本体の位置**を基準に `<CLI の repo root>/.claude/settings.json` を検査するため、
-> 上流 clone から実行しても対象は clone 側の settings であって導入先ではない
-> （`--dir` 相当のオプションも無い）。導入先では **導入先自身の `.claude/settings.json` の
-> `hooks.PreToolUse` を直接読んで**必要な hook が配線されているかを確認し、その確認方法と結果を
-> handoff.md に明記する（**未検証を「PASS」と書かない**）。
+> **導入先でも CLI が利用できれば `doctor --check-settings` で対象 settings を検査できる**。
+> project root は `--project-root` → `PLANGATE_PROJECT_ROOT` → cwd git root → CLI root fallback
+> の順で解決される。ただし #1144 により enforcement scripts 自体はまだ導入先へ配布されないため、
+> wiring の存在確認と enforcement の実在・発火を混同しない。downstream `doctor --fix` は
+> rc=2 / no-write で拒否される。CLI が無い場合は導入先の `.claude/settings.json` を直接確認し、
+> 未検証を「PASS」と書かない。
 >
 > **必要 hook の実体と、導入先での判定の落とし所**: 「必要な hook」の定義の正本は
 > `scripts/check-settings-wiring.sh`（**配布対象外**）と同梱 `references/settings-wiring-contract.md`
@@ -138,34 +138,35 @@ mode 別の適用範囲は `.claude/rules/mode-classification.md`（fallback `<p
 
 ## CLI 呼び出し
 
-> **前提（Human 決定 #1144）**: plugin / `install.sh --claude` / Codex が導入先へ配るのは
-> **読み物層（`skills` / `rules` / `agents` / `commands`）だけ**であり、**CLI（PlanGate CLI 本体）も
-> enforcement 層（`scripts/hooks/`）も配布物に含まれない**。したがって下表の「上流リポジトリの cwd」
-> 列にしか成立しない手順は、導入先では **上流リポジトリ（`s977043/plangate`）の clone が無いかぎり
-> 実行できない**。そこへ到達したら「CLI が無いため実行できない／上流リポジトリの clone が必要」と
-> **明示して停止する**か、同表の代替手順へ置き換える。**CLI が無いことを理由に手順を黙って省略し、
-> 実施済みと読める記録を残してはならない。**
+> **配布と対象 project root は別の問題（#962 / #1144）**: plugin / `install.sh --claude` / Codex は
+> `bin/plangate` と enforcement scripts を導入先へ配布しない。そのため CLI を使うには
+> PlanGate の clone と、その `bin/plangate` への PATH または絶対パスが必要。
+> ただし #1497 以降、CLI が利用できる場合の対象 project root は全コマンド共通で
+> **`--project-root` → `PLANGATE_PROJECT_ROOT` → cwd の git root → CLI root fallback**
+> の順に解決される。導入先の git repo で PATH 上の `plangate` を実行すれば、その導入先が
+> 既定の対象になる。CLI が無いことを理由にゲートや検証を黙って省略してはならない。
+>
+> #1497 で downstream 契約を明示検証したのは `status` / `validate` / `approve` /
+> read-only `doctor`（および work-dir を明示する `render`）。`doctor --fix` は #1144 の
+> enforcement 配布が解決するまで downstream では **rc=2 / no-write** で fail-closed。
+> script-relative helper に委譲するコマンドは、root resolver が存在しても自動的に
+> downstream 対応になるとは扱わず、下表・フォールバックの個別契約に従う。
 
-**呼び出し表記は実行環境で変わる**。相対パス形式（`bin/plangate`）が成立するのは
-**上流リポジトリ（`s977043/plangate`）を clone した cwd に居るときだけ**で、導入先には `bin/` が
-配置されない。導入先で PATH を通した場合のコマンド名は **`plangate`**（`bin/plangate` ではない）。
+**呼び出し表記**: 上流 clone の cwd では `bin/plangate`、導入先で PATH を通した場合は
+`plangate`。明示対象は `--project-root <dir>`。
 
 | 用途 | 上流リポジトリの cwd | 導入先 + PATH に `plangate` あり | 導入先 + PATH に無い（**既定**） |
 |------|---------------------|----------------------------------|--------------------------------|
-| V-1 機械検証 | `bin/plangate validate TASK-XXXX` | `plangate validate --dir docs/working/TASK-XXXX` | 次節のフォールバック（sha256 突合） |
-| V-3 外部 AI レビュー | `bin/plangate review TASK-XXXX --phase v3` | **導入先の TASK には使えない**（`--dir` 相当なし）→ 手動レビュー | 手動レビュー |
-| settings 検証 | `bin/plangate doctor --check-settings` | **導入先は検査できない**（上記「settings タスクロック」の注記）→ `.claude/settings.json` を直接確認 | `.claude/settings.json` を直接確認 |
-| 8 観点 eval | `bin/plangate eval TASK-XXXX` | **導入先の TASK には使えない**（`--dir` 相当なし） | 利用不可 |
-| metrics 収集 | `bin/plangate metrics TASK-XXXX --collect\|--report` | **導入先の TASK には使えない**（`--dir` 相当なし） | 利用不可 |
+| V-1 機械検証 | `bin/plangate validate TASK-XXXX` | `plangate validate TASK-XXXX` | 次節のフォールバック（sha256 突合） |
+| V-3 外部 AI レビュー | `bin/plangate review TASK-XXXX --phase v3` | selected project root を使うが外部送信を伴うため、通常どおり機密・reviewer設定を確認して実行 | 手動レビュー |
+| settings 検証 | `bin/plangate doctor --check-settings` | `plangate doctor --check-settings`（read-only） | `.claude/settings.json` を直接確認 |
+| 8 観点 eval | `bin/plangate eval TASK-XXXX` | script-relative runner のため **#1497 downstream 保証外** | 利用不可 / 手動評価 |
+| metrics 収集 | `bin/plangate metrics TASK-XXXX --collect\|--report` | collector/reporter は script-relative root を持つため **#1497 downstream 保証外** | 利用不可 |
 
-> **注意: `TASK-XXXX` 位置引数は cwd ではなく CLI 本体の位置を基準に解決される。**
-> `bin/plangate` は自身のパスから `plangate_root`（= `bin/` の親）を求め、
-> `<CLI の repo root>/docs/working/TASK-XXXX` を読み書きする。`bin/` は導入先に配置されない
-> ため、PATH 上の `plangate` は必ず**別の場所にある上流 clone** の実体を指す。cwd 非依存で
-> パスを明示できる `--dir` を持つのは `validate` / `validate-schemas` **だけ**で、
-> `review` / `eval` / `metrics` / `doctor` に相当オプションは無い。
+> **project root 契約**: `validate` / `review` / read-only `doctor` は共通 resolver で選択した
+> project root を対象にする。script-relative Python runner へ委譲するコマンドは個別に対応確認する。
 
-**handoff.md 発行コマンドは未実装**（環境を問わず手動）。skill 利用者が同梱 `references/handoff.md` をコピーし手動で 6 要素を記載する。
+**handoff.md 発行コマンドは未実装****handoff.md 発行コマンドは未実装**（環境を問わず手動）。skill 利用者が同梱 `references/handoff.md` をコピーし手動で 6 要素を記載する。
 
 ### CLI 不在時のフォールバック（導入先では既定）
 
@@ -204,10 +205,9 @@ mode 別の適用範囲は `.claude/rules/mode-classification.md`（fallback `<p
    handoff.md と `decision-log.jsonl` に記録し **V-1 を PASS と書かない**
 2. **AC 突合そのものは手動で行う** — test-cases.md の各 AC を実行結果と 1 件ずつ突合する。
    推測ではなく実行結果のみで PASS/FAIL を付ける原則は CLI の有無に関わらず不変
-3. CLI による機械検証が必要なら、上流リポジトリを clone して
-   `bin/plangate validate --dir <導入先の TASK ディレクトリの絶対パス>` を実行する。
-   **位置引数形式（`validate TASK-XXXX`）は使わない** — clone 側の `docs/working/TASK-XXXX` を
-   見に行ってしまい、導入先の TASK は検査されない
+3. CLI による機械検証が必要なら PlanGate の clone を用意し、導入先 repo の cwd から
+   `plangate validate TASK-XXXX`、または `plangate --project-root <導入先repo> validate TASK-XXXX`
+   を実行する。既存の `validate --dir <TASKディレクトリ>` も利用できる
 
 ## 次フェーズへ
 
