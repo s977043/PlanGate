@@ -119,3 +119,17 @@ jobs:
           persist-credentials: false
       - name: Test feedback renderer
         run: python3 -m unittest discover -s tests -p test_review_questions.py -v
+
+  interactive-browser-e2e:
+    name: Interactive Review Browser E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require real Chrome/Chromium
+        run: command -v google-chrome || command -v chromium || command -v chromium-browser
+      - name: Run real browser DOM and export tests
+        run: python3 -m unittest discover -s tests -p test_review_feedback_chromium.py -v
