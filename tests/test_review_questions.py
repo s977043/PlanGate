@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from review_questions import render_review_questions
+from review_questions import JS, render_review_questions
 
 
 class PlanFeedbackTest(unittest.TestCase):
@@ -89,6 +89,23 @@ class PlanFeedbackTest(unittest.TestCase):
         self.assertEqual(2, failure.returncode)
         self.assertIn("invalid review questions", failure.stderr)
         self.assertFalse(out.exists())
+
+    def test_export_json_trailing_newline_and_js_syntax(self):
+        # A literal backslash-n after the closing brace would make the
+        # downloaded file invalid JSON. Check the exact JS source sequence.
+        self.assertIn('JSON.stringify(feedback, null, 2) + "\\n"', JS)
+        self.assertNotIn('JSON.stringify(feedback, null, 2) + "\\\\n"', JS)
+        import shutil
+        import subprocess
+        if shutil.which("node") is None:
+            self.skipTest("node not available for JavaScript syntax validation")
+        script = self.root / "feedback.js"
+        script.write_text(JS.replace(
+            "__META__", '{"taskId":"TASK-0001","source":{}}'
+        ).replace("<script>", "").replace("</script>", ""), encoding="utf8")
+        process = subprocess.run(["node", "--check", str(script)],
+                                 capture_output=True, text=True, check=False)
+        self.assertEqual(0, process.returncode, process.stderr)
 
     def test_bad_identifier_rejected(self):
         self.put([{"id": 'x"><img>', "prompt": "one"}])
