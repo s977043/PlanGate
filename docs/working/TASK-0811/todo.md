@@ -6,6 +6,8 @@ Memory Promotion Gate.
 
 ## Completed preparation
 
+Current reference `main` = `e02c7a45808fbd5861428be170a06abf0742d21f` (2026-10-08). This is a moving comparison reference, **not** a rewrite of the original `plan-proposal.md` baseline or a C-3 approval.
+
 - [x] Verify #811 decisions and ownership boundaries, including 2026-07-12
       medium-documentation decision and C-3 requirement
 - [x] Recover #1157 migrated ACs and their Aug-27 correction
@@ -15,6 +17,7 @@ Memory Promotion Gate.
 - [x] Prepare `plan-proposal.md` (non-canonical pre-C-3) and `design-proposal.md` (non-canon)
 - [x] Complete three AI self-review/adaptation loops on PR #1522, recorded in `design-review.md` (not independent C-4 approval)
 - [x] Define Git's evidence / source revision / PR and merged SHA role in non-canon `design-proposal.md` §9, plus three additional Git-boundary self-review passes
+- [x] Reconcile merged Growth Harness (#1506 / #1530) and Ratchet expected-prevention binding (#1495) against #811; add L1-L4 owner crosswalk and correct HO sequencing in `design-proposal.md` (non-canonical, no new scheduler or PromotionDecision)
 - [x] Reconcile current `main` (`5c1651abe3a15a661a453672fb9d4e841761aeaf`): TA-114 collision fix PR #1526 merged, issue #1525 closed, four fix-head checks green; historical PR #1522 Test failure is still a FAIL.
 - [ ] Confirm **this PR's own latest-head checks** include Test PASS against the fixed merged base, Issue Link, CodeQL, CI, mergeability and independent review. Do not borrow #1526's green Test. C-4 is Human-owned
 
@@ -30,6 +33,7 @@ Memory Promotion Gate.
       `docs/working/templates/memory-promotion-candidate.md`, decide whether
       to materialize `_audit/memory-promotion-log.jsonl` or leave a schema
       until the first approved record. No CLI/Hook runtime.
+- [ ] **Integration after G1**: confirm L1-L4 Growth Harness read/write owners, #1157 HO `working-context.md` patch sequencing, expected-prevention claim vs actual evaluator-owned evidence, and whether #811 requires any separate log materialization. Do not build a second L4 or auto-approval path.
 - [ ] **E2 after G1**: independent candidate examples and boundary validation,
       C-1 17-item review, evidence-backed 3+ scenarios, adoption decision.
 - [ ] **G2 Human-owned**: apply any approved
