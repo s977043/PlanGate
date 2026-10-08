@@ -85,12 +85,14 @@ JS = """
       const questionId = item.getAttribute("data-question-id");
       const state = item.querySelector("[data-state]").value;
       const response = item.querySelector("[data-response]").value.trim();
-      if ((state === "answered" && !response) || (state === "unanswered" && response)) {
+      const note = item.querySelector("[data-note]").value.trim();
+      if ((state === "answered" && !response) || (state !== "answered" && response) ||
+          (state === "deferred" && !note) || (state === "unanswered" && note)) {
         message.textContent = questionId + ": 回答内容と状態が一致しません。";
         item.querySelector("[data-state]").focus();
         return;
       }
-      answers.push({ questionId, status: state, response });
+      answers.push({ questionId, status: state, response, note });
     }
     const feedback = {
       schemaVersion: 1,
@@ -157,6 +159,8 @@ def render_review_questions(work_dir, task_id):
             out.append('</select>')
         else:
             out.append('<textarea id="pg-response-%s" data-response maxlength="4000"></textarea>' % qid)
+        out += ['<label for="pg-note-%s">補足 / 保留理由</label>' % qid,
+                '<textarea id="pg-note-%s" data-note maxlength="4000"></textarea>' % qid]
         out.append('</div>')
     out += ['<button type="button" data-export>回答JSONを保存</button>',
             '<p role="status" aria-live="polite" data-message></p></section>',
