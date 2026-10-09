@@ -37,7 +37,7 @@ PlanGate distributes **"a safe pattern for AI-driven development"** — not a fr
 | What PlanGate **does**                                                                             | What PlanGate **does not do**                        |
 | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | Provides a pattern: plan → approve → implement → verify → handoff                                  | Let AI rewrite skills or prompts on its own          |
-| Fixes human decision points at C-3 / C-4 / V-1 to V-4                                              | Allow unbounded autonomy across approval boundaries  |
+| Defines C-3/C-3' and C-4 approval boundaries plus V-1 to V-4 verification                                              | Allow unbounded autonomy across approval boundaries  |
 | Makes failures and successes explainable after the fact (observation / reproducibility foundation) | Become a fully reproducible durable execution engine |
 | Provides staged adoption levels (Level 1 to 5)                                                     | Force all features from day one                      |
 | Stays Markdown-first to keep cognitive load low                                                    | Require SaaS or external stores                      |
