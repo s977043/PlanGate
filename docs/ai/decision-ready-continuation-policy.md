@@ -1,6 +1,6 @@
 # Decision-Ready Continuation Policy — 判断の準備と前進を分離する
 
-> **Status**: Proposed living operating policy / 2026-10-10 — PRレビューと現行承認経路の適用前。自律度・実行権限を新たに付与しない
+> **Status**: Living guidance v0.1 / 2026-10-10 — 採用はPRのHuman C-4/mergeで確定。効果未検証であり、自律度・実行権限は付与しない
 > **Scope**: PlanGateのIssue棚卸し、Discovery、Plan、Delivery、PRレビュー、運用改善への**横断的な判断ガイド**
 > **Owner**: Human maintainer / established authority owner
 > **Source of observation**: [Issue #1503 HOTL-oriented execution plan](https://github.com/s977043/PlanGate/issues/1503#issuecomment-6088658245) / [#1035 HOTL ladder recheck](https://github.com/s977043/PlanGate/issues/1035#issuecomment-6088629231)
