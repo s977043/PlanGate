@@ -52,7 +52,7 @@ PlanGate は安全な承認・検証の型を提供すると同時に、**その
 
 - **価値観と実践の進化**: [Practice Evolution Policy](docs/ai/practice-evolution-policy.md) — Adopt / Adapt / Transform / Defer、Fast Feedback、Evidence に基づく改善（実行権限を新設する文書ではありません）
 - **人間の判断とAIの継続作業**: [Decision-Ready Continuation Policy](docs/ai/decision-ready-continuation-policy.md) — 「Human の判断が必要」でも全作業を停止せず、**許可済みの範囲**で検証・資料準備を進める
-- **OSS の運用ルール**: [Contributing](CONTRIBUTING.md) / [Issue Governance](docs/ai/issue-governance.md) — 貢献・Issue管理の現行契約。Issue Triage の改善案は [PR #1548](https://github.com/s977043/PlanGate/pull/1548) で審議中
+- **OSS の運用ルール**: [Contributing](CONTRIBUTING.md) / [Issue Governance](docs/ai/issue-governance.md) — 貢献・Issue管理の現行契約。Issue Triage の改善履歴は [PR #1548](https://github.com/s977043/PlanGate/pull/1548) を参照
 
 **適用範囲**: 上記は PlanGate OSS の意思決定・改善のガイドです。Plugin 導入先への自動配布や Gate の動作変更を意味しません。C-3/C-3' の実行承認、C-4/merge の Human-owned 責務、HO などの安全境界は [Core Contract](docs/ai/core-contract.md) と既存の各正本に従います。
 
