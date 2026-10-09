@@ -1,0 +1,196 @@
+"""True Chromium DOM/Blob smoke test for the opt-in PlanGate review panel.
+
+Uses only a local Chrome/Chromium executable. No external URL, CDN, or
+Playwright dependency. The final anchor download click is intercepted because
+headless --dump-dom cannot inspect the browser's download directory.
+"""
+import html
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+BROWSER_CANDIDATES = ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable")
+
+
+class ChromiumPlanFeedbackTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.browser = next((shutil.which(exe) for exe in BROWSER_CANDIDATES if shutil.which(exe)), None)
+        if cls.browser is None:
+            raise unittest.SkipTest("real Chromium/Chrome unavailable; E2E not verified")
+        browser_version = subprocess.run(
+            [cls.browser, "--version"], capture_output=True, text=True,
+            check=False, timeout=10
+        )
+        if browser_version.returncode != 0:
+            raise AssertionError(
+                f"browser version probe failed for {cls.browser}: "
+                f"{browser_version.stderr.strip()}"
+            )
+        cls.browser_version = (
+            browser_version.stdout.strip() or browser_version.stderr.strip()
+        )
+        if not cls.browser_version or not any(
+            character.isdigit() for character in cls.browser_version
+        ):
+            raise AssertionError(
+                f"browser version is not verifiable: {cls.browser_version!r}"
+            )
+        print(
+            f"Browser E2E executable={cls.browser!r} "
+            f"version={cls.browser_version!r}", flush=True
+        )
+
+    def test_browser_executable_and_version_are_recorded(self):
+        self.assertTrue(Path(self.browser).is_file())
+        self.assertTrue(self.browser_version)
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.dir = Path(temp.name)
+        (self.dir / "plan.md").write_text("# Goal\nRelease safely.\n", encoding="utf8")
+        (self.dir / "review-questions.json").write_text(json.dumps({
+            "version": 1,
+            "questions": [
+                {
+                    "id": "Q1",
+                    "prompt": 'Choose <script>window.pwned=1</script>',
+                    "choices": ["Canary", "Flag"]
+                },
+                {"id": "Q2", "prompt": "Why defer?"}
+            ]
+        }), encoding="utf8")
+
+        self.page = self.dir / "page.html"
+        render = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "render_review.py"),
+             "--task", "TASK-0001", "--work-dir", str(self.dir),
+             "--out", str(self.page)],
+            capture_output=True, text=True, check=False,
+            timeout=20
+        )
+        self.assertEqual(render.returncode, 0, render.stderr)
+
+    def run_chromium(self, invalid=False):
+        script = r"""<script>
+(() => {
+  const originalCreateElement = document.createElement.bind(document);
+  let blob = null;
+  let clicked = false;
+  document.createElement = (tag) => {
+    if (String(tag).toLowerCase() === "a") {
+      return {href: "", download: "", click() {clicked = true;}};
+    }
+    return originalCreateElement(tag);
+  };
+  URL.createObjectURL = value => {blob = value; return "blob:mock";};
+  URL.revokeObjectURL = () => {};
+  const rows = document.querySelectorAll('[data-question-id]');
+  const q1 = rows[0], q2 = rows[1];
+  q1.querySelector('[data-state]').value = "answered";
+  q1.querySelector('[data-response]').value = "Canary";
+  q2.querySelector('[data-state]').value = "deferred";
+  q2.querySelector('[data-note]').value = __NOTE__;
+  document.querySelector('[data-export]').click();
+
+  function finish(payload) {
+    const marker = originalCreateElement("pre");
+    marker.id = "browser-feedback-e2e-result";
+    marker.textContent = JSON.stringify(payload);
+    document.body.appendChild(marker);
+  }
+  if (!blob) {
+    finish({download: clicked, warning: document.querySelector('[data-message]').textContent});
+  } else {
+    blob.text().then(text => {
+      try {
+        finish({
+          download: clicked,
+          result: JSON.parse(text),
+          injected: window.pwned === 1
+        });
+      } catch (error) {
+        finish({error: "invalid JSON export: " + error.message});
+      }
+    }).catch(error => finish({error: String(error)}));
+  }
+})();
+</script>
+""".replace("__NOTE__", '""' if invalid else '"Need evidence"')
+        test_page = self.page.read_text(encoding="utf8").replace("</body></html>", script + "</body></html>")
+        self.page.write_text(test_page, encoding="utf8")
+        cmd = [self.browser, "--headless", "--disable-gpu",
+               "--disable-dev-shm-usage", "--disable-background-networking",
+               "--no-first-run", "--no-default-browser-check",
+               "--virtual-time-budget=3000", "--dump-dom", self.page.as_uri()]
+        # Prefer Chrome sandbox locally. CI opts out only on isolated hosted
+        # runners where Linux user-namespace sandbox initialization fails.
+        allow_unsandboxed = os.environ.get("PLANGATE_CHROME_NO_SANDBOX") == "1"
+        if (hasattr(os, "geteuid") and os.geteuid() == 0) or allow_unsandboxed:
+            cmd.insert(2, "--no-sandbox")
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=False,
+                              timeout=30, env={**os.environ, "HOME": str(self.dir)})
+        self.assertEqual(proc.returncode, 0, proc.stderr[-3000:])
+        match = re.search(
+            r'<pre id="browser-feedback-e2e-result">([^<]+)</pre>', proc.stdout
+        )
+        self.assertIsNotNone(match, "Chromium did not finish browser feedback smoke")
+        return json.loads(html.unescape(match.group(1)))
+
+    def test_real_browser_exports_valid_review_only_json(self):
+        result = self.run_chromium()
+        self.assertNotIn("error", result)
+        self.assertTrue(result["download"])
+        self.assertFalse(result["injected"])
+        payload = result["result"]
+        self.assertEqual(payload["kind"], "plan-review-feedback")
+        self.assertTrue(payload["feedback_only"])
+        self.assertFalse(payload["approval_granted"])
+        self.assertEqual(payload["answers"][0]["response"], "Canary")
+        self.assertEqual(payload["answers"][1]["status"], "deferred")
+        self.assertEqual(payload["answers"][1]["note"], "Need evidence")
+        self.assertEqual(len(payload["source"]["plan"]["sha256"]), 64)
+
+    def test_download_persists_on_disk_and_keyboard_tab_order(self):
+        """Run real Chrome download, then validate persisted JSON against source files."""
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("Node 22 WebSocket runtime missing")
+        download_dir = self.dir / "downloads"
+        download_dir.mkdir()
+        script = ROOT / "tests" / "browser_feedback_download_cdp.mjs"
+        env = {**os.environ, "HOME": str(self.dir)}
+        result = subprocess.run(
+            [node, str(script), self.browser, str(self.page), str(download_dir)],
+            capture_output=True, text=True, check=False, timeout=45, env=env
+        )
+        self.assertEqual(result.returncode, 0, result.stderr[-3500:])
+        info = json.loads(result.stdout.strip())
+        self.assertTrue(info["persisted"])
+        self.assertTrue(info["tabFocus"])
+        self.assertFalse(info["approval_granted"])
+        downloaded = download_dir / "TASK-0001-review-feedback.json"
+        self.assertTrue(downloaded.is_file())
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from validate_plan_feedback import validate_feedback
+        report = validate_feedback(self.dir, "TASK-0001", downloaded)
+        self.assertEqual(report["status"], "VALID_REVIEW_FEEDBACK")
+        self.assertFalse(report["approval_granted"])
+        self.assertEqual(report["counts"]["deferred"], 1)
+
+    def test_real_browser_prevents_defer_without_reason(self):
+        result = self.run_chromium(invalid=True)
+        self.assertFalse(result["download"])
+        self.assertIn("一致しません", result["warning"])
+
+
+if __name__ == "__main__":
+    unittest.main()
