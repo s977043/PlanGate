@@ -130,5 +130,6 @@ Issue Triageはこの全体の**具体的な適用例**。Issueの棚卸しの�
 | --- | --- | --- | --- |
 | 2026-10-10 | Discussion snapshot | OSS Issue分類 → Living Playbook → Fast Fail / Quick Recovery → Loop A/B → Dual Trackとの相違 → Double-Loop Learning / 記事のタネ | 設計の記録。実験前 |
 | 2026-10-10 | Proposed operational artifact | [PR #1548](https://github.com/s977043/PlanGate/pull/1548) / [#1503](https://github.com/s977043/PlanGate/issues/1503) | PR review / CI / Human C-4待ち。merge済みとは扱わない |
+| 2026-10-10 | First pilot evidence | [#1503 第三次棚卸し](https://github.com/s977043/PlanGate/issues/1503#issuecomment-6088127351) — 2バッチ6件、#1241の古い前提修正、3 areaラベル補完、#1519の事後review debt更新 | 事実の記録。Close 0。時間・改善効果未計測、提案の有効性は未評価 |
 
 新しい実験・レビュー・判断が生じたら**当時の記録を消さず**この表に追記し、最新の運用方法だけを[Living Playbook](./issue-triage-playbook.md)へ同期する。外部記事の編集は別途行い、本ファイルをそのまま記事として公開しない。
