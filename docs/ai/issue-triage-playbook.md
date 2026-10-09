@@ -24,7 +24,7 @@ Open Issue を「過去に発見したことの保管庫」ではなく「現在
 
 | 原則 | 今回の運用への適用 | フィードバック |
 | --- | --- | --- |
-| Small batch / fast feedback | 最初は **3〜5件**を1バッチとして分類 → コメント/リンク → Close → 照合。慣れたら件数を調整 | バッチ終了時に判断・誤分類・残ACを確認 |
+| Small batch / fast feedback | 最初は **3〜5件**を1バッチとして分類 → 必要な変更・相互リンク → **Closeは根拠を満たす場合だけ** → 再取得・照合。慣れたら件数を調整 | バッチ終了時に判断・誤分類・残ACを確認 |
 | Fail fast | PR merge 後の Close 漏れ、統合後の未移管AC、壊れた相互リンクを早期検知。機械判定は参考であり、false green を許容しない | リンクと状態を再取得し、重要な判定は証拠で確認 |
 | Quick recovery | Close 前に根拠と代表先を残す。誤Closeなら理由を記録して reopen。仕様が変わった後の再発は旧Issue参照付きの新Issueを起こす | 修復所要時間・再発・未移管ACを振り返る |
 | Risk-based verification | doc/軽微な整理は安価な確認で進める。承認・セキュリティ・データ損失・fail-open は追加の照合が要る | 残存リスクが不明なら Close せず Blocked/Decision required |
