@@ -15,7 +15,13 @@ const args = ['--headless', '--disable-gpu', '--disable-dev-shm-usage',
 if (process.getuid?.() === 0 || process.env.PLANGATE_CHROME_NO_SANDBOX === '1') {
   args.splice(1, 0, '--no-sandbox');
 }
-const processChrome = spawn(browser, args, { stdio: 'ignore' });
+const processChrome = spawn(browser, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+let chromeStderr = '';
+let chromeExit = null;
+processChrome.stderr.on('data', chunk => {
+  chromeStderr = (chromeStderr + String(chunk)).slice(-4000);
+});
+processChrome.on('exit', (code, signal) => { chromeExit = { code, signal }; });
 async function waitUntil(fn, label, timeout = 20000) {
   const until = Date.now() + timeout;
   while (Date.now() < until) {
@@ -25,7 +31,8 @@ async function waitUntil(fn, label, timeout = 20000) {
     } catch { /* not ready */ }
     await sleep(80);
   }
-  throw new Error('timeout: ' + label);
+  throw new Error('timeout: ' + label + ' chromeExit=' + JSON.stringify(chromeExit) +
+    ' chromiumStderr=' + chromeStderr.slice(-2500));
 }
 class Cdp {
   constructor(url) {
