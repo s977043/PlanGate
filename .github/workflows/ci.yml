@@ -132,6 +132,10 @@ jobs:
           persist-credentials: false
       - name: Require real Chrome/Chromium
         run: command -v google-chrome || command -v chromium || command -v chromium-browser
+      - name: Require Node 22 native WebSocket
+        run: |
+          node --version
+          node -e 'if (Number(process.versions.node.split(".")[0]) < 22 || typeof WebSocket !== "function") process.exit(1)'
       - name: Run real browser DOM and export tests
         # Only on GitHub-hosted ephemeral runner: Chrome namespace sandbox is unavailable.
         env:
