@@ -1,0 +1,55 @@
+# TASK-0811 — tracking / handoff
+
+Source: #811 and `TASK-0811/pbi-input.md`. This file is a task-specific
+planning checklist, **not** proof of Human approval or completed production
+Memory Promotion Gate.
+
+## Completed preparation
+
+Current reference `main` = `e02c7a45808fbd5861428be170a06abf0742d21f` (2026-10-08). This is a moving comparison reference, **not** a rewrite of the original `plan-proposal.md` baseline or a C-3 approval.
+
+- [x] Verify #811 decisions and ownership boundaries, including 2026-07-12
+      medium-documentation decision and C-3 requirement
+- [x] Recover #1157 migrated ACs and their Aug-27 correction
+- [x] Verify the current `improvement-seeds.md` and
+      `improvement-digest.md` exist, and distinguish raw historical evidence
+      from derived, adoption-gated digest
+- [x] Prepare `plan-proposal.md` (non-canonical pre-C-3) and `design-proposal.md` (non-canon)
+- [x] Complete three AI self-review/adaptation loops on PR #1522, recorded in `design-review.md` (not independent C-4 approval)
+- [x] Define Git's evidence / source revision / PR and merged SHA role in non-canon `design-proposal.md` §9, plus three additional Git-boundary self-review passes
+- [x] Reconcile merged Growth Harness (#1506 / #1530) and Ratchet expected-prevention binding (#1495) against #811; add L1-L4 owner crosswalk and correct HO sequencing in `design-proposal.md` (non-canonical, no new scheduler or PromotionDecision)
+- [x] Reconcile current `main` (`5c1651abe3a15a661a453672fb9d4e841761aeaf`): TA-114 collision fix PR #1526 merged, issue #1525 closed, four fix-head checks green; historical PR #1522 Test failure is still a FAIL.
+- [ ] Confirm **this PR's own latest-head checks** include Test PASS against the fixed merged base, Issue Link, CodeQL, CI, mergeability and independent review. Do not borrow #1526's green Test. C-4 is Human-owned
+
+## Unresolved blockers and next actions
+
+- [ ] **G0 Human-owned**: review the proposal and authorize preparing a formal
+      canonical `plan.md`. Do not let the proposal path act as execution Plan.
+- [ ] **G1 Human-owned synchronous C-3**: approve/revise/reject that formal
+      canonical Plan, candidate/ledger terms, and HO one-line wording. Do not
+      infer this from an Issue/PR comment or broad automation request.
+- [ ] **E1 after G1**: move approved design to
+      `docs/ai/memory-promotion-gate.md`, add
+      `docs/working/templates/memory-promotion-candidate.md`, decide whether
+      to materialize `_audit/memory-promotion-log.jsonl` or leave a schema
+      until the first approved record. No CLI/Hook runtime.
+- [ ] **Integration after G1**: confirm L1-L4 Growth Harness read/write owners, #1157 HO `working-context.md` patch sequencing, expected-prevention claim vs actual evaluator-owned evidence, and whether #811 requires any separate log materialization. Do not build a second L4 or auto-approval path.
+- [ ] **E2 after G1**: independent candidate examples and boundary validation,
+      C-1 17-item review, evidence-backed 3+ scenarios, adoption decision.
+- [ ] **G2 Human-owned**: apply any approved
+      `.claude/rules/responsibility-classes.md` HO change; independent
+      verification of the actual settings/rules.
+- [ ] **Migrated #1157 AC-1**: real trace demonstrating a selected seed/digest
+      was read and used, including positive/negative control, not just docs.
+- [ ] **Migrated #1157 AC-2 / -2b / -3 / -4**: supersession without seed
+      mutation, bounded budget, cross-run reuse evidence, raw vs derived
+      digest source-of-truth and provenance checks.
+- [ ] **C-4 and issue closure**: Human review/merge after tests on exact
+      head, and close #811 only after all original and migrated ACs pass.
+
+## Explicit stop / defer boundary
+
+Issue #811 is **not complete** when this pre-C-3 planning PR merges.
+No other open ai-loop V2 Issue is implicitly part of TASK-0811.
+PlanGate retains its C-3 / C-4 / HO / RunState / Evidence / PromotionDecision
+owners. An executable Memory Promotion Gate without Human C-3 is prohibited.
