@@ -116,6 +116,14 @@ PlanGate は **すべての機能を最初から使う必要はありません**
 
 詳細: [`docs/ai/harness-improvement-roadmap.md`](../../../ai/harness-improvement-roadmap.md) §13.5 Control Plane track
 
+## 実践知と外部知識を照合する基本方針
+
+PlanGateは、現場で観測した事実・失敗・成功と、アジャイルやソフトウェア工学などの一般的な知見を突き合わせる。**既存の定石を無批判に採用せず、自分たちだけで車輪を再発明しない。** 理論をそのまま強制ルールにするのではなく、**採用・適応・自分たちの変革・見送り**を、その時点の価値・リスク・Evidenceに基づいて判断する。
+
+これはプロダクトに新しいGateを増やす宣言ではない。現行の実行契約とHuman-ownedの承認境界を尊重しつつ、日々のプラクティスや運用を改善する判断指針である。
+
+詳細: [Practice Evolution Policy — 実践知と外部知識から自分たちの最適解を探す](../../../ai/practice-evolution-policy.md)。
+
 ## 公開情報と設計解釈の区別
 
 PlanGate は、既存の AI 駆動開発、Spec-Driven Development、Skill / Agent 設計、ハーネスエンジニアリングの知見を参考にしています。
