@@ -1,6 +1,6 @@
 # Practice Evolution Policy — 実践知と外部知識から自分たちの最適解を探す
 
-> **Status**: Living / Proposal v0.1（運用で検証しながら育てる基本方針）
+> **Status**: Living guidance v0.1（採用手続きはPRのHuman C-4/mergeに従う。運用上の有効性は未検証）
 > **Owner**: Maintainer / Human decision owner
 > **Recorded**: 2026-10-10
 > **Review**: 実践からの重要な学びが出た時／月次の振り返りで必要性を確認
