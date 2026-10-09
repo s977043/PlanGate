@@ -5,6 +5,7 @@
 > **Started**: 2026-10-10
 > **Review cadence**: 運用中の随時改善 + 月次レビュー（週次の軽量Triageは試行）
 > **Related**: [Issue Governance](./issue-governance.md) / [棚卸し #1503](https://github.com/s977043/PlanGate/issues/1503)
+> **Design history / article seed**: [2026-10-10の設計議論・比較・公開記事のタネ](./issue-triage-design-history-2026-10-10.md)
 
 ## 1. 目的と正本の境界
 
