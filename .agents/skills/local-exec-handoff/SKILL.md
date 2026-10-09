@@ -54,6 +54,10 @@ PlanGate は Claude Code / Codex CLI ともローカル実行が原則。本 ski
 - 機密情報（events.ndjson / 個人情報 / 認証情報）を含めない（EH-8 Privacy 準拠）
 - ツール依存（Claude Code 固有コマンド等）を含めず、PlanGate 共通 CLI（`plangate` / `./scripts/ai-dev-workflow`）に統一する。**コマンド表記は packet の受け手の実行環境に合わせる**（上流リポジトリの cwd なら `bin/plangate`、導入先で PATH を通しているなら `plangate`、CLI が無いなら手順を文章で書く。「CLI 呼び出し」節参照）。**`ai-dev-workflow` は PATH に載るインストール経路が無い**ため、単体名で書かず必ず `./scripts/ai-dev-workflow TASK-XXXX <sub>` と書く（成立するのは**上流リポジトリの cwd のみ**。`scripts/` は配布対象外なので導入先の packet には書かない）
 
+## Resume from canonical state
+
+- **生の会話履歴（raw transcript）は packet に含めず、受け手にも渡さない**。受け手は canonical state（`INDEX.md` → `current-state.md` → phase-required L1）から fresh context で再開する（Context Lifecycle: `docs/ai/context-lifecycle.md`。導入先で解決できなくても本ルールは維持する）
+
 ## Deliverable
 
 以下を含む短い再開指示（10〜30 行程度）:
