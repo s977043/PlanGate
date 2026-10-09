@@ -124,6 +124,10 @@ PlanGateは、現場で観測した事実・失敗・成功と、アジャイル
 
 詳細: [Practice Evolution Policy — 実践知と外部知識から自分たちの最適解を探す](../../../ai/practice-evolution-policy.md)。
 
+判断が必要なときも、AIが許可済みの作業を継続し、人間には検討済みの選択肢とEvidenceを届ける。これは**権限を拡大するHOTL化ではなく、判断を準備する運用**である。
+
+運用: [Decision-Ready Continuation Policy](../../../ai/decision-ready-continuation-policy.md)。
+
 ## 公開情報と設計解釈の区別
 
 PlanGate は、既存の AI 駆動開発、Spec-Driven Development、Skill / Agent 設計、ハーネスエンジニアリングの知見を参考にしています。
