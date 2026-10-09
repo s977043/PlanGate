@@ -159,6 +159,33 @@ class ChromiumPlanFeedbackTest(unittest.TestCase):
         self.assertEqual(payload["answers"][1]["note"], "Need evidence")
         self.assertEqual(len(payload["source"]["plan"]["sha256"]), 64)
 
+    def test_download_persists_on_disk_and_keyboard_tab_order(self):
+        """Run real Chrome download, then validate persisted JSON against source files."""
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("Node 22 WebSocket runtime missing")
+        download_dir = self.dir / "downloads"
+        download_dir.mkdir()
+        script = ROOT / "tests" / "browser_feedback_download_cdp.mjs"
+        env = {**os.environ, "HOME": str(self.dir)}
+        result = subprocess.run(
+            [node, str(script), self.browser, str(self.page), str(download_dir)],
+            capture_output=True, text=True, check=False, timeout=45, env=env
+        )
+        self.assertEqual(result.returncode, 0, result.stderr[-3500:])
+        info = json.loads(result.stdout.strip())
+        self.assertTrue(info["persisted"])
+        self.assertTrue(info["tabFocus"])
+        self.assertFalse(info["approval_granted"])
+        downloaded = download_dir / "TASK-0001-review-feedback.json"
+        self.assertTrue(downloaded.is_file())
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from validate_plan_feedback import validate_feedback
+        report = validate_feedback(self.dir, "TASK-0001", downloaded)
+        self.assertEqual(report["status"], "VALID_REVIEW_FEEDBACK")
+        self.assertFalse(report["approval_granted"])
+        self.assertEqual(report["counts"]["deferred"], 1)
+
     def test_real_browser_prevents_defer_without_reason(self):
         result = self.run_chromium(invalid=True)
         self.assertFalse(result["download"])
