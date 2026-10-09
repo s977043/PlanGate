@@ -52,7 +52,7 @@ command definitions) are not "no runtime behavior change": name a signal.
 
 - Kill-switch: TODO <!-- env knob / revert unit / none (why). e.g. set an env knob such as PG_T61_PARALLEL (illustrative name) back to serial; revert this PR as one commit -->
 - Detection signal: TODO <!-- which CI job / metric / threshold tells us it went wrong. e.g. Test job duration exceeds its usual range -->
-- Observation window: TODO <!-- how many runs or days we watch after merge, and what we do if it breaks (use the kill-switch, propose a new improvement seed via docs/ai/retro-phase.md (Human confirmation required)). e.g. 5 CI runs on main after merge -->
+- Observation window: TODO <!-- how many runs or days we watch after merge, and what we do if it breaks (use the kill-switch, record findings in the PR/Issue; propose a seed only for a C-3-approved retro_enabled run (docs/ai/retro-phase.md; Human confirmation required)). e.g. 5 CI runs on main after merge -->
 
 ## Notes for reviewers
 
