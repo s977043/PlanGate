@@ -16,7 +16,7 @@ Open Issue を「過去に発見したことの保管庫」ではなく「現在
 - **固定側の正本**: [issue-governance.md](./issue-governance.md) が Issue 必須項目、kind / area / priority / status、Milestone、PR linkage を管理する。本書でラベル体系を二重定義しない。
 - **事実の正本**: 現在の `main`、GitHub Issue、PR、関連するテストと実行ログ。棚卸しレポートと [#1503](https://github.com/s977043/PlanGate/issues/1503) は測定時点のスナップショットであり、現在値とは限らない。
 - **権限の境界**: C-3 / C-4、Hardening Override (HO)、Human-owned decision、merge の責務を変更しない。AI の分類は候補であり、検証・承認の代替ではない。
-- **原則**: 余分なラベル、bot、CI、完璧な初期分類を増やすより、既存の GitHub 機能と小さな実地検証を優先する。
+- **原則**: 余分なラベル、bot、CI、完璧な初期分類を増やすより、既存の GitHub 機能と小さな実地検証を優先する。判断待ちと全作業停止を同一視しない。具体的な判断準備とHuman Attention最適化は [PR #1549のDecision-Ready方針案](https://github.com/s977043/PlanGate/pull/1549) に整理している（**未マージの提案であり、新たな許可ではない**）。
 
 ## 2. Agile / Fast Fail & Quick Recovery
 
@@ -44,7 +44,7 @@ Open Issue を「過去に発見したことの保管庫」ではなく「現在
 | Not reproducible / Obsolete | 旧実装・旧環境でのみ発生、現在の継続リスクが低い | 限定した確認範囲と再発時の起票条件を残し `not planned` で Close |
 | Out of scope | 現行方針・ロードマップから外れる | 判断理由・再検討条件を記録し `not planned` で Close |
 | Actionable | 今も価値・未達AC・実装可能な次の一手がある | Open維持。最小スライス・受入条件・担当境界を明記 |
-| Blocked / Decision required | 必須の先行条件・外部アクセス・Human決定が残る | Open維持。blocker・解除条件・次の担当を明記 |
+| Blocked / Decision required | 特定の操作に必須の先行条件・外部アクセス・Human決定が残る | Open維持。**停止すべき操作だけ**を特定し、AIが今できる調査・検証・PR準備、判断の推奨案・根拠・判断後の検証を記録。Issue全体は自動停止しない |
 
 注意:
 - **古い / チェックボックス未更新 / PR merge 済み**のいずれも単独では Close の証明にならない。
@@ -70,9 +70,9 @@ Open Issue を「過去に発見したことの保管庫」ではなく「現在
 
 1. **Select**: 3〜5件を選び、確認日・`main` SHA・対象範囲を記録する。安全境界関連は別バッチにする。
 2. **Observe**: Issue本文・コメント・PR・現行実装を読む。「観測」「推測」「判断」を分ける。検証対象が消えていれば無理に復元しない。
-3. **Propose**: 分類、代表Issue、関連/依存、Close候補、リスク、必要な最小確認を示す。
+3. **Propose**: 分類、代表Issue、関連/依存、Close候補、リスク、必要な最小確認を示す。判断待ちの場合は**既決事項 / 今AIが進められる作業 / 停止する操作 / 推奨判断 / Evidence**を分ける。
 4. **Review**: 別視点で **誤Close / ACの消失 / 誤った依存 / 現行境界の弱体化** をレビューする。重大な不確実性が残ればCloseしない。
-5. **Apply**: 代表側への残AC移管とリンクを**先に**行う。その後にコメント・ラベル・Close。小さい単位で反映する。
+5. **Apply**: 代表側への残AC移管とリンクを**先に**行う。その後に許可された範囲でコメント・ラベル・Close。**未充足AC・Human-owned判断は勝手に省略しない**。決定を待つ間は独立したread-only調査・検証・許可済みの他タスクを進める。
 6. **Verify**: 変更したIssueを再取得し、リンク・Close reason・残AC・blocker・追跡先を確認。失敗時は再オープン/コメント訂正を優先する。
 7. **Adapt**: 失敗、不要な手順、役立った確認を数行残し、次のバッチで1つ改善する。毎回の大規模制度変更はしない。
 
