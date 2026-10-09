@@ -37,7 +37,7 @@ PlanGate が配布するのは **「AI 開発の安全な型」** です。AI �
 | PlanGate **がやること**                              | PlanGate **がやらないこと**                      |
 | ---------------------------------------------------- | ------------------------------------------------ |
 | 計画 → 承認 → 実装 → 検証 → 引き継ぎの型を提供する   | AI に勝手に skill / プロンプトを書き換えさせる   |
-| C-3 / C-4 / V-1〜V-4 で人間の判断点を固定する        | 自律エージェントを目指す                         |
+| C-3/C-3'とC-4の承認境界・V-1〜V-4の検証を明確化        | 承認・権限境界を越える無条件の自律実行           |
 | 失敗・成功を後から説明可能にする（観測・再現基盤）   | 全実行ログを完璧に再現する durable engine になる |
 | 段階的に採用できる導入レベル（Level 1〜5）を提供する | 全機能を最初から強制する                         |
 | Markdown ベースで認知負荷を抑える                    | SaaS / 外部 store を前提にする                   |
@@ -45,6 +45,16 @@ PlanGate が配布するのは **「AI 開発の安全な型」** です。AI �
 > **設計の中心**: 観測 (Steering Loop) ではなく **評価 → 学習 → ガバナンス**。
 > ここでいう Steering Loop とは「events.ndjson に全制御点を残し、後から replay 可能にする観測ループ」のこと。これは自己進化の「基盤」であって「中心」ではありません。
 > 詳細: [docs/philosophy.md §「自己進化フレームの設計判断」](./docs/pages/explanation/product/philosophy.md#自己進化フレームの設計判断) / [`docs/working/discussions/`](docs/working/discussions/)（Claude × Codex × Gemini の 5 ディスカッションログ）
+
+## OSS 開発・運用を進化させる考え方
+
+PlanGate は安全な承認・検証の型を提供すると同時に、**その開発方法も固定された完成品とはみなしません**。アジャイルの価値観を基礎に、現場の実測と外部の知見を照合し、小さく試し、失敗を早く検知して回復し、必要なら手順そのものを改めます。効果が未検証の改善は、完了・成功と宣言しません。
+
+- **価値観と実践の進化**: [Practice Evolution Policy](docs/ai/practice-evolution-policy.md) — Adopt / Adapt / Transform / Defer、Fast Feedback、Evidence に基づく改善（実行権限を新設する文書ではありません）
+- **人間の判断とAIの継続作業**: [Decision-Ready Continuation Policy](docs/ai/decision-ready-continuation-policy.md) — 「Human の判断が必要」でも全作業を停止せず、**許可済みの範囲**で検証・資料準備を進める
+- **OSS の運用ルール**: [Contributing](CONTRIBUTING.md) / [Issue Governance](docs/ai/issue-governance.md) — 貢献・Issue管理の現行契約。Issue Triage の改善履歴は [PR #1548](https://github.com/s977043/PlanGate/pull/1548) を参照
+
+**適用範囲**: 上記は PlanGate OSS の意思決定・改善のガイドです。Plugin 導入先への自動配布や Gate の動作変更を意味しません。C-3/C-3' の実行承認、C-4/merge の Human-owned 責務、HO などの安全境界は [Core Contract](docs/ai/core-contract.md) と既存の各正本に従います。
 
 ## 段階的導入レベル
 

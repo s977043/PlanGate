@@ -17,6 +17,12 @@ Thanks for helping improve PlanGate.
 - Avoid committing secrets, local credentials, or generated build artifacts.
 - Call out security or compatibility tradeoffs in the pull request.
 
+## Proposing Process Improvements
+
+Contributors are welcome to challenge the workflow as well as the implementation. Bring a concrete problem or observation, compare it with relevant external practices, and propose the smallest useful change with a way to detect regressions and roll back. Keep proposals and measured outcomes distinct. Avoid adding gates, mandatory checklists, or automation without evidence of need.
+
+See the [Practice Evolution Policy](docs/ai/practice-evolution-policy.md) and [Decision-Ready Continuation Policy](docs/ai/decision-ready-continuation-policy.md) (currently in Japanese). They are **guidance for project practice, not grants of authority**. The existing [Core Contract](docs/ai/core-contract.md) and [Issue Governance](docs/ai/issue-governance.md) govern approvals, protected changes, and issue handling. AI may prepare a PR and evidence but cannot claim human C-4 approval or merge on its own.
+
 ---
 
 ## 日本語による貢献ガイド
@@ -37,6 +43,12 @@ PlanGate 自身のワークフローに従って貢献を進めてください�
 ```
 
 `good first issue` ラベルがついた Issue は、初めて貢献する方に適した範囲・難易度のタスクです。まずはそこから始めることを推奨します。
+
+### 開発・運用の改善提案
+
+既存の手順も、実測した課題と根拠があれば改善対象にできます。変更案は小さな単位で提案し、検知方法・切り戻し方・残る不確実性をPRに記録してください。新しいGateや必須チェックリストを最初から増やさず、効果が確認できなければ見直します。
+
+判断ガイド: [Practice Evolution Policy](docs/ai/practice-evolution-policy.md) / [Decision-Ready Continuation Policy](docs/ai/decision-ready-continuation-policy.md)。**これはAIの承認権限を増やすものではありません**。C-3/C-4・HO・Human-owned mergeは従来どおりです。Issue分類・ラベル・milestoneは[Issue Governance](docs/ai/issue-governance.md)を正本とします。
 
 ### 開発環境のセットアップ
 
