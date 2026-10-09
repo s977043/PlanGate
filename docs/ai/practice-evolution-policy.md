@@ -118,6 +118,7 @@ Revisit trigger:
 | [ai-loop V2 North Star](./ai-loop-v2/north-star.md) | 自己進化の目標・安全境界・Evidence要件 | 改善候補を外部知識と照らし、過剰導入を防ぐ姿勢 |
 | [Product Philosophy](../pages/explanation/product/philosophy.md) | PlanGateの問題設定と公開思想 | 知識を取り入れる際の内部判断指針 |
 | [Issue Governance](./issue-governance.md) / [#1503](https://github.com/s977043/PlanGate/issues/1503) | ラベル、Milestone、IssueとPRの管理 | Issue整理を小さな実験として改善する際の選択観点 |
+| [Decision-Ready Continuation Policy](./decision-ready-continuation-policy.md) | Human判断前にAIが進められる範囲、Decision-Ready Handoff、停止境界 | この方針の**運用への適用例**。権限ルール・HOTL解禁を新設しない |
 
 ### 例: Issue管理での適用
 
@@ -143,3 +144,4 @@ Revisit trigger:
 | 日付 | 何を追加・変えたか | 次に検証すること |
 | --- | --- | --- |
 | 2026-10-10 | 初版。アジャイル宣言を基盤に、Local Evidence × External Knowledge、Adopt / Adapt / Transform / Defer、守る境界と進化する運用を区分 | #1503の小バッチや今後のPlan設計で、この判断ガイドが役立つか。説明負荷が増えすぎないか |
+| 2026-10-10 | #1503の実践から、Humanへの判断依頼と許可済みの作業継続を分ける運用ガイドを別文書へ抽出 | 判断資料への追加質問・誤停止・安全性の実測。既存Gateの緩和はしない |
