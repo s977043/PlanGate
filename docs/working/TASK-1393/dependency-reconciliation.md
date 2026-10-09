@@ -1,6 +1,7 @@
 # TASK-1393 Dependency Reconciliation / #1381 AC-6 Handoff
 
-> Observed: 2026-10-08 JST, main baseline `e20cf1dac50a24a3d82bc9584ecf5f8e86d4d519`. Issue #1519. Informative handoff only.
+> Observed: 2026-10-08 JST, main baseline `e20cf1dac50a24a3d82bc9584ecf5f8e86d4d519` (#1516). Issue #1519. Informative handoff only.
+> Post-merge note (2026-10-09, #1519 review): the parent of the merge commit `c6ec773d` was `5a7aba88`, 7 commits after this baseline. Those 7 include #1495 (claim binding, reflected below) and #1511 `7349c2b1` (external verifier P1 gated behind P0 preflight), which touches the AC-6 "real verifier" path. Whether #1511 changes any owner row is for the owner / Human to judge; this note does not claim AC-6 progress.
 > The approved Revision 2.5 `plan.md` and Human-issued C-3 approval remain authoritative and unchanged.
 > **Verdict: BLOCKED** for execution until the pending Human plan-scope/reapproval ruling and the owner preflights below are completed.
 
