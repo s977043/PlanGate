@@ -25,7 +25,7 @@ BLOCKED
 
 [dependency-reconciliation.md](dependency-reconciliation.md) の owner/残差を解決し、BLOCKED の解除（Human 判断）→ exec 前に Preflight PF-1〜PF-8。plan.md 本文の Rev 2.5 の文言は承認済み（plan_hash）なので直さない。逸脱は exec 時に status.md / decision-log に記録する。
 
-依存（リリース条件）: #1392 は (state, action) からの遷移導出と `decision_made` の 4 キー読み取りを採用済み（#1406 `e4aaeb91`）。stream 束縛は #1422（B-1〜B-12 は issue 記載、B-1 の表記と B-13 は追加提案。担当割り当ては Human）。#1395 の budget。
+依存（リリース条件）: #1392 は (state, action) からの遷移導出と `decision_made` の 4 キー読み取りを**方針として**採用済み（#1406 `e4aaeb91`。model-B の実装・`state_transitioned` は未完で、todo.md の該当行は未チェックのまま。dependency-reconciliation.md の #1392 行を参照）。stream 束縛は #1422（B-1〜B-12 は issue 記載、B-1 の表記と B-13 は追加提案。担当割り当ては Human）。#1395 の budget。
 
 ## ファイルマップ（読み込み優先度）
 
