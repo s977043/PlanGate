@@ -131,6 +131,25 @@ because its Chrome user-namespace sandbox cannot initialize. The test page
 uses fixed local fixtures only. Local non-root runs keep sandboxing enabled
 unless the operator explicitly opts in to this compatibility flag.
 No external requests or third-party browser-test dependencies are needed.
+## Persistent download and keyboard E2E (#1535)
+
+An additional Chrome DevTools Protocol test uses a real browser download,
+not an intercepted anchor. The test enables downloads into a temporary
+directory and reads the saved JSON file from disk. It then calls the
+existing PlanGate validator with the current local plan and questions.
+
+~~~sh
+python3 -m unittest discover -s tests -p test_review_feedback_chromium.py -v
+~~~
+
+This test uses Node.js 22's built-in WebSocket API, the Chrome/Chromium
+binary and local DevTools endpoints. It does not require Playwright,
+Selenium, a CDN, or a network service. The test checks keyboard Tab focus
+from the question status field to the response field.
+
+The isolated GitHub Actions runner explicitly sets the Chrome sandbox
+compatibility flag described above. Local non-root tests retain sandboxing.
+File-download persistence is an E2E observation, not user approval.
 ## Follow-ups
 
 See River Review #2577 for optional validator/importer and read-only
