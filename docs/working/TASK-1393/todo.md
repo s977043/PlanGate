@@ -29,7 +29,7 @@
 - [ ] #1392 RunState input shape frozen
 - [ ] #1392 derives the transition from (state, action) (request on PR #1406) or this plan's Transition ownership is revisited
 - [ ] #1391 decision_made payload keys agreed (plan PF-5)
-- [ ] plan "Preflight before exec" PF-1〜PF-6
+- [ ] plan "Preflight before exec" PF-1〜PF-8（plan.md の PF-7 / PF-8 を含む。INDEX.md / current-state.md / dependency-reconciliation.md と同じ範囲）
 - [ ] #1395 budget requirement recorded (release condition)
 - [ ] exact base SHA
 - [x] #1329 semantic invalidation YES candidate（V2実行系変更。失効判定・canon I4 は別gate）
