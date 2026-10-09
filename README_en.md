@@ -52,7 +52,7 @@ PlanGate provides approval and verification boundaries, but **the development pr
 
 - **Values and continuous improvement**: [Practice Evolution Policy (Japanese)](docs/ai/practice-evolution-policy.md) — Adopt / Adapt / Transform / Defer and Fast Feedback, not a new execution contract
 - **Decision-ready work**: [Decision-Ready Continuation Policy (Japanese)](docs/ai/decision-ready-continuation-policy.md) — continue *already authorized* work while preparing a concise, evidence-backed human decision
-- **Contributing and issue governance**: [CONTRIBUTING](CONTRIBUTING.md) / [Issue Governance](docs/ai/issue-governance.md) — the existing project rules; the issue-triage improvement is proposed in [PR #1548](https://github.com/s977043/PlanGate/pull/1548)
+- **Contributing and issue governance**: [CONTRIBUTING](CONTRIBUTING.md) / [Issue Governance](docs/ai/issue-governance.md) — the existing project rules; the issue-triage improvement history is tracked in [PR #1548](https://github.com/s977043/PlanGate/pull/1548)
 
 **Scope**: These documents guide the PlanGate OSS project's practices. They do not automatically ship as plugin-enforced policy, grant new agent permissions, or relax C-3/C-3', human-owned C-4/merge, or Hardening Override boundaries. The [Core Contract](docs/ai/core-contract.md) and existing authoritative policies remain in force.
 
