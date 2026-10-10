@@ -66,17 +66,24 @@ class Devtools {
   close() { this.socket.close(); }
 }
 let page;
+let browserControl;
 try {
   const port = await waitFor(() => {
     const p = path.join(profile, 'DevToolsActivePort');
     return existsSync(p) ? Number(readFileSync(p, 'utf8').split('\n')[0]) : 0;
   }, 'DevToolsActivePort');
   const origin = 'http://127.0.0.1:' + port;
+  const version = await (await fetch(origin + '/json/version')).json();
   const targets = await (await fetch(origin + '/json/list')).json();
   const target = targets.find(t => t.type === 'page');
   assert.ok(target, 'no Chrome page');
   page = new Devtools(target.webSocketDebuggerUrl);
-  await page.open();
+  browserControl = new Devtools(version.webSocketDebuggerUrl);
+  await Promise.all([page.open(), browserControl.open()]);
+  mkdirSync(evidenceDir, { recursive: true });
+  await browserControl.call('Browser.setDownloadBehavior', {
+    behavior: 'allow', downloadPath: evidenceDir, eventsEnabled: true,
+  });
   await page.call('Page.enable');
   await page.call('Network.enable');
   const attemptedRequests = [];
@@ -176,19 +183,46 @@ try {
     'none', 'download button must not print');
   await page.call('Emulation.setEmulatedMedia', { media: 'screen' });
   await delay(200);
+  // The initial 50 questions are unanswered: keyboard Enter must download JSON
+  // without any implicit approval transition.
+  await page.call('Runtime.evaluate', {
+    expression: 'document.querySelector("[data-export]").focus()',
+  });
+  await page.call('Input.dispatchKeyEvent', {
+    type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
+  });
+  await page.call('Input.dispatchKeyEvent', {
+    type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
+  });
+  const downloaded = await waitFor(() => {
+    const file = path.join(evidenceDir, 'TASK-0001-review-feedback.json');
+    if (!existsSync(file)) return null;
+    try { return JSON.parse(readFileSync(file, 'utf8')); }
+    catch { return null; }
+  }, 'keyboard-triggered actual disk JSON download');
+  assert.equal(downloaded.answers.length, 50);
+  assert.ok(downloaded.answers.every(a =>
+    a.status === 'unanswered' && a.response === '' && a.note === ''));
+  assert.equal(downloaded.feedback_only, true);
+  assert.equal(downloaded.approval_granted, false);
+  assert.match(downloaded.source.plan.sha256, /^[0-9a-f]{64}$/);
+  assert.match(downloaded.source.questions.sha256, /^[0-9a-f]{64}$/);
   assert.deepEqual(attemptedRequests, [], 'offline HTML made a network request');
 
   const result = {
     sourceIsLocalFile: true, browserAXButton: true,
     keyboardTabThroughThreeControls: true,
+    keyboardEnterDownloadPersisted: true, unansweredExportCount: 50,
     attemptedNetworkRequests: attemptedRequests, printButtonHidden: true,
     ...baseline, responsive,
     screenshots: ['desktop-synthetic.png', 'mobile-synthetic.png'],
+    exportedFeedback: 'TASK-0001-review-feedback.json',
   };
   writeFileSync(path.join(evidenceDir, 'matrix-results.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify({ passed: true, ...result }));
 } finally {
   page?.close();
+  browserControl?.close();
   child.kill('SIGTERM');
   await Promise.race([new Promise(resolve => child.once('exit', resolve)), delay(1000)]);
   try { rmSync(profile, { recursive: true, force: true, maxRetries: 6, retryDelay: 120 }); }
