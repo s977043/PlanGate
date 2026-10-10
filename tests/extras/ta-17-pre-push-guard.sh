@@ -135,7 +135,7 @@ cat >"$T17_GUARD_TMP/bin/git" <<'T17_GIT'
 #!/bin/sh
 case "$1" in
   rev-parse) [ "$2" = "--show-toplevel" ] || exit 2; printf '%s\n' "$T17_GUARD_ROOT" ;;
-  ls-remote) [ "$2" = "origin" ] || exit 2; [ "$T17_REMOTE_EXISTS" = "1" ] ;;
+  ls-remote) [ "$2" = "--exit-code" ] && [ "$3" = "origin" ] || exit 2; [ "$T17_REMOTE_EXISTS" = "1" ] ;;
   *) exit 2 ;;
 esac
 T17_GIT
@@ -193,4 +193,13 @@ T17_OUT=$({
 } | T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
 if [ "$T17_RC" -eq 0 ]; then t17_pass "TC-15 tag and branch deletion skip recreation check";
 else t17_fail "TC-15 delete/tag false block (rc=$T17_RC): $T17_OUT"; fi
+
+# TC-16: if the remote now has a branch, the helper must allow even when a
+# historical merged PR exists; the fake git ls-remote models the race.
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/merged-deleted %s\n' "$T17_SHA" "$T17_ZERO" |
+  T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=1 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 0 ]; then t17_pass "TC-16 already recreated remote branch allowed";
+else t17_fail "TC-16 existing remote branch false block (rc=$T17_RC): $T17_OUT"; fi
+
 rm -rf "$T17_GUARD_TMP"
