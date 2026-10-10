@@ -148,6 +148,8 @@ case " $* " in
   *) printf 'unexpected gh state filter: %s\n' "$*" >&2; exit 2 ;;
 esac
 case " $* " in
+  *" --head gh-error "*) exit 1 ;;
+  *" --head gh-malformed "*) printf 'invalid\n' ;;
   *" --head merged-deleted "*|*" --head reused-with-open "*) printf '1\n' ;;
   *) printf '0\n' ;;
 esac
@@ -242,6 +244,26 @@ if [ "$T17_RC" -eq 1 ] && printf '%s' "$T17_OUT" | grep -q 'Refusing recreation.
   t17_pass "TC-19 historical MERGED PR detected despite newer OPEN history"
 else
   t17_fail "TC-19 old merged history bypassed (rc=$T17_RC): $T17_OUT"
+fi
+
+# TC-20: GitHub PR history lookup failure is UNKNOWN, not a safe verdict.
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/gh-error %s\n' "$T17_SHA" "$T17_ZERO" |
+  T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 0 ] && printf '%s' "$T17_OUT" | grep -q 'WARN: GitHub PR history unavailable'; then
+  t17_pass "TC-20 GitHub API failure emits warning (local fail-open)"
+else
+  t17_fail "TC-20 GitHub API failure silently allowed or blocked (rc=$T17_RC): $T17_OUT"
+fi
+
+# TC-21: unexpected command output is also UNKNOWN rather than proof of no PR.
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/gh-malformed %s\n' "$T17_SHA" "$T17_ZERO" |
+  T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 0 ] && printf '%s' "$T17_OUT" | grep -q 'WARN: unexpected GitHub PR history response'; then
+  t17_pass "TC-21 malformed GitHub response emits warning (local fail-open)"
+else
+  t17_fail "TC-21 malformed GitHub response silently allowed or blocked (rc=$T17_RC): $T17_OUT"
 fi
 
 rm -rf "$T17_GUARD_TMP"
