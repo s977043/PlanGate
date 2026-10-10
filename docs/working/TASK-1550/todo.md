@@ -4,7 +4,7 @@
 
 - [x] D-00: 既存PR #1547とIssue #1550、mainのCore Contract / mode-classification / responsibility-classesを照合。**計画の根拠としてのみ**記録。
 - [x] D-00b: `workflow-conductor`のHO分類と、`ai-dev-exec`がPR本文ownerでないことを確認。
-- [ ] D-01: **実PR**を基準にcaller→body→GitHubまでの稼働証拠を固定（候補ファイルの存在だけでは不可）。
+- [ ] D-01: `.github/workflows/sync-plugin-plangate.yml` の設定済みcaller→bodyは確認済み。次は**実runと生成PR**、通常Claude/Codex経路の稼働証拠を固定（候補ファイルの存在だけでは不可）。
 - [ ] D-02: #1547のHuman C-4/mergeとmainの採用状態を再確認。
 - [ ] D-03: 対象1経路とfiles / fixturesを決定。HOと判明したらHuman apply patchへ分離。
 - [ ] D-04: C-1/C-2相当レビュー、negative-control点検。未解決の重要UnknownをC-3へ渡す。
