@@ -188,18 +188,30 @@ try {
   await page.call('Runtime.evaluate', {
     expression: 'document.querySelector("[data-export]").focus()',
   });
+  assert.equal(await inspect('document.activeElement?.hasAttribute("data-export")'), true,
+    'keyboard export button must be focused');
   await page.call('Input.dispatchKeyEvent', {
-    type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
+    type: 'rawKeyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
+  });
+  await page.call('Input.dispatchKeyEvent', {
+    type: 'char', text: '\r', unmodifiedText: '\r', key: 'Enter',
+    code: 'Enter', windowsVirtualKeyCode: 13,
   });
   await page.call('Input.dispatchKeyEvent', {
     type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
   });
-  const downloaded = await waitFor(() => {
-    const file = path.join(evidenceDir, 'TASK-0001-review-feedback.json');
-    if (!existsSync(file)) return null;
-    try { return JSON.parse(readFileSync(file, 'utf8')); }
-    catch { return null; }
-  }, 'keyboard-triggered actual disk JSON download');
+  let downloaded;
+  try {
+    downloaded = await waitFor(() => {
+      const file = path.join(evidenceDir, 'TASK-0001-review-feedback.json');
+      if (!existsSync(file)) return null;
+      try { return JSON.parse(readFileSync(file, 'utf8')); }
+      catch { return null; }
+    }, 'keyboard-triggered actual disk JSON download', 10000);
+  } catch (error) {
+    const diagnosis = await inspect('({ message: document.querySelector("[data-message]")?.textContent, focused: document.activeElement?.outerHTML, protocol: location.protocol })');
+    throw new Error(error.message + '; keyboard export diagnosis=' + JSON.stringify(diagnosis));
+  }
   assert.equal(downloaded.answers.length, 50);
   assert.ok(downloaded.answers.every(a =>
     a.status === 'unanswered' && a.response === '' && a.note === ''));
