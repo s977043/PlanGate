@@ -21,7 +21,18 @@ fi
 # remote に無い → 同名ブランチの MERGED PR が 1 件でもあれば再作成を block。
 # all の先頭 1 件だけを見ると、後から作られた OPEN/CLOSED PR が先頭となり
 # 過去の MERGED 履歴を見逃す。--state merged で正確に照会する。
-_merged_count=$(gh pr list --state merged --head "$BR" --limit 1 --json number --jq 'length' 2>/dev/null || true)
+if _merged_count=$(gh pr list --state merged --head "$BR" --limit 1 --json number --jq 'length' 2>/dev/null); then
+  # An invalid response is NOT evidence that no merged PR exists.
+  case "$_merged_count" in
+    0|1) ;;
+    *) printf '[branch-guard] WARN: unexpected GitHub PR history response for "%s"; cannot verify\n' "$BR" >&2; exit 0 ;;
+  esac
+else
+  # Local pre-push checks are advisory. Do not silently report success on
+  # auth/API/network failures; the remote rules are the actual authority.
+  printf '[branch-guard] WARN: GitHub PR history unavailable for "%s"; cannot verify\n' "$BR" >&2
+  exit 0
+fi
 if [ "$_merged_count" = "1" ]; then
   printf '[branch-guard] BLOCK: ブランチ "%s" は既に MERGED され remote 削除済みです。\n' "$BR" >&2
   printf '  この push はマージ済ブランチを再作成します（振り返り #2 の再発）。\n' >&2
