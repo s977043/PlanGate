@@ -348,7 +348,11 @@
           "path": "execution.status",
           "value": "partial"
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "outcome.status",
+        "validator": "enum"
+      }
     },
     {
       "name": "unavailable-cannot-split",
@@ -370,7 +374,11 @@
             "This must still be invalid because unavailable maps to insufficient evidence."
           ]
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "outcome.status",
+        "validator": "const"
+      }
     },
     {
       "name": "approval-vocabulary",
@@ -380,7 +388,11 @@
           "path": "outcome.status",
           "value": "APPROVED"
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "outcome.status",
+        "validator": "enum"
+      }
     },
     {
       "name": "auto-approved-vocabulary",
@@ -390,7 +402,11 @@
           "path": "outcome.status",
           "value": "AUTO_APPROVED"
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "outcome.status",
+        "validator": "enum"
+      }
     },
     {
       "name": "blocked-vocabulary",
@@ -400,7 +416,11 @@
           "path": "outcome.status",
           "value": "BLOCKED"
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "outcome.status",
+        "validator": "enum"
+      }
     },
     {
       "name": "raw-chain-of-thought-field",
@@ -410,7 +430,11 @@
           "path": "positions.initial.0.chain_of_thought",
           "value": "private reasoning must never be part of this contract"
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "positions.initial.0",
+        "validator": "additionalProperties"
+      }
     },
     {
       "name": "invalid-plan-hash",
@@ -420,7 +444,11 @@
           "path": "plan_ref.plan_hash",
           "value": "abc123"
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "plan_ref.plan_hash",
+        "validator": "pattern"
+      }
     },
     {
       "name": "unknown-trigger",
@@ -432,7 +460,11 @@
             "majority_vote"
           ]
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "trigger.reason_codes.0",
+        "validator": "enum"
+      }
     },
     {
       "name": "split-requires-unresolved",
@@ -442,7 +474,11 @@
           "path": "outcome.status",
           "value": "split"
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "outcome.unresolved",
+        "validator": "minItems"
+      }
     },
     {
       "name": "unchanged-must-use-unchanged-reason",
@@ -452,7 +488,11 @@
           "path": "positions.final.0.change_reason",
           "value": "stronger_evidence"
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "positions.final.0.change_reason",
+        "validator": "const"
+      }
     },
     {
       "name": "changed-cannot-use-unchanged-reason",
@@ -462,7 +502,11 @@
           "path": "positions.final.1.change_reason",
           "value": "unchanged"
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "positions.final.1.change_reason",
+        "validator": "enum"
+      }
     },
     {
       "name": "gate-decision-field-forbidden",
@@ -472,7 +516,11 @@
           "path": "gate_decision",
           "value": "APPROVE"
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "",
+        "validator": "additionalProperties"
+      }
     },
     {
       "name": "rereview-requires-reason",
@@ -494,7 +542,11 @@
           "path": "outcome.requires_c2_rereview",
           "value": true
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "outcome.rereview_reasons",
+        "validator": "minItems"
+      }
     },
     {
       "name": "rereview-cannot-converge",
@@ -511,7 +563,11 @@
             "A new material concern requires canonical C-2 review."
           ]
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "outcome.status",
+        "validator": "enum"
+      }
     },
     {
       "name": "unavailable-source-cannot-complete",
@@ -521,7 +577,11 @@
           "path": "source_reviews.1.execution_status",
           "value": "unavailable"
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "execution.status",
+        "validator": "enum"
+      }
     },
     {
       "name": "completed-requires-problem-frame",
@@ -531,7 +591,11 @@
           "path": "problem_frames",
           "value": []
         }
-      ]
+      ],
+      "expected_error": {
+        "path": "problem_frames",
+        "validator": "minItems"
+      }
     }
   ]
 }
