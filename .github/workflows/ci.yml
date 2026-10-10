@@ -141,3 +141,16 @@ jobs:
         env:
           PLANGATE_CHROME_NO_SANDBOX: '1'
         run: python3 -m unittest discover -s tests -p test_review_feedback_chromium.py -v
+      - name: Run 50-question file browser matrix (synthetic artifacts)
+        env:
+          PLANGATE_CHROME_NO_SANDBOX: '1'
+          PLANGATE_BROWSER_EVIDENCE_DIR: '${{ runner.temp }}/plan-feedback-browser-evidence'
+        run: python3 -m unittest discover -s tests -p test_review_feedback_browser_matrix.py -v
+      - name: Upload synthetic browser screenshots and matrix evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: plan-feedback-browser-matrix
+          path: ${{ runner.temp }}/plan-feedback-browser-evidence/
+          if-no-files-found: warn
+          retention-days: 7

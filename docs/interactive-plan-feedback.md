@@ -74,8 +74,11 @@ Review finding status.
   as independent review or a verification result.
 - The HTML contains local plan content. Avoid distributing internal
   plans, credentials, or the feedback file without redaction.
-- Browser interaction (download, keyboard navigation, CSP behavior) needs
-  a real-browser validation before being represented as E2E tested.
+- Browser download and keyboard smoke is covered in Chrome/Chromium by #1542.
+  The extended matrix checks `file://`, focus/labels, synthetic 50-question
+  desktop/mobile layout, print media and attempted network requests.
+  A self-contained `file://` page has no HTTP CSP response header. This
+  **does not claim a CSP enforcement audit** or a native screen-reader test.
 
 ## Tests
 
@@ -150,8 +153,38 @@ from the question status field to the response field.
 The isolated GitHub Actions runner explicitly sets the Chrome sandbox
 compatibility flag described above. Local non-root tests retain sandboxing.
 File-download persistence is an E2E observation, not user approval.
+## Extended browser evidence (#1524)
+
+The optional 50-question matrix creates **synthetic-only** C-3 files. Chrome
+opens the generated HTML using a real `file://` URL (no web server).
+The DevTools protocol checks per-control associated labels and question-
+heading descriptions, keyboard Tab focus, browser AX-tree accessible names,
+real responsive widths (1280/375 px),
+print-mode button visibility, inert XSS strings, and attempted HTTP(S) or
+WebSocket requests. A focused export button is activated with keyboard Enter;
+50 unanswered entries are downloaded and validated against the source files.
+Desktop/mobile screenshots and machine-readable metrics
+are retained as short-lived GitHub Actions test artifacts (7 days).
+
+~~~sh
+python3 -m unittest discover -s tests -p test_review_feedback_browser_matrix.py -v
+~~~
+
+The matrix also attempts a synthetic Firefox `file://` screenshot when the
+Firefox executable is installed; otherwise that check is explicitly skipped
+and cross-browser evidence remains UNVERIFIED.
+Browser E2E is evidence for the bounded assertions, **not** a complete WCAG
+or human screen-reader audit, a firewall proof or an automated Firefox
+functional/keyboard test.
+The absence of a CSP HTTP header for a local file does not mean CSP was
+exercised. Do not claim cross-browser or CSP verification without separate
+evidence. Generated reviews may include sensitive business plans; only
+synthetic fixtures are captured or uploaded by CI.
+
 ## Follow-ups
 
 See River Review #2577 for optional validator/importer and read-only
 projection into the existing Decision Surface / Review Resolution contracts.
-None of those are implied by this initial HTML-only slice.
+The River Review Phase A-C read-only projection and opt-in CLI were merged
+through #2584, #2620, and #2621. See River Review #2577/#2601 for the
+non-authoritative trust boundary.
