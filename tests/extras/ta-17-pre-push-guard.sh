@@ -202,4 +202,26 @@ T17_OUT=$(printf 'refs/heads/new %s refs/heads/merged-deleted %s\n' "$T17_SHA" "
 if [ "$T17_RC" -eq 0 ]; then t17_pass "TC-16 already recreated remote branch allowed";
 else t17_fail "TC-16 existing remote branch false block (rc=$T17_RC): $T17_OUT"; fi
 
+# TC-17: SHA-256 repositories use a 64-character zero SHA for new refs.
+T17_ZERO256=0000000000000000000000000000000000000000000000000000000000000000
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/merged-deleted %s\n' "$T17_SHA" "$T17_ZERO256" |
+  T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 1 ] && printf '%s' "$T17_OUT" | grep -q 'Refusing recreation.*merged-deleted'; then
+  t17_pass "TC-17 SHA-256 new remote ref is checked"
+else
+  t17_fail "TC-17 SHA-256 zero remote SHA bypassed (rc=$T17_RC): $T17_OUT"
+fi
+
+# TC-18: the template is deliberately not an authoritative protection if
+# the helper is absent (as in downstream installations). Do not false-block.
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/merged-deleted %s\n' "$T17_SHA" "$T17_ZERO" |
+  T17_GUARD_ROOT="$T17_GUARD_TMP/missing-checkout" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 0 ]; then
+  t17_pass "TC-18 missing helper is explicitly out of local guard coverage"
+else
+  t17_fail "TC-18 missing helper caused false-block (rc=$T17_RC): $T17_OUT"
+fi
+
 rm -rf "$T17_GUARD_TMP"
