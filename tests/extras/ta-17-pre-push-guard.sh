@@ -126,3 +126,144 @@ if sh -n "$PG_T17_INSTALL"; then
 else
   t17_fail "TC-09b install-pre-push.sh syntax error"
 fi
+
+
+# === #937: destination-ref checks with fake git/gh (no network or push) ===
+T17_GUARD_TMP=$(mktemp -d)
+mkdir -p "$T17_GUARD_TMP/bin"
+cat >"$T17_GUARD_TMP/bin/git" <<'T17_GIT'
+#!/bin/sh
+case "$1" in
+  rev-parse) [ "$2" = "--show-toplevel" ] || exit 2; printf '%s\n' "$T17_GUARD_ROOT" ;;
+  ls-remote) [ "$2" = "--exit-code" ] && [ "$3" = "origin" ] || exit 2; [ "$T17_REMOTE_EXISTS" = "1" ] ;;
+  *) exit 2 ;;
+esac
+T17_GIT
+cat >"$T17_GUARD_TMP/bin/gh" <<'T17_GH'
+#!/bin/sh
+# Historical merged PR lookup must filter state=merged, not select the newest
+# PR from state=all. The reused-with-open branch models a newer OPEN PR.
+case " $* " in
+  *" --state merged "*) : ;;
+  *) printf 'unexpected gh state filter: %s\n' "$*" >&2; exit 2 ;;
+esac
+case " $* " in
+  *" --head gh-error "*) exit 1 ;;
+  *" --head gh-malformed "*) printf 'invalid\n' ;;
+  *" --head merged-deleted "*|*" --head reused-with-open "*) printf '1\n' ;;
+  *) printf '0\n' ;;
+esac
+T17_GH
+chmod +x "$T17_GUARD_TMP/bin/git" "$T17_GUARD_TMP/bin/gh"
+T17_SHA=1111111111111111111111111111111111111111
+T17_ZERO=0000000000000000000000000000000000000000
+
+# A local refspec may target a DIFFERENT remote branch. Judge the destination.
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/merged-deleted %s\n' "$T17_SHA" "$T17_ZERO" |
+  T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 1 ] && printf '%s' "$T17_OUT" | grep -q 'Refusing recreation.*merged-deleted'; then
+  t17_pass "TC-10 merged remote ref blocked even when local name differs"
+else
+  t17_fail "TC-10 unsafe ref not blocked (rc=$T17_RC): $T17_OUT"
+fi
+
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/fresh %s\n' "$T17_SHA" "$T17_ZERO" |
+  T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 0 ]; then t17_pass "TC-11 normal fresh remote branch allowed";
+else t17_fail "TC-11 fresh branch false block (rc=$T17_RC): $T17_OUT"; fi
+
+T17_RC=0
+T17_OUT=$({
+  printf 'refs/heads/first %s refs/heads/exists %s\n' "$T17_SHA" "$T17_SHA"
+  printf 'refs/heads/second %s refs/heads/merged-deleted %s\n' "$T17_SHA" "$T17_ZERO"
+} | T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 1 ] && printf '%s' "$T17_OUT" | grep -q 'Refusing recreation'; then
+  t17_pass "TC-12 unsafe member blocks a multi-ref push"
+else
+  t17_fail "TC-12 unsafe ref in multi-ref missed (rc=$T17_RC): $T17_OUT"
+fi
+
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/merged-deleted %s\n' "$T17_SHA" "$T17_SHA" |
+  T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 0 ]; then t17_pass "TC-13 existing remote branch update allowed";
+else t17_fail "TC-13 existing branch false block (rc=$T17_RC): $T17_OUT"; fi
+
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/merged-deleted %s\n' "$T17_SHA" "$T17_ZERO" |
+  T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" upstream example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 0 ]; then t17_pass "TC-14 non-origin remote is not judged using origin history";
+else t17_fail "TC-14 unrelated remote false block (rc=$T17_RC): $T17_OUT"; fi
+
+T17_RC=0
+T17_OUT=$({
+  printf 'refs/tags/foo %s refs/tags/merged-deleted %s\n' "$T17_SHA" "$T17_ZERO"
+  printf 'refs/heads/merged-deleted %s refs/heads/merged-deleted %s\n' "$T17_ZERO" "$T17_SHA"
+} | T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 0 ]; then t17_pass "TC-15 tag and branch deletion skip recreation check";
+else t17_fail "TC-15 delete/tag false block (rc=$T17_RC): $T17_OUT"; fi
+
+# TC-16: if the remote now has a branch, the helper must allow even when a
+# historical merged PR exists; the fake git ls-remote models the race.
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/merged-deleted %s\n' "$T17_SHA" "$T17_ZERO" |
+  T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=1 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 0 ]; then t17_pass "TC-16 already recreated remote branch allowed";
+else t17_fail "TC-16 existing remote branch false block (rc=$T17_RC): $T17_OUT"; fi
+
+# TC-17: SHA-256 repositories use a 64-character zero SHA for new refs.
+T17_ZERO256=0000000000000000000000000000000000000000000000000000000000000000
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/merged-deleted %s\n' "$T17_SHA" "$T17_ZERO256" |
+  T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 1 ] && printf '%s' "$T17_OUT" | grep -q 'Refusing recreation.*merged-deleted'; then
+  t17_pass "TC-17 SHA-256 new remote ref is checked"
+else
+  t17_fail "TC-17 SHA-256 zero remote SHA bypassed (rc=$T17_RC): $T17_OUT"
+fi
+
+# TC-18: the template is deliberately not an authoritative protection if
+# the helper is absent (as in downstream installations). Do not false-block.
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/merged-deleted %s\n' "$T17_SHA" "$T17_ZERO" |
+  T17_GUARD_ROOT="$T17_GUARD_TMP/missing-checkout" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 0 ]; then
+  t17_pass "TC-18 missing helper is explicitly out of local guard coverage"
+else
+  t17_fail "TC-18 missing helper caused false-block (rc=$T17_RC): $T17_OUT"
+fi
+
+# TC-19: when a newer OPEN PR shares a branch name with an old MERGED PR,
+# the guard must query merged history (not blindly inspect the first PR).
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/reused-with-open %s\n' "$T17_SHA" "$T17_ZERO" |
+  T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 1 ] && printf '%s' "$T17_OUT" | grep -q 'Refusing recreation.*reused-with-open'; then
+  t17_pass "TC-19 historical MERGED PR detected despite newer OPEN history"
+else
+  t17_fail "TC-19 old merged history bypassed (rc=$T17_RC): $T17_OUT"
+fi
+
+# TC-20: GitHub PR history lookup failure is UNKNOWN, not a safe verdict.
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/gh-error %s\n' "$T17_SHA" "$T17_ZERO" |
+  T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 0 ] && printf '%s' "$T17_OUT" | grep -q 'WARN: GitHub PR history unavailable'; then
+  t17_pass "TC-20 GitHub API failure emits warning (local fail-open)"
+else
+  t17_fail "TC-20 GitHub API failure silently allowed or blocked (rc=$T17_RC): $T17_OUT"
+fi
+
+# TC-21: unexpected command output is also UNKNOWN rather than proof of no PR.
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/gh-malformed %s\n' "$T17_SHA" "$T17_ZERO" |
+  T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 0 ] && printf '%s' "$T17_OUT" | grep -q 'WARN: unexpected GitHub PR history response'; then
+  t17_pass "TC-21 malformed GitHub response emits warning (local fail-open)"
+else
+  t17_fail "TC-21 malformed GitHub response silently allowed or blocked (rc=$T17_RC): $T17_OUT"
+fi
+
+rm -rf "$T17_GUARD_TMP"
