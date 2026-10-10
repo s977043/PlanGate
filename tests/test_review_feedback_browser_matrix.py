@@ -81,7 +81,16 @@ class BrowserMatrixTest(unittest.TestCase):
             self.assertTrue(result["browserAXButton"])
             self.assertTrue(result["keyboardTabThroughThreeControls"])
             self.assertTrue(result["printButtonHidden"])
+            self.assertTrue(result["keyboardEnterDownloadPersisted"])
+            self.assertEqual(result["unansweredExportCount"], 50)
             self.assertEqual(result["attemptedNetworkRequests"], [])
+            sys.path.insert(0, str(ROOT / "scripts"))
+            from validate_plan_feedback import validate_feedback
+            export = evidence / "TASK-0001-review-feedback.json"
+            self.assertTrue(export.is_file())
+            report = validate_feedback(base, "TASK-0001", export)
+            self.assertFalse(report["approval_granted"])
+            self.assertEqual(report["counts"]["unanswered"], 50)
             self.assertEqual([v["name"] for v in result["responsive"]], ["desktop", "mobile"])
             for filename in ("desktop-synthetic.png", "mobile-synthetic.png", "matrix-results.json"):
                 self.assertTrue((evidence / filename).is_file(), filename)
