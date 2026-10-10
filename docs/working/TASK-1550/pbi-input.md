@@ -19,11 +19,12 @@ PRテンプレートへRollback / Detectionを追加しても、Claude/Codex/CLI
 
 - Evidence E-01: 2026-10-10 GitHub検索の「更新順のマージ済みPR 30件」では旧テンプレート主要3見出しが3/30、Rollback / Detection見出し0/30。**導入前参考値**であり無作為標本でも採用後効果でもない。出典・抽出条件は[Issue #1550](https://github.com/s977043/PlanGate/issues/1550)。
 - Evidence E-02: `.claude/agents/workflow-conductor.md` はPR作成をサブエージェントに委譲する説明を持つ。ただし運用上の実際のPR本文生成元は未特定。
-- Evidence E-03: `scripts/apply-task-0124-patches.sh` は `gh pr create --body` を含むが、現在呼び出されているかは**未確認**。
+- Evidence E-03: **現行の設定済み生成経路**は `.github/workflows/sync-plugin-plangate.yml`（2026-10-11取得）で、`main`へのpushを条件に差分を確認し、差分があれば `gh pr create --body` で同期PRを作る定義。実際のrun発生/本文生成は**未検証**。
+- Evidence E-03b: `scripts/apply-task-0124-patches.sh` は、上記Workflowファイルが存在しない場合に生成するHuman実行用の初期パッチ。既にWorkflowファイルがあるため、現行のbody producerと混同しない。
 - Evidence E-04: `.claude/rules/mode-classification.md` は `.claude/agents/*.md` と `.github/workflows/*.yml` をHO対象と定義する。
 - Evidence E-05: `scripts/ai-loop/gh_exec.py` は明示allowlistの操作を扱う。コードの一部にPRコメント本文の経路があることだけを理由に、PR作成経路とみなさない。
 - Assumption A-01: 優先度の高い1つの実在経路だけへの介入で、テンプレートの未利用を減らせる可能性がある。**要実測**。
-- Unknown U-01 (**blocking**): 実際のPR作成 caller → body producer → GitHub API/CLIの対応と稼働状況。
+- Unknown U-01 (**blocking**): 設定済みWorkflowの **実際の実行証拠**（run/生成PR）と、Claude/Codexが直接生成する一般PRのcaller → body producer → API/CLI。Workflowファイルの存在のみで稼働済みとは判定しない。
 - Unknown U-02 (**blocking**): 選定経路の変更対象とHuman C-3/HOの承認記録。
 - Unknown U-03: #1547採用後に必要な追跡指標と観測期間（採用効果はまだ計測できない）。
 
