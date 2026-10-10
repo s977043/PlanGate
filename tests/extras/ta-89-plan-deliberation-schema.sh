@@ -95,6 +95,36 @@ def apply_ops(base, ops):
     return obj
 
 errors = []
+
+# #1505 F-1: pin the top-level required contract independently of schema.
+# Iterating only schema["required"] would silently shrink when the schema is
+# weakened; the explicit baseline is the negative-control oracle.
+expected_required = {
+    "schema_version", "artifact_type", "stability", "task_id",
+    "plan_ref", "source_reviews", "execution", "trigger",
+    "participants", "problem_frames", "positions", "outcome",
+}
+missing_required = expected_required - set(schema.get("required", []))
+if missing_required:
+    errors.append(f"top-level required contract weakened: {sorted(missing_required)}")
+
+# Exercise a missing-field instance for EACH independent required property.
+# Check that the error is the intended top-level 'required' diagnostic,
+# not an unrelated failure from an allOf branch.
+for required_key in sorted(expected_required):
+    instance = copy.deepcopy(cases["base"])
+    instance.pop(required_key, None)
+    found = list(validator.iter_errors(instance))
+    if not any(
+        err.validator == "required"
+        and list(err.absolute_path) == []
+        and f"'{required_key}'" in err.message
+        for err in found
+    ):
+        errors.append(
+            f"top-level missing/{required_key} did not raise required diagnostic"
+        )
+
 for case in cases["valid_cases"]:
     instance = apply_ops(cases["base"], case["ops"])
     found = list(validator.iter_errors(instance))
@@ -108,6 +138,26 @@ for case in cases["invalid_cases"]:
     found = list(validator.iter_errors(instance))
     if not found:
         errors.append(f"invalid/{case['name']} unexpectedly passed")
+        continue
+    # #1505 F-2: any unrelated error is NOT enough to pass an invalid case.
+    # Match the reason against the fixture's canonical diagnostic identity.
+    expected = case.get("expected_error")
+    if not isinstance(expected, dict) or set(expected) != {"path", "validator"}:
+        errors.append(f"invalid/{case['name']} missing expected_error contract")
+        continue
+    matching = [
+        err for err in found
+        if ".".join(map(str, err.absolute_path)) == expected["path"]
+        and err.validator == expected["validator"]
+    ]
+    if not matching:
+        observed = [
+            ( ".".join(map(str, err.absolute_path)), err.validator )
+            for err in found
+        ]
+        errors.append(
+            f"invalid/{case['name']} expected {expected!r}; got {observed!r}"
+        )
 
 if errors:
     raise SystemExit("\n".join(errors))
