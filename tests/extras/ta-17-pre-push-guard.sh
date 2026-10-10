@@ -141,7 +141,13 @@ esac
 T17_GIT
 cat >"$T17_GUARD_TMP/bin/gh" <<'T17_GH'
 #!/bin/sh
-case " $* " in *" --head merged-deleted "*) printf 'MERGED\n' ;; *) printf 'OPEN\n' ;; esac
+# Historical merged PR lookup must filter state=merged, not select the newest
+# PR from state=all. The reused-with-open branch models a newer OPEN PR.
+case " $* " in
+  *" --state merged "*" --head merged-deleted "*|*" --state merged "*" --head reused-with-open "*) printf '1\n' ;;
+  *" --state merged "*) printf '0\n' ;;
+  *) printf 'unexpected gh pr query: %s\n' "$*" >&2; exit 2 ;;
+esac
 T17_GH
 chmod +x "$T17_GUARD_TMP/bin/git" "$T17_GUARD_TMP/bin/gh"
 T17_SHA=1111111111111111111111111111111111111111
@@ -222,6 +228,17 @@ if [ "$T17_RC" -eq 0 ]; then
   t17_pass "TC-18 missing helper is explicitly out of local guard coverage"
 else
   t17_fail "TC-18 missing helper caused false-block (rc=$T17_RC): $T17_OUT"
+fi
+
+# TC-19: when a newer OPEN PR shares a branch name with an old MERGED PR,
+# the guard must query merged history (not blindly inspect the first PR).
+T17_RC=0
+T17_OUT=$(printf 'refs/heads/new %s refs/heads/reused-with-open %s\n' "$T17_SHA" "$T17_ZERO" |
+  T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+if [ "$T17_RC" -eq 1 ] && printf '%s' "$T17_OUT" | grep -q 'Refusing recreation.*reused-with-open'; then
+  t17_pass "TC-19 historical MERGED PR detected despite newer OPEN history"
+else
+  t17_fail "TC-19 old merged history bypassed (rc=$T17_RC): $T17_OUT"
 fi
 
 rm -rf "$T17_GUARD_TMP"
