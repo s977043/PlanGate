@@ -6,7 +6,8 @@
 # 非ゼロ終了する。push 直前に実行（pre-push hook or 手動）。
 #
 # Usage: sh scripts/check-branch-not-merged.sh [branch]
-# Exit: 0=安全（新規/未マージ）, 1=マージ済ブランチの再作成リスク（要確認）
+# Exit: 0=ローカルhookはpushを妨げない（未検証/WARNも含む）, 1=MERGED+remote削除済の再作成をblock
+#       0 は「安全を証明した」を意味しない。認可・安全性の正本はremote保護ポリシー。
 set -eu
 
 BR="${1:-$(git rev-parse --abbrev-ref HEAD)}"
