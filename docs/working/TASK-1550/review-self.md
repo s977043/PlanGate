@@ -17,8 +17,8 @@
 
 ## Loop 3 — Engineering / Test / Agile fast feedback
 
-- Finding: 経路の存在と実利用の間にギャップがある。テンプレートの導入前データで「改善」を主張できない。全PRの新CI Gate追加は過剰な可能性がある。
-- Adaptation: 1経路のvertical sliceを優先し、TC-01/02でactive/unknownを分類。TC-03〜09でpositive/negativeを固定し、TC-10でreal post-adoption observationを要求。
+- Finding: 設定済みWorkflow `.github/workflows/sync-plugin-plangate.yml` はbody producerの候補を実証するが、job実行・生成PRの実在は未確認。初期生成用 `scripts/apply-task-0124-patches.sh` を稼働中の生成処理と混同しない。テンプレート導入前の件数で改善を主張できず、全PRの新CI Gate追加は過剰な可能性がある。
+- Adaptation: source-configured / runtime-observed / bootstrap-onlyを分類し、1経路のvertical sliceを優先。TC-01/02でactive/unknownを区別し、TC-03〜09でpositive/negativeを固定、TC-10でreal post-adoption observationを要求。
 - Result: Planはレビュー可能。効果未計測、test未実行、Human判断待ち。
 
 ## Final verdict
