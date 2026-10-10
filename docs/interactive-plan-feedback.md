@@ -157,8 +157,9 @@ File-download persistence is an E2E observation, not user approval.
 
 The optional 50-question matrix creates **synthetic-only** C-3 files. Chrome
 opens the generated HTML using a real `file://` URL (no web server).
-The DevTools protocol checks per-control associated labels, keyboard Tab
-focus, AX-tree export button name, real responsive widths (1280/375 px),
+The DevTools protocol checks per-control associated labels and question-
+heading descriptions, keyboard Tab focus, browser AX-tree accessible names,
+real responsive widths (1280/375 px),
 print-mode button visibility, inert XSS strings, and attempted HTTP(S) or
 WebSocket requests. Desktop/mobile screenshots and machine-readable metrics
 are retained as short-lived GitHub Actions test artifacts (7 days).
