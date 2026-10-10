@@ -95,6 +95,48 @@ class BrowserMatrixTest(unittest.TestCase):
             for filename in ("desktop-synthetic.png", "mobile-synthetic.png", "matrix-results.json"):
                 self.assertTrue((evidence / filename).is_file(), filename)
 
+    def test_firefox_synthetic_file_screenshot_if_available(self):
+        """Optional second renderer probe; never infer success from Chrome."""
+        firefox = shutil.which("firefox")
+        if firefox is None:
+            self.skipTest("Firefox not installed: cross-browser screenshot UNVERIFIED")
+        probe = subprocess.run(
+            [firefox, "--version"], capture_output=True, text=True,
+            check=False, timeout=10,
+        )
+        self.assertEqual(probe.returncode, 0, probe.stderr)
+        print("Firefox matrix binary=%r version=%r" %
+              (firefox, probe.stdout.strip() or probe.stderr.strip()), flush=True)
+        with tempfile.TemporaryDirectory() as workspace:
+            base = Path(workspace)
+            (base / "plan.md").write_text("# Synthetic firefox page\n", encoding="utf8")
+            (base / "review-questions.json").write_text(
+                json.dumps({"version": 1, "questions": [
+                    {"id": "Q-1", "prompt": "Browser compatibility?", "choices": ["Yes", "No"]}
+                ]}), encoding="utf8",
+            )
+            page = base / "review.html"
+            render = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "render_review.py"),
+                 "--task", "TASK-0001", "--work-dir", str(base), "--out", str(page)],
+                capture_output=True, text=True, check=False, timeout=25,
+            )
+            self.assertEqual(render.returncode, 0, render.stderr)
+            evidence = Path(os.environ.get("PLANGATE_BROWSER_EVIDENCE_DIR", str(base / "evidence")))
+            evidence.mkdir(parents=True, exist_ok=True)
+            screenshot = evidence / "firefox-synthetic.png"
+            profile = base / "firefox-profile"
+            profile.mkdir()
+            screenshot_run = subprocess.run(
+                [firefox, "--headless", "--no-remote", "--profile", str(profile),
+                 "--screenshot", str(screenshot), "--window-size", "375,812",
+                 page.as_uri()],
+                capture_output=True, text=True, check=False, timeout=55,
+                env={**os.environ, "MOZ_HEADLESS": "1", "HOME": str(base)},
+            )
+            self.assertEqual(screenshot_run.returncode, 0, screenshot_run.stderr[-2500:])
+            self.assertGreater(screenshot.stat().st_size, 1000)
+
     def test_questions_absent_and_malformed_fail_closed(self):
         with tempfile.TemporaryDirectory() as workspace:
             base = Path(workspace)
