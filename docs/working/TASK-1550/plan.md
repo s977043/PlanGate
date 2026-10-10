@@ -22,10 +22,11 @@ created_by: planning-agent
 
 - Fact: #1547は現時点では未マージ。既存テンプレートの追加案と、実PRへの適用は別問題。
 - Fact: `.claude/agents/workflow-conductor.md`はPR作成を委譲するが、`.claude/agents/*.md`はHO対象。
-- Fact: `scripts/apply-task-0124-patches.sh`に`gh pr create --body`が存在する。ただし**稼働の証拠は未取得**。
+- Fact: `.github/workflows/sync-plugin-plangate.yml`は `main` push（特定path）で同期差分を検知し、差分がある場合に`gh pr create --body`でPRを生成する**設定済み経路**（Workflowの現在の定義を確認）。run実行・生成PRの証拠は別途必要。
+- Fact: `scripts/apply-task-0124-patches.sh` は、Workflowファイルが存在しないときにそれを作るHuman実行用の生成スクリプト。現行workflow定義が存在するため、運用主体として扱わない。
 - Fact: `.agents/skills/ai-dev-exec/SKILL.md`は実装担当であり、PR本文のownerだと仮定してはいけない。
 - Assumption: 既存テンプレートを唯一の説明元として投影する方が別規範を追加するより保守負担が小さい。
-- Blocking Unknown U-01: 直近の実PRについて**caller→body generator→GitHub**の証跡を確保し、対象経路の実在を確認する。
+- Blocking Unknown U-01: 設定済みsync WorkflowのrunとPR生成有無、さらに通常AI生成PRの**caller→body generator→GitHub**の証跡を確保し、対象経路の実稼働を確認する。単にYAMLが存在するだけでは足りない。
 - Blocking Unknown U-02: 具体的な実装ファイル、canonical/mirror、必要なHuman C-3/HO承認を特定する。
 - Non-blocking Unknown U-03: 今後の採用率と所要時間への影響（定量値は初回観測後に計画する）。
 
@@ -58,7 +59,7 @@ created_by: planning-agent
 
 ## Work Breakdown / Dependency
 
-- D-01 (read-only): 現時点のPR生成経路を収集。Path/caller/body producer/evidence/status/HO分類を一覧化する。**未確認経路は推測でActiveにしない**。
+- D-01 (read-only): 現時点のPR生成経路を収集。設定済みsync Workflowの `push main` → `diff` → `gh pr create --body` はsource確認済み。**実際のrun/生成PRと一般AI生成PRは未確認**。Path/caller/body producer/evidence/status/HO分類を一覧化し、source定義だけでActiveと判定しない。
 - D-02 (read-only): #1547がmainに採用されたか、採用された文面/責務を実装前に再取得する。まだなら先行しない。
 - D-03 (review): 1つの稼働経路と唯一のcanonical sourceを選ぶ。対象パスと導入コストを記録。HOの場合は人間適用用patchを準備し、AI direct writeを停止。
 - H-01 (Human): C-3でGoal/対象パス/TC/rollback/HO分界を承認する。APPROVEDでない場合は実装しない。
