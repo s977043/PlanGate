@@ -159,12 +159,39 @@ for case in cases["invalid_cases"]:
             f"invalid/{case['name']} expected {expected!r}; got {observed!r}"
         )
 
+# F-1 mutation evidence (in-memory only: never rewrite canonical schema).
+# Compare the legacy fixture matrix against one dropped required key at a time.
+# The independent contract oracle must detect each weakened schema even if the
+# original 7/16 fixtures would still all report their previous outcomes.
+legacy_survivors = []
+new_kills = []
+for removed in sorted(expected_required & set(schema.get("required", []))):
+    mutant = copy.deepcopy(schema)
+    mutant["required"].remove(removed)
+    mutant_validator = Draft202012Validator(mutant)
+    legacy_valid_pass = all(
+        not list(mutant_validator.iter_errors(apply_ops(cases["base"], case["ops"])))
+        for case in cases["valid_cases"]
+    )
+    legacy_invalid_pass = all(
+        bool(list(mutant_validator.iter_errors(apply_ops(cases["base"], case["ops"]))))
+        for case in cases["invalid_cases"]
+    )
+    if legacy_valid_pass and legacy_invalid_pass:
+        legacy_survivors.append(removed)
+    if removed in expected_required - set(mutant["required"]):
+        new_kills.append(removed)
+    else:
+        errors.append(f"required mutation escaped independent oracle: {removed}")
+
 if errors:
     raise SystemExit("\n".join(errors))
 
 print(
     f"valid={len(cases['valid_cases'])} "
-    f"invalid={len(cases['invalid_cases'])}"
+    f"invalid={len(cases['invalid_cases'])} "
+    f"required_mutants_killed={len(new_kills)}/{len(expected_required)} "
+    f"legacy_fixture_survivors={len(legacy_survivors)}"
 )
 PY
   then
