@@ -45,6 +45,18 @@ PLANGATE_PROTECTED_BRANCHES="main release release/* prod" git push
 PLANGATE_PROTECTED_BRANCHES="main" git push
 ```
 
+## マージ済みブランチの再作成防止（#937 / opt-in）
+
+ローカルの pre-push フックは、protected branch の直接push防止に加え、**originへの新規branch作成**（remote SHAが0）を確認する。実際のpush先 `refs/heads/<branch>` を `scripts/check-branch-not-merged.sh <branch>` へ渡し、過去のPRが **MERGED** かつoriginに同名branchが無い場合にblockする。
+
+- **refspec / 複数refを扱う**: checkout中のHEAD名ではなく、pre-push stdinの各push先branchを判定する。1件でもblockならpush全体を止める。
+- **誤検出防止**: remote SHAが非0の既存branch更新・branch削除・tag pushは追加チェック対象外。既存protected-branch判定は変えない。
+- **適用範囲を限定**: 現行補助スクリプトがGitHub `origin` のPR履歴を利用するため、remote名が`origin`以外ならこの**追加チェックのみskip**する。`gh`が利用できない／配布先に補助スクリプトが存在しない場合も追加チェックはskipする。**すべてのpushを安全と判定したという意味ではない**。
+- **既存installへの適用**: `scripts/templates/pre-push.sample` の変更は既存の `.git/hooks/pre-push` に自動適用されない。適用者は `sh scripts/install-pre-push.sh --dry-run` で差分とbackupを確認し、既存の正式な権限・承認範囲でインストールする。AIが他者のGit hookを無断適用しない。
+- **証拠**: `tests/extras/ta-17-pre-push-guard.sh` TC-10〜15でrefspec、fresh branch、multi-ref、既存remote、別remote、delete/tagをfake git/ghで検証する。テストでは実際のremote pushを行わない。
+
+この追加ガードはローカルの誤操作防止であり、`--no-verify` で迂回できる。GitHub側の認可とbranch protectionを代替しない。
+
 ## bypass (緊急時、非推奨)
 
 ```sh
