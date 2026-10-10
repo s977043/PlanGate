@@ -144,9 +144,12 @@ cat >"$T17_GUARD_TMP/bin/gh" <<'T17_GH'
 # Historical merged PR lookup must filter state=merged, not select the newest
 # PR from state=all. The reused-with-open branch models a newer OPEN PR.
 case " $* " in
-  *" --state merged "*" --head merged-deleted "*|*" --state merged "*" --head reused-with-open "*) printf '1\n' ;;
-  *" --state merged "*) printf '0\n' ;;
-  *) printf 'unexpected gh pr query: %s\n' "$*" >&2; exit 2 ;;
+  *" --state merged "*) : ;;
+  *) printf 'unexpected gh state filter: %s\n' "$*" >&2; exit 2 ;;
+esac
+case " $* " in
+  *" --head merged-deleted "*|*" --head reused-with-open "*) printf '1\n' ;;
+  *) printf '0\n' ;;
 esac
 T17_GH
 chmod +x "$T17_GUARD_TMP/bin/git" "$T17_GUARD_TMP/bin/gh"
