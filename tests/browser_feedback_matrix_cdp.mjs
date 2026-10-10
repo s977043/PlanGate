@@ -104,11 +104,13 @@ try {
     'const controls = [...document.querySelectorAll("#pg-plan-feedback select, #pg-plan-feedback textarea")];',
     'const issues = controls.filter(el => !el.id ||',
     '![...document.querySelectorAll("label[for]")].some(l => l.htmlFor === el.id && l.textContent.trim()));',
+    'const missingDescriptions = controls.filter(el => !el.getAttribute("aria-describedby") ||',
+    '!document.getElementById(el.getAttribute("aria-describedby")));',
     'const malicious = !!document.querySelector("img[onerror],script[src],iframe,link[rel=stylesheet]") ||',
     '!!window.pwned || !!window.injected || !!window.hacked;',
     'const button = document.querySelector("[data-export]");',
     'return { count: document.querySelectorAll("[data-question-id]").length,',
-    'controlCount: controls.length, unlabeled: issues.length,',
+    'controlCount: controls.length, unlabeled: issues.length, missingDescriptions: missingDescriptions.length,',
     'buttonName: button?.textContent.trim(), buttonType: button?.type,',
     'liveRegion: document.querySelector("[data-message]")?.getAttribute("aria-live"),',
     'malicious, scheme: location.protocol,',
@@ -119,6 +121,7 @@ try {
   assert.equal(baseline.count, 50);
   assert.equal(baseline.controlCount, 150);
   assert.equal(baseline.unlabeled, 0, 'controls need explicit associated labels');
+  assert.equal(baseline.missingDescriptions, 0, 'controls need their specific question heading');
   assert.equal(baseline.labelCount, 150);
   assert.equal(baseline.buttonName, '回答JSONを保存');
   assert.equal(baseline.buttonType, 'button');
@@ -128,6 +131,8 @@ try {
   const ax = await page.call('Accessibility.getFullAXTree');
   assert.ok(ax.nodes.some(n => n.role?.value === 'button' &&
     n.name?.value === '回答JSONを保存'), 'download button missing from AX tree');
+  assert.ok(ax.nodes.some(n => n.role?.value === 'combobox' &&
+    n.description?.value?.includes('Question')), 'question context missing from combobox AX description');
 
   await page.call('Runtime.evaluate', { expression: 'document.querySelector("[data-state]").focus()' });
   const tab = async () => {
