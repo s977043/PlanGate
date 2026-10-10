@@ -170,8 +170,12 @@ are retained as short-lived GitHub Actions test artifacts (7 days).
 python3 -m unittest discover -s tests -p test_review_feedback_browser_matrix.py -v
 ~~~
 
-Browser E2E is evidence for these bounded assertions, **not** a complete WCAG
-or human screen-reader audit, a firewall proof or a Firefox functional test.
+The matrix also attempts a synthetic Firefox `file://` screenshot when the
+Firefox executable is installed; otherwise that check is explicitly skipped
+and cross-browser evidence remains UNVERIFIED.
+Browser E2E is evidence for the bounded assertions, **not** a complete WCAG
+or human screen-reader audit, a firewall proof or an automated Firefox
+functional/keyboard test.
 The absence of a CSP HTTP header for a local file does not mean CSP was
 exercised. Do not claim cross-browser or CSP verification without separate
 evidence. Generated reviews may include sensitive business plans; only
