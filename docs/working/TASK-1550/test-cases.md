@@ -22,8 +22,8 @@
 - Negative: file存在のみなら稼働証拠としては**採用しない**。
 
 ### TC-02 — Unverified/legacy route (negative)
-- Input: `scripts/apply-task-0124-patches.sh`等、body構築記述はあるが稼働証拠を持たない経路。
-- Expected: `unknown/legacy`とラベル付けし、存在だけで優先対象にはしない。
+- Input: `scripts/apply-task-0124-patches.sh`（Workflow初期生成用）などの稼働実績が未確認の経路、および設定済みの `.github/workflows/sync-plugin-plangate.yml` のrun未観測状態。
+- Expected: 初期生成用スクリプトは `bootstrap/legacy candidate`、Workflowは `configured / run unverified` に分け、ファイルの存在だけで優先対象とは確定しない。
 
 ### TC-03 — Pure documentation change (positive)
 - Input: 挙動やルールの適用が変わらないdocs-only PR。
