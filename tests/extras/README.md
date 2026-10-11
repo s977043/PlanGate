@@ -629,6 +629,15 @@ extras が 1 本増えると 2 起動増える。**絶対件数は契約値に�
 | `PG_T61_EXEC_ONLY_PROBES` | `0` | TC-16 の sandbox 子専用。実行ループの対象を**ハードコードされた `ta-*-probe-*.sh` パターン**へ限定する。sandbox の外で立てると対象が 0 本になり TC-25(3) が fail-closed で落ちるため、実 run を黙って縮める用途には使えない |
 | `PG_T61_SKIP_SUITE` | `0` | mutation driver 専用。nested full-suite（TC-14 / TC-15 runner）だけを止め、sandbox TC は残す |
 
+**実 repo の固定パスを書く子は並列バッチに入れない（#1557）。** `docs/working/TASK-T4400-ta44-tmp` のように
+実 repo の固定名を作成・削除・上書きする子（`ta-44` / `ta-45` / `ta-76` / `ta-111` / `ta-112`）は、
+`ta-61` の `_exclusive_real_repo` に列挙され、並列バッチの完了後に 1 本ずつ実行される
+（`PG_T61_PARALLEL=1` でも二重実行・欠落はない）。新しい extras が実 repo の固定パスを書くなら、
+同リストへ足すまで `TC-34`（静的走査）が落ちる。`TC-35` は合成の子で dispatcher を、`TC-36` は実 run の
+起動・終了時刻で「exclusive が他の子と重ならない」ことを測る。走査は書込動詞 / redirect の対象が
+root 由来変数で始まる行だけを見るため、関数引数や別スクリプト経由の書込は検出できない
+（`TC-36` の実測と、sandbox（mktemp 配下）で書く規約 9 が補う）。
+
 いずれも **テスト実行専用**であり、`PG_EXTRA_CONTRACT_PROBE` と同様に
 CI 設定・開発シェル・`.env` へ設定してはならない。
 
