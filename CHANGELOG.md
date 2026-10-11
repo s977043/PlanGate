@@ -6,6 +6,164 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.24.0 - 2026-10-12
+
+feat: 計画レビューに答えられる対話 HTML とその検証器（opt-in）を追加し、ai-loop V2 の Ratchet を決定論的な scope observer へ移し、導入先 project root の案内・pre-push ガードの push 先判定・Test job の高速化（ta-61 並列化）を入れる
+
+v8.23.0 タグ以降、main へ蓄積した変更を `1f091e97`（#1565 の merge commit）まで反映する。
+主題は **計画レビューの回答を機械可読に受け取る経路（opt-in）**、**ai-loop V2 の Ratchet を repository の実差分で判定すること**、
+**導入先 repo での `bin/plangate` の使い方（#1497 の project root）に Skill / Agent / Command の案内を合わせること**、
+**CI の Test job の短縮（ta-61 の並列化）**。
+
+- 収録範囲は **v8.23.0..`1f091e97` の 36 commit・PR 36 件**
+  （実測: `git rev-list --count v8.23.0..1f091e97`。PR は件名末尾の `(#NNNN)` を全数抽出して一意 36 件、番号の無い commit は 0 件。
+  36 件のうち #1504 は v8.23.0 の release note 保存 PR）
+- 配布物（`plugin/`）の変更は **13 ファイル・追加 287 行・削除 284 行**
+  （実測: `git diff --shortstat v8.23.0..1f091e97 -- plugin/`）。すべて Markdown（rules / agents / commands / skills）で、
+  実行コード・schema・hook は含まない。`plugin.json` は本リリース準備で 8.24.0 に bump する
+- **`bin/plangate` と `schemas/` の変更は 0 行**（実測: `git diff --numstat v8.23.0..1f091e97 -- bin/plangate schemas/` が空）。
+  CLI の挙動・schema は v8.23.0 と同じ。`scripts/hooks/` の差分も 0 行。`CLAUDE.md` は最新リリース節のみ本リリース準備で更新する
+- 破壊的変更を宣言した commit は **0 件**（実測: `v8.23.0..1f091e97` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
+- **semver は minor**（Human 決定 2026-10-11）。新機能（opt-in の対話フィードバック HTML と検証器）を含み、既存の入出力は変えないため
+
+（数値はいずれも **終端 `1f091e97` 時点の測定値**であり、本リリース準備 PR 自身の commit は含まない）
+**PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。
+
+### ⚠️ 更新前に必ずお読みください
+
+> **対象: `plangate` プラグインを導入している利用者**（1.）、**`.github/workflows/ci.yml` や `tests/extras/ta-61` を
+> 取り込んでいる fork / 派生 repo**（2.）、**`scripts/templates/pre-push.sample` を `.git/hooks/pre-push` に入れている利用者**（3.）。
+> hook・schema の必須項目、`bin/plangate` の挙動は変えていません。
+
+#### 1. plugin の案内文（rules / agents / commands / skills 13 ファイル）が変わります（#1512 / #1518 / #1538 / #1539 / #1561 / #1563）
+
+`/plugin update` で届くのは**文面の変更のみ**で、実行される挙動は変わりません。**version bump がないと
+`/plugin update` は no-op になり 1 件も届きません**（本リリースで bump する理由）。
+
+- **対象 project root の案内を #1497 に合わせた**（#1512）。`plangate-setup` command / skill、`setup-coordinator` /
+  `workflow-conductor` agent、`intent-classifier` / `ai-dev-*` / `local-exec-handoff` / `plan-review-gate` skill が、
+  従来の「`<TASK>` は CLI 本体の位置を基準に解決される」から、**`--project-root` → `PLANGATE_PROJECT_ROOT` →
+  cwd の git root → CLI root の順で決まる**記述に変わる。導入先 repo の cwd から `render` / `approve` / read-only `doctor` を
+  実行すればその導入先が対象になる。**導入先での `doctor --fix` は引き続き rc=2・書き込みなし**（#1144）。
+  `verify` 全体を導入先で安全と扱わない（EH hook / `eval` / metrics は script-relative root のまま）旨も明記した
+- **retained memory の読み込み境界**（#1518）。`working-context` rule に「外部 retained memory は L0 / L1 の canonical input
+  ではない」を追加（canonical state と衝突したら canonical を優先、memory 上の完了 claim は根拠を確認するまで未検証）。
+  承認ゲートは変わらない
+- **#1512 が入れた Markdown の崩れを修復**（#1539）。`ai-dev-exec` のコピー可能な実行例と `ai-dev-plan` の見出しの重複を直した
+- **Context Lifecycle の `local-exec-handoff` 規則を canonical と同期**（#1538）
+- **`workflow-conductor` agent の見出し重複を解消**（#1561）。#1512 で同じ見出しの節が 2 つ並んでいたため、旧い節（#1245 由来）を削除した
+- **`working-context` / `mode-classification` rule に、長く適用待ちだった追記を反映**（#1563。Human が HO として適用）。
+  C-1 の Plan チェックに C1-LOOP-01 / 02（Stop Condition と Replan Triggers の記入。未記入は WARN、high-risk / critical は FAIL）を、
+  C-3 ゲートに「外部レビューの Decision（`go` / `revise_plan` / `human_approval_required` / `no_go`）→ c3_status」の対応と
+  「未知値・欠落は人間 C-3 強制」への参照を加えた（#543）。UI 変更時の V-1 evidence 規約（#797）へのクロスリファレンスも 1 行加えた
+
+C-3 ゲートの記述には上記の対応づけが加わりますが、`bin/plangate` の承認判定・plan binding・Human-owned の権限は変わりません。
+
+#### 2. CI の Test job で `ta-61` の子プロセスが並列度 2 で走ります（#1555）
+
+`tests/extras/ta-61-extra-contract.sh` が per-file の子プロセスを `xargs -P` で並行起動します（既定 `PG_T61_PARALLEL=2`、
+範囲 1〜4、数値以外は 1）。各子の出力・rc は子ごとのファイルに分け、assert と加算は元の順序で逐次に行います。
+子へ渡す env・stdin・timeout（180 秒）は変更前と同一です。
+
+- **直列に戻す kill-switch: `PG_T61_PARALLEL=1`**（恒久は `git revert`）
+- 手元の実測は ta-61 単体で直列平均 776.59 秒 → P=2 平均 422.87 秒。merge 後の main の CI 5 run
+  （Test job の所要・ta-62 / ta-71 / ta-65 の timeout・ta-61 の FAIL）はすべて閾値内だった。並列ループ内の書き込み競合の可能性は
+  既知の課題 #1557 を参照
+- 自分の環境の `tests/run-tests.sh` で timeout が増えた場合は、まず `PG_T61_PARALLEL=1` で切り分けてください
+
+#### 3. opt-in の pre-push ガードが push 先 ref で判定します（#1552 / #937）
+
+`scripts/templates/pre-push.sample` は、`origin` への**新規 remote ブランチ作成**（remote SHA がゼロ）のときだけ、
+pre-push の stdin から得た**push 先**のブランチ名を `scripts/check-branch-not-merged.sh` に渡します（従来は checkout 中の HEAD を見ていた）。
+`check-branch-not-merged.sh` は同名ブランチの MERGED 履歴の有無を `gh pr list --state merged --limit 1` で確認するように変わり、
+従来の `state=all` 先頭 1 件依存による見逃しを直しました。1 つでも危険な ref があれば push 全体を中止します。
+
+**利用者への影響**: 新しい hook を入れた環境では、**merge 済みで remote から削除された destination ref の再作成**
+（例: `git push origin HEAD:refs/heads/<merge 済みのブランチ名>` や、同名ブランチでの作業の再 push）が block されます。
+従来は checkout 中の HEAD の名前で判定していたため、refspec で別名を指定した push は素通りしていました。
+意図して同名ブランチを作り直す場合は、別のブランチ名で push してください。
+
+- **インストール済みの `.git/hooks/pre-push` は自動では更新されません**。新しい判定を使うには再インストールが要ります
+  （手順: `docs/ai/direct-push-prevention.md`）
+- local opt-in の hook であり、GitHub の branch protection の代替ではありません。既存ブランチへの push・tag・削除・他 remote は対象外です
+
+### 計画レビューの対話フィードバック（opt-in）
+
+- **`plangate render` が任意の `review-questions.json` から自己完結の対話 HTML を生成**（#1527 / #1521）。
+  回答・保留・未回答を plan / questions の SHA-256 つきで JSON にエクスポートする。**フィードバック専用で、承認ではない**
+  （C-3 の判定・既存の承認・run-gate は変えない）。質問を渡さない従来の出力は byte 同一
+- **エクスポートした JSON の fail-closed 検証器 `scripts/validate_plan_feedback.py`**（#1534 / #1533）。
+  schema・source SHA-256・現在の質問定義と照合し、古い / 偽造 / 不正な feedback を拒否する。
+  読み取り専用で、承認・gate・verdict・exec には影響しない。検証は鮮度の確認であって本人性の署名ではない
+- **実 Chromium での検証**（#1536 / #1542 / #1551）。実際の生成 HTML を headless Chrome/Chromium で動かし、Blob エクスポート、
+  実ファイルのダウンロードと検証器の往復、Tab フォーカス、50 問の `file://` 表示（ラベル・aria・レイアウト・
+  XSS 文字列の無害化・外部ネットワーク無し）を確認する。CI に `interactive-feedback-tests` と
+  `interactive-browser-e2e` の 2 job を追加（#1527 / #1536 / #1551）
+- 利用者側の変更は不要（opt-in）。CI の browser job は GitHub-hosted runner 前提で、Chrome の namespace sandbox 無効化
+  （`PLANGATE_CHROME_NO_SANDBOX`）は隔離 runner 専用
+
+### ai-loop V2
+
+- **Ratchet の delta を deterministic scope observer へ移した**（#1516 / #1515）。新規 `scripts/ai-loop-v2/scope_observer.py` が
+  repository の実差分（full commit ID・repo-root・UTF-8 path の検査つき）から scope を観測する。
+  `ratchet.py` から `decision_core._canonical_path` の private import を削除し、commit binding と delta の整合を fail-closed にした
+- **Ratchet の expected prevention claim を束縛**（#1495 / #1376）。`expected_prevention` の欠落・不正な mode・
+  `pattern_refs` の空 / 重複 / 現 pattern の未参照・`expected_effect` の空を `INCONCLUSIVE / EXPECTED_PREVENTION_BINDING` にする。
+  **claim は prevention evidence ではない**（効果の証拠は別）
+- **外部 verifier P1 を P0 preflight の背後に置いた**（#1511）。read-only の構造 preflight
+  （`runtime_evidence_external_verifier_p0_preflight.py`・`ta-114`）。bootstrap package のバイト列は変えない（#1484 / #1493 の identity を保つ）。
+  現在の ADR-007 は Proposed / NOT_MADE のまま
+- **#1422 の binding owner と adversarial RED oracle の提案**（#1541）。non-authoritative な提案文書 1 本で、
+  Human の ownership 裁定でも owner runtime の実装でもない。#1422 は Human の裁定まで open のまま
+- docs: Execution Strategy と Graph topology の分離（#1509）、persistent harness state と failure ratchet の対応づけ（#1510）、
+  #1393 の blocked Decision 依存と AC-6 の引き継ぎの整合（#1520 / #1543）
+
+### 設計・方針・運用（docs のみ）
+
+- **PR テンプレートに `## Rollback / Detection` 節を追加**（#1547）。Kill-switch / 検出シグナル / 観測窓の 3 行を `TODO` で示す。
+  既存の節は変えない。docs のみの PR は「この PR を revert」と `N/A（理由）` で埋められる
+- **実践の進化方針と Decision-Ready な継続方針**（#1549。`docs/ai/practice-evolution-policy.md` /
+  `docs/ai/decision-ready-continuation-policy.md`）。アジャイル宣言の 4 価値の PlanGate での適用解釈、
+  Local Evidence × External Knowledge、`Adopt / Adapt / Transform / Defer` の 4 択を記す。
+  新しい Gate・schema・権限状態は追加しない。README / CONTRIBUTING / philosophy から導線を張った
+- **Issue 棚卸しの Living Playbook**（#1548）。3〜5 件の小バッチで回す Issue Triage と、2 バッチごとの Process Evolution の 2 ループ。
+  `docs/ai/issue-governance.md` には参照 1 行のみを追加し、既存ルールは変えない。bot・label・データ台帳は追加しない
+- **自律的に成長するハーネスの設計**（#1506。`docs/ai/growth-harness.md`）。HO 対象の `working-context.md` への差分**案**
+  （`docs/working/_reports/growth-harness-ho-patch.md`）は適用していない。L2 の起動しきい値 N=5・L4 の打ち切り M=3 run は仮の初期値
+- **Repository-backed agent memory を既存の境界へ対応づけた**（#1514 / #1518）。新しい SSoT は作らない
+- **search-first の context 取得方針と品質を含む評価**（#1532 / #1531）。Dynamic Context Engine の動的 working set 方針に追記。新しい CLI・実行時収集は無い
+- **#811 の C-3 提案と残作業を準備**（#1522）。実行可能な Gate・HO 変更・自動昇格は無く、#811 は open のまま
+- `#1495` merge 後の状態に growth harness と #1393 の依存照合を合わせた（#1530）
+- **README に承認の担い手を明記**（#1559）。C-3 は Human、C-3' は Human が定めた rollout 範囲の eligible run に限った AI 裁定
+  （範囲外は Human C-3 へ escalate）、C-4 / merge は Human。Issue Triage の履歴を `docs/ai/issue-triage-playbook.md` へ向けた
+- **#1550（evidence-led な PR 本文の採用）の計画一式を準備**（#1553。`docs/working/TASK-1550/`）。C-1 は FAIL（未解決の Unknown 起因）で、
+  現在フェーズは BLOCKED。実装は含まない
+
+### テストと検査
+
+- `ta-17` に pre-push ガードの隔離検証 TC-10〜21 を追加（#1552。fake git / gh を使い、本物の push はしない）
+- `ta-90` が Context Lifecycle の規範の要所を**完全一致**で固定し、補助のヒューリスティックと残存脅威を明記（#1538）
+- `ta-114` の ID 重複を解消し、project root 案内の検査を `ta-115` へ改番（#1526 / #1525）。`ta-115` は #1539 で拡張
+- `AGENT_LEARNINGS.md` に学びを追記（#1501 / #1528）
+- v8.23.0 の release note を `docs/working/_reports/v8.23.0-release-note.md` に保存（#1504）
+- **適用待ちだった apply スクリプトを棚卸し**（#1563 / #1565）。v8.23.0 でも残っていた 8 本を読み取りで分類し、2 本を Human が適用（#1563）、
+  実装済みで不要な `apply-task-0146-ehs23-wiring.sh`（と `_apply_task_0146_patches.py`）と、挿入位置・schema 整合に欠陥のある
+  `apply-reviewer-silence-gate.sh` を削除した（#1565。作り直しは #1564）
+
+### 既知の課題
+
+- **`release-prep.sh --check` は NOT READY のまま tag する**（Human 決定 2026-10-11）。残る NG は次の 2 つで、いずれも v8.23.0 から持ち越している:
+  - 適用待ち apply 3 本: `apply-ai-loop-workflow-command.sh`（適用済みの内容を古い版に戻すため適用しない。#1114 の方針で保持）、
+    `apply-task-0123-patches.sh` と `apply-quality-command-gate.sh`（設計判断が要るため保留。#1562）。
+    **`apply-task-0123-patches.sh` は現状のまま適用しないこと**（挿入位置がずれて EH-3 が fail-open になる。#1562）
+  - plugin のインストール済みキャッシュの未同期（この端末の状態であり、repo の内容ではない）
+- **#1562**: `apply-task-0129-schema.sh` も未適用だが、`[dry-run]` を stderr に出すため `release-prep.sh` の検出器に出ない（偽陰性）
+- **#1557（P1）**: `ta-61` の並列ループ（#1555）に、実 repo の固定パスへ書き込むテスト（`ta-44` / `ta-45` / `ta-76` / `ta-12`）が含まれ、
+  互いに競合しうる。merge 後の main の CI 5 run はすべて閾値内だった。切り戻しは `PG_T61_PARALLEL=1`
+- **#1558（P2）**: pre-push ガード（#1552）の helper が stdin を閉じずに呼ばれ、後続の ref 行を読んでしまいうる。
+  現在の `gh` / `git ls-remote` は stdin を消費しないため、潜在リスクにとどまる
+- **#1556**: CI の Interactive Review Browser E2E（#1536 / #1551）が CDP port の timeout で断続的に FAIL する（flake）
+
 ## v8.23.0 - 2026-10-07
 
 feat: Intent Context Package v1 と Context Lifecycle を導入し、ai-loop V2 の Delivery runtime・Ratchet・Runtime Evidence を縦切りで実装し、`bin/plangate` の C-3 判定を共通化して既定の対象 repo を cwd の git root にする
