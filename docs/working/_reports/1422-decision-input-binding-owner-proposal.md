@@ -5,6 +5,28 @@
 > This report is not an approved replacement for #1393 Revision 2.5 `plan.md`, a new source of truth,
 > a C-3 artifact, or permission to execute protected Verification/Decision code.
 
+## 0. Where this proposal departs from #1422's "one owner, one timing" reading
+
+AC-1 of #1422 asks for one owner (#1391 / #1392 / #1395) and one timing (commit / load / audit) per invariant. #1540 allows the proposed ownership to change only when the change is explicitly justified. This table is that justification, in one place. Every entry is a **proposal for Human adjudication**, not a decided owner or timing.
+
+| Rule | Treatment | Proposed accountable owner | Proposed primary timing (other checks) | Why it is not a plain one-owner/one-timing assignment |
+|---|---|---|---|---|
+| B-1 | Owner named (#1422 names none) | #1395 | commit: computed when inputs are observed (audit re-derives) | The tree identity comes from the observed Git tree, which only the #1395 observer reads; #1391 fixes the `sha256:` format only |
+| B-2 | Preserved, semantics split | #1391 | load: stream validation of the boundary (append also checks) | #1422 itself leaves the PASS/FAIL meaning of the boundary to the #1393 pure function (Revision 2.2); #1391 owns only the boundary identity |
+| B-3 | Preserved, timing split | #1392 | commit: lock + CAS (load and audit repeat the rule) | #1422's own B-3 AC requires reject at both commit and load, so a single timing would contradict #1422; #1391 audit is a second check, not a second owner |
+| B-4 | Preserved, timing extended | #1392 | commit: under-lock snapshot (load replays historical state) | A load check against the *current* RunState rejects valid history; load must replay the state before each decision (§2) |
+| B-5 | Preserved, timing extended | #1392 | commit: derive the edge from `(state, action)` (load replays it) | Same reason as B-4 |
+| B-6 | Preserved | #1391 | commit: typed `plan_contract_bound` at append (load re-validates) | — |
+| B-7 | **Retired** (already struck in #1422) | none; folded into B-9 (#1391) | — | #1393 Revision 2.2 made effective-FR selection a pure rule (I-7); only omission detection remains, which is B-9 |
+| B-8 | Owner split | #1395 builds inputs; #1391 owns the missing policy-event vocabulary | commit: inputs built from accepted events only | The accepted policy event does not exist yet (§4); construction and vocabulary are different duties |
+| B-9 | Preserved | #1391 | load (audit repeats) | — |
+| B-10 | Preserved, selection split | #1391 validates; #1395 selects | load (audit repeats) | Selecting the baseline happens at input construction; validating it is a stream rule |
+| B-11 | Owner split | #1395 runs the audit; #1391 supplies accepted events; #1393 supplies Decision semantics | audit | #1422 names the timing (audit) but no owner. Recomputing a Decision needs all three, and none may own a second copy of the others' authority |
+| B-12 | Preserved | #1391 | commit: typed `failure_recorded` at append (load and audit repeat) | — |
+| B-13 | Owner split | #1395 observer produces; #1391 owns the new event vocabulary (not implemented); #1392 records it durably | commit: acceptance of the observer event (unavailable today) | The accepted observer event does not exist; until it does, #1395 passes empty sets as #1422 already prescribes, and B-13 is not claimed PASS |
+
+Human decides whether to accept these splits or collapse any row to a single owner and timing. Open choices are listed under **Human decisions required** in §2.
+
 ## 1. Design boundary
 
 ```text
