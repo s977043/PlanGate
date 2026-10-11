@@ -137,6 +137,8 @@
 - 正本整合（他ページと矛盾する記述を追加していない）
 - 実行例の到達性（記載したコマンド・パスが実在する）
 
+> UI 変更時の V-1 evidence 規約（PASS でも visual evidence 必須）は `acceptance-review` skill の「UI 変更時の visual evidence 規約」（#797）を参照（doc 専用 V-1 と発想が対称・placement は意図的に非対称の兄弟規約）。
+
 #### doc-light の除外条件（安全側 / 通常モードへフォールバック）
 
 以下のいずれかに該当する場合、doc-light を **適用せず** 通常モードに従う:

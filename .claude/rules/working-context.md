@@ -330,6 +330,8 @@ confirmed_by）。人間 confirm 済のみ追記。#200 期間集計の入力源
 フェーズC-1（Prompt 2）で生成。以下を含める:
 
 - Planチェック（7項目）: 受入基準網羅性、Unknowns処理、スコープ制御、テスト戦略、Work Breakdown Output、依存関係、動作検証自動化
+  - **C1-LOOP-01（TASK-0129 / #543）**: plan に Stop Condition（停止条件）が記入されているか（未記入 → WARN、high-risk/critical では FAIL）
+  - **C1-LOOP-02（TASK-0129 / #543）**: plan に Replan Triggers と機械値（閾値）が記入されているか（未記入 → WARN、機械値なし → WARN、high-risk/critical では FAIL）
 - ToDoチェック（5項目）: タスク粒度、depends_on設定、チェックポイント設定、Iron Law遵守、完了条件
 - TestCasesチェック（3項目）: 受入基準との紐付き、Edge case網羅、自動化可否
 - 判定: PASS / WARN / FAIL + 指摘事項
@@ -444,6 +446,10 @@ status.md の残タスクに BLOCKED タスクを以下のフィールドで記�
   - **CONDITIONAL**: review-external.md（`R-NNN`）集約済 → 1 回確定反映（`Refs: R-NNN`）→ 簡易C-1 → 人間が **APPROVED `c3.json`（確定後 plan_hash）発行** → exec開始。status.mdに`## C-3 Gate: CONDITIONAL`を記録（`bin/plangate exec` は APPROVED のみ受理）
   - **REJECT**: plan再生成。status.mdに`## C-3 Gate: REJECTED`を記録
 - C-2（`review-external.md`）は任意。C-2をスキップする場合はC-1のみで判断可
+- **外部レビュー Decision → c3_status マッピング（TASK-0129 / #543）**:
+  外部レビューア（river-reviewer / Gemini / Codex 等）が返す `Decision` は以下で c3_status に接続する:
+  `go`→APPROVED候補 / `revise_plan`→CONDITIONAL / `human_approval_required`→人間C-3強制 / `no_go`→REJECTED。
+  未知値・欠落は安全側（人間C-3強制）。詳細: [`docs/ai/review-gate-decision-mapping.md`](../../docs/ai/review-gate-decision-mapping.md)
 - FAILが出た場合は指摘事項（review-external.md の `R-NNN`）を反映してplan.md / todo.md / test-cases.mdを再生成する（反映コミットに `Refs: R-NNN`）
 
 #### C-3 Autonomous APPROVE（ユーザー自律実行委任時 / #353）

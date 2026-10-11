@@ -68,6 +68,26 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         ;;
     esac
   done
+
+  # #937: detect recreation of an already merged + deleted *push target* branch.
+  # Git passes remote name as $1 and supplies the actual destination ref on stdin.
+  # check-branch-not-merged.sh defaults to HEAD when called without an argument;
+  # pass remote_branch explicitly or refspec pushes could bypass this check.
+  #
+  # This guard is scoped to origin GitHub pushes, because the helper queries
+  # origin and its GitHub PRs. Other remotes must not be assessed as origin.
+  # It is a local, opt-in safety net; server branch protection remains authoritative.
+  if [ "${1:-}" = "origin" ] &&
+     { [ "$remote_sha" = "$ZERO_SHA1" ] || [ "$remote_sha" = "$ZERO_SHA256" ]; }; then
+    _pg_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+    _pg_branch_guard="${_pg_root:+$_pg_root/scripts/check-branch-not-merged.sh}"
+    if [ -n "$_pg_branch_guard" ] && [ -f "$_pg_branch_guard" ]; then
+      if ! sh "$_pg_branch_guard" "$remote_branch"; then
+        printf 'ERROR: Refusing recreation of a previously merged branch: %s (#937)\n' "$remote_branch" >&2
+        exit 1
+      fi
+    fi
+  fi
 done
 
 # === gh account ドリフト検証 (opt-in 拡張 / #684) ===
