@@ -186,6 +186,7 @@ CI 側の可視面は GitHub Actions の注釈（`WARN` → `::warning::` /
 
 ## 11. 関連
 
+- [Issue Triage Living Playbook](./issue-triage-playbook.md) — 棚卸し・重複統合・Close 判断・短い検証ループと運用改善の可変的な手順（本書のラベル・milestone・PR linkage 規約を上書きしない）
 - [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193)
 - [docs/pages/guides/governance/documentation-management.md](../pages/guides/governance/documentation-management.md)（Doc 配置 / 更新ルール正本）
 - [.github/ISSUE_TEMPLATE/plangate-roadmap-task.yml](../../.github/ISSUE_TEMPLATE/plangate-roadmap-task.yml)

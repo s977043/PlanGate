@@ -132,9 +132,9 @@ ReviewGatePassed =
 ## 5. 既存正本への反映（Human 適用）
 
 本ドキュメントは仕様のみを定義する非 HO ファイルである。以下の既存正本への
-反映は [`scripts/apply-reviewer-silence-gate.sh`](../../scripts/apply-reviewer-silence-gate.sh)
-が差分を提示し、[`responsibility-classes.md`](../../.claude/rules/responsibility-classes.md)
-に従い **Human が `--apply` で実行**する（AI は dry-run 提示のみ）。
+反映は **未適用**であり、[`responsibility-classes.md`](../../.claude/rules/responsibility-classes.md)
+に従い Human が適用する。旧適用スクリプトは挿入位置と schema 整合に欠陥があったため
+削除した。作り直しは [#1564](https://github.com/s977043/plangate/issues/1564) で扱う。
 
 | 反映先 | 反映内容 |
 |--------|---------|
@@ -171,4 +171,4 @@ ReviewGatePassed =
 - [`docs/workflows/ai-loop/review-feedback-loop.md`](../workflows/ai-loop/review-feedback-loop.md) — 指摘の還元（#667、本仕様とは別軸）
 - [`gate-checks.md`](./gate-checks.md) — C-3 承認記録の拡張仕様
 - [`.claude/rules/responsibility-classes.md`](../../.claude/rules/responsibility-classes.md) — HO 適用は Human-owned
-- [`scripts/apply-reviewer-silence-gate.sh`](../../scripts/apply-reviewer-silence-gate.sh) — 適用スクリプト（dry-run 既定・AI 実行禁止）
+- [#1564](https://github.com/s977043/plangate/issues/1564) — 既存正本への反映の作り直し（旧適用スクリプトは削除済み）

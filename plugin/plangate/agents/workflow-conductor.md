@@ -570,19 +570,3 @@ selected project root の解決であり、enforcement scripts の配布では�
 | `verify <TASK> --mode=<m> --profile=<key>` | CLI があれば実行可能。ただし script-relative substep は個別にdegrade |
 | `validate` / read-only `doctor` / `review` | selected project root を参照 |
 | EH hook / `eval` / metrics | #1497 の downstream 保証外。結果を自動的に導入先検証済みと扱わない |
-
-
-### CLI 必須 / 不要 の分離（#1144）
-
-**plugin 配布物には CLI（`bin/plangate`）も enforcement 層（`scripts/hooks/`）も
-含まれない**（読み物層のみ配布）。本節の手順は削除しないが、導入先での可否は分かれる。
-
-| 記述箇所 | 種別 | 導入先での扱い |
-|---------|------|--------------|
-| V フェーズの `verify <TASK> --mode=<m> --profile=<key>` 呼び出し | **CLI 必須** | 実行不可。下記規則に従う |
-| 「強制は CLI 側（`bin/plangate`）に閉じており本補足は強制力を持たない」 | CLI 不要 | 強制の所在を述べた説明であって手順ではない。CLI 不在＝この強制が存在しないことを意味する |
-
-**CLI 必須の手順に到達したときの規則**: 導入先に `bin/plangate` は配布されないため、
-**上流リポジトリの clone（および PATH 追加）が必要である旨を告げて停止する**。clone
-しない場合は当該 V フェーズを手動レビューで代替し、その degrade を `status.md` に
-記録する（「CLI で検証済み」とは記録しない）。
