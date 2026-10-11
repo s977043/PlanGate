@@ -16,7 +16,7 @@ Open Issue を「過去に発見したことの保管庫」ではなく「現在
 - **固定側の正本**: [issue-governance.md](./issue-governance.md) が Issue 必須項目、kind / area / priority / status、Milestone、PR linkage を管理する。本書でラベル体系を二重定義しない。
 - **事実の正本**: 現在の `main`、GitHub Issue、PR、関連するテストと実行ログ。棚卸しレポートと [#1503](https://github.com/s977043/PlanGate/issues/1503) は測定時点のスナップショットであり、現在値とは限らない。
 - **権限の境界**: C-3 / C-4、Hardening Override (HO)、Human-owned decision、merge の責務を変更しない。AI の分類は候補であり、検証・承認の代替ではない。
-- **原則**: 余分なラベル、bot、CI、完璧な初期分類を増やすより、既存の GitHub 機能と小さな実地検証を優先する。判断待ちと全作業停止を同一視しない。具体的な判断準備とHuman Attention最適化は [PR #1549のDecision-Ready方針案](https://github.com/s977043/PlanGate/pull/1549) に整理している（**未マージの提案であり、新たな許可ではない**）。
+- **原則**: 余分なラベル、bot、CI、完璧な初期分類を増やすより、既存の GitHub 機能と小さな実地検証を優先する。判断待ちと全作業停止を同一視しない。具体的な判断準備とHuman Attention最適化は [PR #1549のDecision-Ready方針](https://github.com/s977043/PlanGate/pull/1549) に整理している（**Human の C-4 を経て採否が決まる提案であり、新たな許可ではない**）。
 
 ## 2. Agile / Fast Fail & Quick Recovery
 
@@ -47,6 +47,7 @@ Open Issue を「過去に発見したことの保管庫」ではなく「現在
 | Blocked / Decision required | 特定の操作に必須の先行条件・外部アクセス・Human決定が残る | Open維持。**停止すべき操作だけ**を特定し、AIが今できる調査・検証・PR準備、判断の推奨案・根拠・判断後の検証を記録。Issue全体は自動停止しない |
 
 注意:
+- ラベルが要る場合は新設せず、Out of scope は `status:wontfix`、Blocked / Decision required は `status:blocked` を使う（[issue-governance §3.4](./issue-governance.md#34-status任意状態遷移で更新)）。
 - **古い / チェックボックス未更新 / PR merge 済み**のいずれも単独では Close の証明にならない。
 - 逆に、昔の不具合を無期限に調べ直さない。現在のコード・旧前提・関連PRを合理的な範囲で確認し、調査打切り理由を記録する。
 - **security / data loss / approval・HO・C-3・C-4 bypass / fail-open / 下流配布**への現在の影響が疑われる場合は、単なる「古い・再現不能」で Close しない。まず継続リスク、代替防御、責務ownerを照合し、重要な判断は Human に残す。
@@ -120,6 +121,7 @@ Loop A の事実 → Friction / Failure の観測
              → Playbook 改訂 → 次の Loop A
 ```
 
+- **Scope**: Loop B の対象は Issue Triage の運用に限る。エージェントの run 学習（[Growth Harness](./growth-harness.md) / [improvement-seeds](./retro-phase.md)）とは別のループであり、その記録先を置き換えない。
 - **Input**: バッチの判定ログ、誤判定、重複/依存見落とし、実行負荷、Human判断待ち。
 - **Owner**: AI は集計・仮説・試行提案・文書PRを用意できる。**ガバナンスの変更・リスク受容・承認権限の変更は Human-owned**。Issue側の個別判断も現行の責務分界に従う。
 - **1回の改善は1仮説**: 例「3〜5件で分類負荷が高いなら、まずPR merge 済み Issue だけを選ぶ」。採用前に既存ルールとの競合を確認する。
