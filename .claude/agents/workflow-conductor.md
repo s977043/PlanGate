@@ -558,7 +558,8 @@ strict profile（`model-profiles.yaml` の `validation_bias: strict`）で EHS-1
 > 「strict profile で完全検証済み」と記録しない。
 >
 > **CLI 未導入時の degrade**: `verify` 自体を実行できない。Vフェーズは各Skillの手動検証へ
-> degradeし、未実施項目をPASS扱いしない。
+> degradeし、未実施項目をPASS扱いしない。degrade した事実は `status.md` に記録し、
+> 「CLI で検証済み」とは記録しない（[`working-context.md`](../rules/working-context.md) の「CLI 不在時の規則」）。
 
 ### CLI 必須 / 不要 の分離（#1144）
 
