@@ -162,25 +162,26 @@ def render_review_questions(work_dir, task_id):
     for q in questions:
         qid = html.escape(q["id"], quote=True)
         out += ['<div class="item" data-question-id="%s">' % qid,
-                '<h3>%s — %s</h3>' % (html.escape(q["id"]), html.escape(q["prompt"]))]
+                '<h3 id="pg-question-%s">%s — %s</h3>' % (
+                    qid, html.escape(q["id"]), html.escape(q["prompt"]))]
         if q.get("artifactRefs"):
             out.append('<p class="refs">参照: %s</p>' % html.escape(", ".join(q["artifactRefs"])))
         out += ['<label for="pg-state-%s">回答状態</label>' % qid,
-                '<select id="pg-state-%s" data-state>' % qid,
+                '<select id="pg-state-%s" aria-describedby="pg-question-%s" data-state>' % (qid, qid),
                 '<option value="unanswered">未回答</option><option value="answered">回答済み</option>',
                 '<option value="deferred">保留</option></select>',
                 '<label for="pg-response-%s">回答 / 保留理由</label>' % qid]
         if q.get("choices"):
-            out += ['<select id="pg-response-%s" data-response>' % qid,
+            out += ['<select id="pg-response-%s" aria-describedby="pg-question-%s" data-response>' % (qid, qid),
                     '<option value="">選択してください</option>']
             for choice in q["choices"]:
                 val = html.escape(choice, quote=True)
                 out.append('<option value="%s">%s</option>' % (val, html.escape(choice)))
             out.append('</select>')
         else:
-            out.append('<textarea id="pg-response-%s" data-response maxlength="4000"></textarea>' % qid)
+            out.append('<textarea id="pg-response-%s" aria-describedby="pg-question-%s" data-response maxlength="4000"></textarea>' % (qid, qid))
         out += ['<label for="pg-note-%s">補足 / 保留理由</label>' % qid,
-                '<textarea id="pg-note-%s" data-note maxlength="4000"></textarea>' % qid]
+                '<textarea id="pg-note-%s" aria-describedby="pg-question-%s" data-note maxlength="4000"></textarea>' % (qid, qid)]
         out.append('</div>')
     out += ['<button type="button" data-export>回答JSONを保存</button>',
             '<p role="status" aria-live="polite" data-message></p></section>',

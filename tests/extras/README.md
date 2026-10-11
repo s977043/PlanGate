@@ -624,6 +624,7 @@ extras が 1 本増えると 2 起動増える。**絶対件数は契約値に�
 | env | 既定 | 意味 |
 | --- | --- | --- |
 | `PG_T61_RUN_TIMEOUT_SEC` | `180` | 子プロセス 1 起動の上限秒。**下限 180（R-026）は床で、下げる方向の override は受け付けない**。混雑した機械で rc=124 が出るときに引き上げる。引き上げても timeout は **FAIL のまま**（黙って SKIP / 緑にしない）で、診断に load1 と同名プロセス数が付く |
+| `PG_T61_PARALLEL` | `2` | per-file 実行ループの子プロセスの同時起動数（1〜4。数値でない値は `1` = 逐次）。子ごとの出力と rc はファイルへ分離し、assert と pass / fail の加算は元の順序のまま逐次に行う。結果ファイルが無い子は FAIL（fail-closed）。timeout は子 1 起動ごとの上限で並列度に依らない |
 | `PG_T61_NO_RECURSE` | `0` | nested 実行であることの宣言。nested full-suite / sandbox 子が `1` を渡す。**per-file 実行ループと nested full-suite / sandbox TC を止める**（囲っている run が同一ツリーの同一 covered 集合を実行済みで、再実行は完全な重複） |
 | `PG_T61_EXEC_ONLY_PROBES` | `0` | TC-16 の sandbox 子専用。実行ループの対象を**ハードコードされた `ta-*-probe-*.sh` パターン**へ限定する。sandbox の外で立てると対象が 0 本になり TC-25(3) が fail-closed で落ちるため、実 run を黙って縮める用途には使えない |
 | `PG_T61_SKIP_SUITE` | `0` | mutation driver 専用。nested full-suite（TC-14 / TC-15 runner）だけを止め、sandbox TC は残す |
