@@ -37,7 +37,7 @@ PlanGate distributes **"a safe pattern for AI-driven development"** — not a fr
 | What PlanGate **does**                                                                             | What PlanGate **does not do**                        |
 | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | Provides a pattern: plan → approve → implement → verify → handoff                                  | Let AI rewrite skills or prompts on its own          |
-| Fixes human decision points at C-3 / C-4 / V-1 to V-4                                              | Aim for fully autonomous agents                      |
+| Defines C-3/C-3' and C-4 approval boundaries plus V-1 to V-4 verification                                              | Allow unbounded autonomy across approval boundaries  |
 | Makes failures and successes explainable after the fact (observation / reproducibility foundation) | Become a fully reproducible durable execution engine |
 | Provides staged adoption levels (Level 1 to 5)                                                     | Force all features from day one                      |
 | Stays Markdown-first to keep cognitive load low                                                    | Require SaaS or external stores                      |
@@ -45,6 +45,16 @@ PlanGate distributes **"a safe pattern for AI-driven development"** — not a fr
 > **Design center**: Not the Steering Loop (observation), but **evaluation → learning → governance**.
 > The Steering Loop here means "the observation loop that records every control point into events.ndjson so the run can be replayed later." It is the _foundation_ of self-evolution, not its center.
 > See [docs/philosophy.md (Japanese)](./docs/pages/explanation/product/philosophy.md#自己進化フレームの設計判断) and [`docs/working/discussions/`](docs/working/discussions/) for the 5-round Claude × Codex × Gemini strategy discussions.
+
+## Evolving Our Open Source Practices
+
+PlanGate provides approval and verification boundaries, but **the development process itself remains open to evidence-led improvement**. We compare observations from our own work with external research and practices, start with small reversible experiments, detect failures early, and adapt or remove practices that do not help. A proposal or pilot is not proof of effectiveness.
+
+- **Values and continuous improvement**: [Practice Evolution Policy (Japanese)](docs/ai/practice-evolution-policy.md) — Adopt / Adapt / Transform / Defer and Fast Feedback, not a new execution contract
+- **Decision-ready work**: [Decision-Ready Continuation Policy (Japanese)](docs/ai/decision-ready-continuation-policy.md) — continue *already authorized* work while preparing a concise, evidence-backed human decision
+- **Contributing and issue governance**: [CONTRIBUTING](CONTRIBUTING.md) / [Issue Governance](docs/ai/issue-governance.md) — the existing project rules; the issue-triage improvement history is tracked in [PR #1548](https://github.com/s977043/PlanGate/pull/1548)
+
+**Scope**: These documents guide the PlanGate OSS project's practices. They do not automatically ship as plugin-enforced policy, grant new agent permissions, or relax C-3/C-3', human-owned C-4/merge, or Hardening Override boundaries. The [Core Contract](docs/ai/core-contract.md) and existing authoritative policies remain in force.
 
 ## Staged Adoption Levels
 
