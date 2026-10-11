@@ -449,7 +449,8 @@ status.md の残タスクに BLOCKED タスクを以下のフィールドで記�
 - **外部レビュー Decision → c3_status マッピング（TASK-0129 / #543）**:
   外部レビューア（river-reviewer / Gemini / Codex 等）が返す `Decision` は以下で c3_status に接続する:
   `go`→APPROVED候補 / `revise_plan`→CONDITIONAL / `human_approval_required`→人間C-3強制 / `no_go`→REJECTED。
-  未知値・欠落は安全側（人間C-3強制）。詳細: [`docs/ai/review-gate-decision-mapping.md`](../../docs/ai/review-gate-decision-mapping.md)
+  外部レビューを実施し、その結果の `Decision` が未知値・欠落のときは安全側（人間C-3強制）。C-2 を実施しない場合は本マッピングの対象外（上の「C-2 は任意」と下の Autonomous APPROVE 判定に従う）。
+  `Decision` の受け皿（`c3.json` の `review_decision`）は schema / CLI とも未接続（#1562）のため、`c3.json` には書かない（`additionalProperties: false` で検証エラーになる）。詳細: [`docs/ai/review-gate-decision-mapping.md`](../../docs/ai/review-gate-decision-mapping.md)
 - FAILが出た場合は指摘事項（review-external.md の `R-NNN`）を反映してplan.md / todo.md / test-cases.mdを再生成する（反映コミットに `Refs: R-NNN`）
 
 #### C-3 Autonomous APPROVE（ユーザー自律実行委任時 / #353）
