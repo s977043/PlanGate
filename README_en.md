@@ -37,7 +37,7 @@ PlanGate distributes **"a safe pattern for AI-driven development"** — not a fr
 | What PlanGate **does**                                                                             | What PlanGate **does not do**                        |
 | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | Provides a pattern: plan → approve → implement → verify → handoff                                  | Let AI rewrite skills or prompts on its own          |
-| Defines C-3/C-3' and C-4 approval boundaries plus V-1 to V-4 verification                                              | Allow unbounded autonomy across approval boundaries  |
+| Defines the approval boundaries of C-3 (Human), C-3' (AI arbitration limited to eligible runs within the Human-defined [rollout scope](docs/workflows/ai-loop/rollout-policy.md); out-of-scope or undeterminable runs, HO contact, and severe W-check disagreement, among others, escalate to Human C-3), and C-4/merge (Human), plus V-1 to V-4 verification | Allow unbounded autonomy across approval boundaries  |
 | Makes failures and successes explainable after the fact (observation / reproducibility foundation) | Become a fully reproducible durable execution engine |
 | Provides staged adoption levels (Level 1 to 5)                                                     | Force all features from day one                      |
 | Stays Markdown-first to keep cognitive load low                                                    | Require SaaS or external stores                      |
@@ -52,7 +52,7 @@ PlanGate provides approval and verification boundaries, but **the development pr
 
 - **Values and continuous improvement**: [Practice Evolution Policy (Japanese)](docs/ai/practice-evolution-policy.md) — Adopt / Adapt / Transform / Defer and Fast Feedback, not a new execution contract
 - **Decision-ready work**: [Decision-Ready Continuation Policy (Japanese)](docs/ai/decision-ready-continuation-policy.md) — continue *already authorized* work while preparing a concise, evidence-backed human decision
-- **Contributing and issue governance**: [CONTRIBUTING](CONTRIBUTING.md) / [Issue Governance](docs/ai/issue-governance.md) — the existing project rules; the issue-triage improvement history is tracked in [PR #1548](https://github.com/s977043/PlanGate/pull/1548)
+- **Contributing and issue governance**: [CONTRIBUTING](CONTRIBUTING.md) / [Issue Governance](docs/ai/issue-governance.md) — the existing project rules; the issue-triage improvement history is tracked in the [Issue Triage Playbook (Japanese)](docs/ai/issue-triage-playbook.md)
 
 **Scope**: These documents guide the PlanGate OSS project's practices. They do not automatically ship as plugin-enforced policy, grant new agent permissions, or relax C-3/C-3', human-owned C-4/merge, or Hardening Override boundaries. The [Core Contract](docs/ai/core-contract.md) and existing authoritative policies remain in force.
 

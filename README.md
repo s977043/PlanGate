@@ -37,7 +37,7 @@ PlanGate が配布するのは **「AI 開発の安全な型」** です。AI �
 | PlanGate **がやること**                              | PlanGate **がやらないこと**                      |
 | ---------------------------------------------------- | ------------------------------------------------ |
 | 計画 → 承認 → 実装 → 検証 → 引き継ぎの型を提供する   | AI に勝手に skill / プロンプトを書き換えさせる   |
-| C-3/C-3'とC-4の承認境界・V-1〜V-4の検証を明確化        | 承認・権限境界を越える無条件の自律実行           |
+| C-3（Human）/ C-3'（Human が定めた [rollout 範囲](docs/workflows/ai-loop/rollout-policy.md)の eligible run に限る AI 裁定。対象外・判定不能・HO 接触・W チェック重大不一致などは Human C-3 へ escalate）/ C-4/merge（Human）の承認境界と、V-1〜V-4 の検証を明確化 | 承認・権限境界を越える無条件の自律実行           |
 | 失敗・成功を後から説明可能にする（観測・再現基盤）   | 全実行ログを完璧に再現する durable engine になる |
 | 段階的に採用できる導入レベル（Level 1〜5）を提供する | 全機能を最初から強制する                         |
 | Markdown ベースで認知負荷を抑える                    | SaaS / 外部 store を前提にする                   |
@@ -52,7 +52,7 @@ PlanGate は安全な承認・検証の型を提供すると同時に、**その
 
 - **価値観と実践の進化**: [Practice Evolution Policy](docs/ai/practice-evolution-policy.md) — Adopt / Adapt / Transform / Defer、Fast Feedback、Evidence に基づく改善（実行権限を新設する文書ではありません）
 - **人間の判断とAIの継続作業**: [Decision-Ready Continuation Policy](docs/ai/decision-ready-continuation-policy.md) — 「Human の判断が必要」でも全作業を停止せず、**許可済みの範囲**で検証・資料準備を進める
-- **OSS の運用ルール**: [Contributing](CONTRIBUTING.md) / [Issue Governance](docs/ai/issue-governance.md) — 貢献・Issue管理の現行契約。Issue Triage の改善履歴は [PR #1548](https://github.com/s977043/PlanGate/pull/1548) を参照
+- **OSS の運用ルール**: [Contributing](CONTRIBUTING.md) / [Issue Governance](docs/ai/issue-governance.md) — 貢献・Issue管理の現行契約。Issue Triage の改善履歴は [Issue Triage Playbook](docs/ai/issue-triage-playbook.md) を参照
 
 **適用範囲**: 上記は PlanGate OSS の意思決定・改善のガイドです。Plugin 導入先への自動配布や Gate の動作変更を意味しません。C-3/C-3' の実行承認、C-4/merge の Human-owned 責務、HO などの安全境界は [Core Contract](docs/ai/core-contract.md) と既存の各正本に従います。
 

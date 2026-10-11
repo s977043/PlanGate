@@ -16,7 +16,7 @@ Open Issue を「過去に発見したことの保管庫」ではなく「現在
 - **固定側の正本**: [issue-governance.md](./issue-governance.md) が Issue 必須項目、kind / area / priority / status、Milestone、PR linkage を管理する。本書でラベル体系を二重定義しない。
 - **事実の正本**: 現在の `main`、GitHub Issue、PR、関連するテストと実行ログ。棚卸しレポートと [#1503](https://github.com/s977043/PlanGate/issues/1503) は測定時点のスナップショットであり、現在値とは限らない。
 - **権限の境界**: C-3 / C-4、Hardening Override (HO)、Human-owned decision、merge の責務を変更しない。AI の分類は候補であり、検証・承認の代替ではない。
-- **原則**: 余分なラベル、bot、CI、完璧な初期分類を増やすより、既存の GitHub 機能と小さな実地検証を優先する。判断待ちと全作業停止を同一視しない。具体的な判断準備とHuman Attention最適化は [PR #1549のDecision-Ready方針](https://github.com/s977043/PlanGate/pull/1549) に整理している（**Human の C-4 を経て採否が決まる提案であり、新たな許可ではない**）。
+- **原則**: 余分なラベル、bot、CI、完璧な初期分類を増やすより、既存の GitHub 機能と小さな実地検証を優先する。判断待ちと全作業停止を同一視しない。具体的な判断準備とHuman Attention最適化は [Decision-Ready Continuation Policy](./decision-ready-continuation-policy.md) に整理している（PR #1549 で 2026-10-11T06:25:45Z に merge 済み。**判断準備の方針であり、新たな許可ではない**）。
 
 ## 2. Agile / Fast Fail & Quick Recovery
 
@@ -170,7 +170,7 @@ Loop A の事実 → Friction / Failure の観測
 
 **事実の正本**: [#1503 第三次棚卸しの実測記録](https://github.com/s977043/PlanGate/issues/1503#issuecomment-6088127351)。測定した`main`は `715a4a8a`。GitHub Open Issueを月別に重複なく数えると**108件**。
 
-- **Batch A / merged PR起点**: #1507、#1519、#1524 を検討。**3件ともOpen維持**。#1507はPhase 3/4、#1519は元のC-4逸脱に対するHuman判断、#1524はFirefox/A11y/CSP/negativeケース等が残る。#1519は後続PR #1543のmergeを再取得し、事実を追記。
+- **Batch A / merged PR起点**: #1507、#1519、#1524 を検討。**3件ともOpen維持**。#1507はPhase 3/4、#1519は元のC-4逸脱に対するHuman判断、#1524はFirefox/A11y/CSP/negativeケース等が残る。#1519は後続PR #1543のmergeを再取得し、事実を追記。（注: 「Open維持」は棚卸し記録（2026-10-09T19:49:28Z）時点のスナップショット。#1524 はその後 2026-10-10T05:40:55Z に CLOSED（COMPLETED）となっている）
 - **Batch B / 残AC・Issue本文の鮮度起点**: #1241、#1505、#1529を検討。**3件ともOpen維持**。#1241の古い「3ファイル」を現行「4ファイル＋配布ミラー等の依存」へ更新。#1241・#1529のareaラベルを補完。
 - **追加整備**: #1093のareaラベルを補完。更新したIssueを再取得してstate/label/bodyを照合。
 - **今回の結果**: Open **108 → 108**、誤Closeを増やさない。クローズ件数を成果指標としない。
