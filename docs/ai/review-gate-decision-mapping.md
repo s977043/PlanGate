@@ -1,6 +1,8 @@
 # Review Gate Decision Mapping（TASK-0129）
 
-> **Status**: 実装済み（TASK-0129 / #543）
+> **Status**: 規範のみ（TASK-0129 / #543）。`working-context.md` の C-3 ゲートには反映済み（#1563）。
+> `c3.json` の `review_decision` などの受け皿（§6 の schema 拡張）と、それを読む `bin/plangate` の実装は**未接続**（#1562）。
+> 現時点で `c3.json` に `review_decision` を書くと、`gate_checks` 外のトップレベルでも `additionalProperties: false` により検証エラーになる。
 > **位置づけ**: 外部レビュー結果（Decision/Risk/Stop-Work）を C-3 判定に接続し
 > #544 の plan 充足を強制する Phase2 Gate の正本。
 > **関連**: #543 #544 #527 / 設計: PR #553 (`docs/working/discussions/2026-06-15-543-plan-review-gate-design.md`)
@@ -26,6 +28,8 @@ PlanGate の責務はレビューそのものでなく「**レビュー結果で
 - **安全側倒し**: 未知 Decision 値・欠落は人間 C-3 強制（autonomous APPROVE 不可）
 - **additive 拡張**: `review_decision` は `c3.json` の optional フィールド（既存 c3.json は後方互換）
 - **R-NNN 集約フロー**: `revise_plan` → CONDITIONAL 時は `review-external.md` に R-NNN で集約し、確定反映後に `c3.json` を APPROVED で発行（既存 CONDITIONAL フロー不変）
+
+> 注: 上の optional フィールドは設計であり、schema への追加は未適用（§6・#1562）。
 
 ## 3. Risk → mode/autonomous 接続
 
@@ -87,6 +91,7 @@ C-1 充足チェック（§5）で未記入を検出する。
 > `schemas/c3-approval.schema.json` は Hardening Override 対象。
 > AI は apply-script（`scripts/apply-task-0129-schema.sh`）を生成し、
 > **人間が適用**する（responsibility-classes.md: Human-owned）。
+> **2026-10-12 時点で未適用**。どこからも読まれないフィールドを schema に入れるかの判断を含め、#1562 で扱う。
 
 追加フィールド（additive・`required` に追加しない）:
 
