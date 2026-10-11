@@ -104,26 +104,34 @@ expected_required = {
     "plan_ref", "source_reviews", "execution", "trigger",
     "participants", "problem_frames", "positions", "outcome",
 }
-missing_required = expected_required - set(schema.get("required", []))
-if missing_required:
-    errors.append(f"top-level required contract weakened: {sorted(missing_required)}")
-
-# Exercise a missing-field instance for EACH independent required property.
-# Check that the error is the intended top-level 'required' diagnostic,
-# not an unrelated failure from an allOf branch.
-for required_key in sorted(expected_required):
-    instance = copy.deepcopy(cases["base"])
-    instance.pop(required_key, None)
-    found = list(validator.iter_errors(instance))
-    if not any(
-        err.validator == "required"
-        and list(err.absolute_path) == []
-        and f"'{required_key}'" in err.message
-        for err in found
-    ):
-        errors.append(
-            f"top-level missing/{required_key} did not raise required diagnostic"
+def required_contract_violations(schema_obj):
+    """Run both independent-oracle checks against schema_obj."""
+    violations = []
+    missing_required = expected_required - set(schema_obj.get("required", []))
+    if missing_required:
+        violations.append(
+            f"top-level required contract weakened: {sorted(missing_required)}"
         )
+    # Exercise a missing-field instance for EACH independent required property.
+    # Check that the error is the intended top-level 'required' diagnostic,
+    # not an unrelated failure from an allOf branch.
+    schema_validator = Draft202012Validator(schema_obj)
+    for required_key in sorted(expected_required):
+        instance = copy.deepcopy(cases["base"])
+        instance.pop(required_key, None)
+        found = list(schema_validator.iter_errors(instance))
+        if not any(
+            err.validator == "required"
+            and list(err.absolute_path) == []
+            and f"'{required_key}'" in err.message
+            for err in found
+        ):
+            violations.append(
+                f"top-level missing/{required_key} did not raise required diagnostic"
+            )
+    return violations
+
+errors.extend(required_contract_violations(schema))
 
 for case in cases["valid_cases"]:
     instance = apply_ops(cases["base"], case["ops"])
@@ -179,7 +187,7 @@ for removed in sorted(expected_required & set(schema.get("required", []))):
     )
     if legacy_valid_pass and legacy_invalid_pass:
         legacy_survivors.append(removed)
-    if removed in expected_required - set(mutant["required"]):
+    if required_contract_violations(mutant):
         new_kills.append(removed)
     else:
         errors.append(f"required mutation escaped independent oracle: {removed}")
