@@ -10,31 +10,27 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
-## v8.24.0 - TBD
+## v8.24.0 - 2026-10-12
 
 feat: 計画レビューに答えられる対話 HTML とその検証器（opt-in）を追加し、ai-loop V2 の Ratchet を決定論的な scope observer へ移し、導入先 project root の案内・pre-push ガードの push 先判定・Test job の高速化（ta-61 並列化）を入れる
 
-> **収録範囲は暫定**。終端は `2ea049de`（#1547 の merge commit、2026-10-11 時点の `origin/main`）。
-> `workflow-conductor.md` の見出し重複を直す HO 適用（Human）の commit が main に入った後に、終端 SHA と下の数値を測り直す。
-> **tag の前に main への merge を凍結する**（v8.23.0 の学び）。
-
-v8.23.0 タグ以降、main へ蓄積した変更を `2ea049de` まで反映する。
+v8.23.0 タグ以降、main へ蓄積した変更を `1f091e97`（#1565 の merge commit）まで反映する。
 主題は **計画レビューの回答を機械可読に受け取る経路（opt-in）**、**ai-loop V2 の Ratchet を repository の実差分で判定すること**、
 **導入先 repo での `bin/plangate` の使い方（#1497 の project root）に Skill / Agent / Command の案内を合わせること**、
 **CI の Test job の短縮（ta-61 の並列化）**。
 
-- 収録範囲は **v8.23.0..`2ea049de` の 31 commit・PR 31 件**
-  （実測: `git rev-list --count v8.23.0..2ea049de`。PR は件名末尾の `(#NNNN)` を全数抽出して一意 31 件、番号の無い commit は 0 件。
-  31 件のうち #1504 は v8.23.0 の release note 保存 PR）
-- 配布物（`plugin/`）の変更は **12 ファイル・追加 284 行・削除 273 行**
-  （実測: `git diff --shortstat v8.23.0..2ea049de -- plugin/`）。すべて Markdown（rules / agents / commands / skills）で、
-  実行コード・schema・hook は含まない。`plugin.json` は 8.24.0 に bump 済み
-- **`bin/plangate` と `schemas/` の変更は 0 行**（実測: `git diff --numstat v8.23.0..2ea049de -- bin/plangate schemas/` が空）。
-  CLI の挙動・schema は v8.23.0 と同じ。`scripts/hooks/` と `CLAUDE.md` の差分も 0 行
-- 破壊的変更を宣言した commit は **0 件**（実測: `v8.23.0..2ea049de` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
+- 収録範囲は **v8.23.0..`1f091e97` の 36 commit・PR 36 件**
+  （実測: `git rev-list --count v8.23.0..1f091e97`。PR は件名末尾の `(#NNNN)` を全数抽出して一意 36 件、番号の無い commit は 0 件。
+  36 件のうち #1504 は v8.23.0 の release note 保存 PR）
+- 配布物（`plugin/`）の変更は **13 ファイル・追加 287 行・削除 284 行**
+  （実測: `git diff --shortstat v8.23.0..1f091e97 -- plugin/`）。すべて Markdown（rules / agents / commands / skills）で、
+  実行コード・schema・hook は含まない。`plugin.json` は本リリース準備で 8.24.0 に bump する
+- **`bin/plangate` と `schemas/` の変更は 0 行**（実測: `git diff --numstat v8.23.0..1f091e97 -- bin/plangate schemas/` が空）。
+  CLI の挙動・schema は v8.23.0 と同じ。`scripts/hooks/` の差分も 0 行。`CLAUDE.md` は最新リリース節のみ本リリース準備で更新する
+- 破壊的変更を宣言した commit は **0 件**（実測: `v8.23.0..1f091e97` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
 - **semver は minor**（Human 決定 2026-10-11）。新機能（opt-in の対話フィードバック HTML と検証器）を含み、既存の入出力は変えないため
 
-（数値はいずれも **基点 `2ea049de` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない）
+（数値はいずれも **終端 `1f091e97` 時点の測定値**であり、本リリース準備 PR 自身の commit は含まない）
 **PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。
 
 ### ⚠️ 更新前に必ずお読みください
@@ -43,7 +39,7 @@ v8.23.0 タグ以降、main へ蓄積した変更を `2ea049de` まで反映す�
 > 取り込んでいる fork / 派生 repo**（2.）、**`scripts/templates/pre-push.sample` を `.git/hooks/pre-push` に入れている利用者**（3.）。
 > hook・schema の必須項目、`bin/plangate` の挙動は変えていません。
 
-#### 1. plugin の案内文（rules / agents / commands / skills 12 ファイル）が変わります（#1512 / #1518 / #1538 / #1539）
+#### 1. plugin の案内文（rules / agents / commands / skills 13 ファイル）が変わります（#1512 / #1518 / #1538 / #1539 / #1561 / #1563）
 
 `/plugin update` で届くのは**文面の変更のみ**で、実行される挙動は変わりません。**version bump がないと
 `/plugin update` は no-op になり 1 件も届きません**（本リリースで bump する理由）。
@@ -59,8 +55,13 @@ v8.23.0 タグ以降、main へ蓄積した変更を `2ea049de` まで反映す�
   承認ゲートは変わらない
 - **#1512 が入れた Markdown の崩れを修復**（#1539）。`ai-dev-exec` のコピー可能な実行例と `ai-dev-plan` の見出しの重複を直した
 - **Context Lifecycle の `local-exec-handoff` 規則を canonical と同期**（#1538）
+- **`workflow-conductor` agent の見出し重複を解消**（#1561）。#1512 で同じ見出しの節が 2 つ並んでいたため、旧い節（#1245 由来）を削除した
+- **`working-context` / `mode-classification` rule に、長く適用待ちだった追記を反映**（#1563。Human が HO として適用）。
+  C-1 の Plan チェックに C1-LOOP-01 / 02（Stop Condition と Replan Triggers の記入。未記入は WARN、high-risk / critical は FAIL）を、
+  C-3 ゲートに「外部レビューの Decision（`go` / `revise_plan` / `human_approval_required` / `no_go`）→ c3_status」の対応と
+  「未知値・欠落は人間 C-3 強制」への参照を加えた（#543）。UI 変更時の V-1 evidence 規約（#797）へのクロスリファレンスも 1 行加えた
 
-承認ゲート（C-3 / C-4）・plan binding・Human-owned の権限は変わりません。
+C-3 ゲートの記述には上記の対応づけが加わりますが、`bin/plangate` の承認判定・plan binding・Human-owned の権限は変わりません。
 
 #### 2. CI の Test job で `ta-61` の子プロセスが並列度 2 で走ります（#1555）
 
@@ -137,6 +138,10 @@ pre-push の stdin から得た**push 先**のブランチ名を `scripts/check-
 - **search-first の context 取得方針と品質を含む評価**（#1532 / #1531）。Dynamic Context Engine の動的 working set 方針に追記。新しい CLI・実行時収集は無い
 - **#811 の C-3 提案と残作業を準備**（#1522）。実行可能な Gate・HO 変更・自動昇格は無く、#811 は open のまま
 - `#1495` merge 後の状態に growth harness と #1393 の依存照合を合わせた（#1530）
+- **README に承認の担い手を明記**（#1559）。C-3 は Human、C-3' は Human が定めた rollout 範囲の eligible run に限った AI 裁定
+  （範囲外は Human C-3 へ escalate）、C-4 / merge は Human。Issue Triage の履歴を `docs/ai/issue-triage-playbook.md` へ向けた
+- **#1550（evidence-led な PR 本文の採用）の計画一式を準備**（#1553。`docs/working/TASK-1550/`）。C-1 は FAIL（未解決の Unknown 起因）で、
+  現在フェーズは BLOCKED。実装は含まない
 
 ### テストと検査
 
@@ -145,11 +150,18 @@ pre-push の stdin から得た**push 先**のブランチ名を `scripts/check-
 - `ta-114` の ID 重複を解消し、project root 案内の検査を `ta-115` へ改番（#1526 / #1525）。`ta-115` は #1539 で拡張
 - `AGENT_LEARNINGS.md` に学びを追記（#1501 / #1528）
 - v8.23.0 の release note を `docs/working/_reports/v8.23.0-release-note.md` に保存（#1504）
+- **適用待ちだった apply スクリプトを棚卸し**（#1563 / #1565）。v8.23.0 でも残っていた 8 本を読み取りで分類し、2 本を Human が適用（#1563）、
+  実装済みで不要な `apply-task-0146-ehs23-wiring.sh`（と `_apply_task_0146_patches.py`）と、挿入位置・schema 整合に欠陥のある
+  `apply-reviewer-silence-gate.sh` を削除した（#1565。作り直しは #1564）
 
 ### 既知の課題
 
-- `workflow-conductor.md`（`.claude/agents/` と `plugin/plangate/agents/` の両方）に見出し「CLI 必須 / 不要 の分離（#1144）」が 2 回ある（#1512 由来）。
-  HO 対象のため Human が適用する patch で直す予定。適用後に本節を更新する
+- **`release-prep.sh --check` は NOT READY のまま tag する**（Human 決定 2026-10-11）。残る NG は次の 2 つで、いずれも v8.23.0 から持ち越している:
+  - 適用待ち apply 3 本: `apply-ai-loop-workflow-command.sh`（適用済みの内容を古い版に戻すため適用しない。#1114 の方針で保持）、
+    `apply-task-0123-patches.sh` と `apply-quality-command-gate.sh`（設計判断が要るため保留。#1562）。
+    **`apply-task-0123-patches.sh` は現状のまま適用しないこと**（挿入位置がずれて EH-3 が fail-open になる。#1562）
+  - plugin のインストール済みキャッシュの未同期（この端末の状態であり、repo の内容ではない）
+- **#1562**: `apply-task-0129-schema.sh` も未適用だが、`[dry-run]` を stderr に出すため `release-prep.sh` の検出器に出ない（偽陰性）
 - **#1557（P1）**: `ta-61` の並列ループ（#1555）に、実 repo の固定パスへ書き込むテスト（`ta-44` / `ta-45` / `ta-76` / `ta-12`）が含まれ、
   互いに競合しうる。merge 後の main の CI 5 run はすべて閾値内だった。切り戻しは `PG_T61_PARALLEL=1`
 - **#1558（P2）**: pre-push ガード（#1552）の helper が stdin を閉じずに呼ばれ、後続の ref 行を読んでしまいうる。

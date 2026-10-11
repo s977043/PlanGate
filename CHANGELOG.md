@@ -6,31 +6,27 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
-## v8.24.0 - TBD
+## v8.24.0 - 2026-10-12
 
 feat: 計画レビューに答えられる対話 HTML とその検証器（opt-in）を追加し、ai-loop V2 の Ratchet を決定論的な scope observer へ移し、導入先 project root の案内・pre-push ガードの push 先判定・Test job の高速化（ta-61 並列化）を入れる
 
-> **収録範囲は暫定**。終端は `2ea049de`（#1547 の merge commit、2026-10-11 時点の `origin/main`）。
-> `workflow-conductor.md` の見出し重複を直す HO 適用（Human）の commit が main に入った後に、終端 SHA と下の数値を測り直す。
-> **tag の前に main への merge を凍結する**（v8.23.0 の学び）。
-
-v8.23.0 タグ以降、main へ蓄積した変更を `2ea049de` まで反映する。
+v8.23.0 タグ以降、main へ蓄積した変更を `1f091e97`（#1565 の merge commit）まで反映する。
 主題は **計画レビューの回答を機械可読に受け取る経路（opt-in）**、**ai-loop V2 の Ratchet を repository の実差分で判定すること**、
 **導入先 repo での `bin/plangate` の使い方（#1497 の project root）に Skill / Agent / Command の案内を合わせること**、
 **CI の Test job の短縮（ta-61 の並列化）**。
 
-- 収録範囲は **v8.23.0..`2ea049de` の 31 commit・PR 31 件**
-  （実測: `git rev-list --count v8.23.0..2ea049de`。PR は件名末尾の `(#NNNN)` を全数抽出して一意 31 件、番号の無い commit は 0 件。
-  31 件のうち #1504 は v8.23.0 の release note 保存 PR）
-- 配布物（`plugin/`）の変更は **12 ファイル・追加 284 行・削除 273 行**
-  （実測: `git diff --shortstat v8.23.0..2ea049de -- plugin/`）。すべて Markdown（rules / agents / commands / skills）で、
-  実行コード・schema・hook は含まない。`plugin.json` は 8.24.0 に bump 済み
-- **`bin/plangate` と `schemas/` の変更は 0 行**（実測: `git diff --numstat v8.23.0..2ea049de -- bin/plangate schemas/` が空）。
-  CLI の挙動・schema は v8.23.0 と同じ。`scripts/hooks/` と `CLAUDE.md` の差分も 0 行
-- 破壊的変更を宣言した commit は **0 件**（実測: `v8.23.0..2ea049de` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
+- 収録範囲は **v8.23.0..`1f091e97` の 36 commit・PR 36 件**
+  （実測: `git rev-list --count v8.23.0..1f091e97`。PR は件名末尾の `(#NNNN)` を全数抽出して一意 36 件、番号の無い commit は 0 件。
+  36 件のうち #1504 は v8.23.0 の release note 保存 PR）
+- 配布物（`plugin/`）の変更は **13 ファイル・追加 287 行・削除 284 行**
+  （実測: `git diff --shortstat v8.23.0..1f091e97 -- plugin/`）。すべて Markdown（rules / agents / commands / skills）で、
+  実行コード・schema・hook は含まない。`plugin.json` は本リリース準備で 8.24.0 に bump する
+- **`bin/plangate` と `schemas/` の変更は 0 行**（実測: `git diff --numstat v8.23.0..1f091e97 -- bin/plangate schemas/` が空）。
+  CLI の挙動・schema は v8.23.0 と同じ。`scripts/hooks/` の差分も 0 行。`CLAUDE.md` は最新リリース節のみ本リリース準備で更新する
+- 破壊的変更を宣言した commit は **0 件**（実測: `v8.23.0..1f091e97` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
 - **semver は minor**（Human 決定 2026-10-11）。新機能（opt-in の対話フィードバック HTML と検証器）を含み、既存の入出力は変えないため
 
-（数値はいずれも **基点 `2ea049de` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない）
+（数値はいずれも **終端 `1f091e97` 時点の測定値**であり、本リリース準備 PR 自身の commit は含まない）
 **PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。
 
 ### ⚠️ 更新前に必ずお読みください
@@ -39,7 +35,7 @@ v8.23.0 タグ以降、main へ蓄積した変更を `2ea049de` まで反映す�
 > 取り込んでいる fork / 派生 repo**（2.）、**`scripts/templates/pre-push.sample` を `.git/hooks/pre-push` に入れている利用者**（3.）。
 > hook・schema の必須項目、`bin/plangate` の挙動は変えていません。
 
-#### 1. plugin の案内文（rules / agents / commands / skills 12 ファイル）が変わります（#1512 / #1518 / #1538 / #1539）
+#### 1. plugin の案内文（rules / agents / commands / skills 13 ファイル）が変わります（#1512 / #1518 / #1538 / #1539 / #1561 / #1563）
 
 `/plugin update` で届くのは**文面の変更のみ**で、実行される挙動は変わりません。**version bump がないと
 `/plugin update` は no-op になり 1 件も届きません**（本リリースで bump する理由）。
