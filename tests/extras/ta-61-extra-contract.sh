@@ -15,6 +15,7 @@
 #
 # 実行コストの knob（既定値のままなら挙動不変。詳細は tests/extras/README.md）:
 #   PG_T61_RUN_TIMEOUT_SEC  既定 180 / 下限 180。1 子プロセスの上限秒。
+#   PG_T61_PARALLEL         既定 2 / 1〜4。per-file 実行ループの同時起動数。
 #   PG_T61_EXEC_ONLY_PROBES TC-16 sandbox 子専用。実行対象を ta-*-probe-*.sh に限定。
 #   PG_T61_NO_RECURSE       nested 実行であることの宣言（上記のとおり）。
 #   PG_T61_SKIP_SUITE       mutation driver 専用。nested full-suite だけを止める。
@@ -102,14 +103,14 @@ if command -v timeout >/dev/null 2>&1; then
 else
   _t61_to() { perl -e 'alarm shift; exec @ARGV' "$_T61_RUN_TIMEOUT" "$@"; }
 fi
-# 混雑スナップショット。診断専用であり、FAIL を降格する判断には一切使わない。
-# プロセス数は pgrep -f のため観測側スクリプトも拾いうる概算値（多め = 安全側）。
-_t61_contention() {
-  printf 'timeout=%ss matching-suite-procs~%s load1=%s / 環境由来を疑うなら PG_T61_RUN_TIMEOUT_SEC を上げて再実行（それでも本 TC は FAIL のまま）' \
-    "$_T61_RUN_TIMEOUT" \
-    "$(pgrep -f 'run-tests\.sh|ta-61-extra-contract' 2>/dev/null | wc -l | tr -d ' ')" \
-    "$(uptime 2>/dev/null | sed -n 's/.*load average[s]*: *\([0-9.]*\).*/\1/p')"
-}
+# per-file 実行ループの同時起動数。既定 2、1 で従来どおりの逐次。数値でない値は
+# 逐次（1）へ倒し、上限は 4。timeout は子 1 起動ごとの上限なので並列度に依らない。
+_T61_PARALLEL="${PG_T61_PARALLEL:-2}"
+case "$_T61_PARALLEL" in
+  ''|*[!0-9]*) _T61_PARALLEL=1 ;;
+esac
+[ "$_T61_PARALLEL" -ge 1 ] 2>/dev/null || _T61_PARALLEL=1
+[ "$_T61_PARALLEL" -le 4 ] || _T61_PARALLEL=4
 
 # ---------------------------------------------------------------------------
 # Migration-period allowlist (Human 決定 4 / MJ-E): explicit list embedded in
@@ -382,16 +383,82 @@ if [ "$_T61_EXEC_SCOPE" = "probes-only" ]; then
   t61_info "exec scope=probes-only (TC-16 sandbox 子): 実行対象を$_T61_STANDALONE_LIST に限定"
 fi
 
+# 子プロセスの起動だけを PG_T61_PARALLEL 本まで並行させる。各子の出力と rc は
+# 子ごとのファイルへ分離し、assert と pass / fail の加算は下のループが元の順序の
+# まま逐次に行う（共有カウンタに触るのは親シェルだけ）。結果ファイルの無い子は
+# fail-closed。xargs を使うのは、harness の監視役（バックグラウンド job）を
+# 巻き込む素の `wait` を避けるため。
+_T61_RES="$_T61_TMP/exec"
+_T61_WORKER="$_T61_TMP/exec-worker.sh"
+mkdir -p "$_T61_RES"
+cat > "$_T61_WORKER" <<'T61W'
+# $1=result root  $2=extras dir  $3=timeout sec  $4=guarded env names  $5=basename
+_w_sec=$3
+_w_id=${5%.sh}
+_w_f="$2/$5"
+_w_res="$1/$_w_id"
+mkdir -p "$_w_res" || exit 0
+if command -v timeout >/dev/null 2>&1; then
+  _w_to() { timeout "$_w_sec" "$@"; }
+else
+  _w_to() { perl -e 'alarm shift; exec @ARGV' "$_w_sec" "$@"; }
+fi
+# 混雑スナップショット。診断専用であり、FAIL を降格する判断には一切使わない。
+# プロセス数は pgrep -f のため観測側スクリプトも拾いうる概算値（多め = 安全側）。
+_w_contention() {
+  printf 'timeout=%ss matching-suite-procs~%s load1=%s / 環境由来を疑うなら PG_T61_RUN_TIMEOUT_SEC を上げて再実行（それでも本 TC は FAIL のまま）' \
+    "$_w_sec" \
+    "$(pgrep -f 'run-tests\.sh|ta-61-extra-contract' 2>/dev/null | wc -l | tr -d ' ')" \
+    "$(uptime 2>/dev/null | sed -n 's/.*load average[s]*: *\([0-9.]*\).*/\1/p')"
+}
+_w_contam_args() {
+  for _w_v in $1; do
+    if [ "$_w_v" = "PG_HARNESS_SOURCED" ]; then
+      printf '%s=1\n' "$_w_v"
+    else
+      printf '%s=t61junk\n' "$_w_v"
+    fi
+  done
+}
+_w_rc=0
+PG_EXTRA_CONTRACT_PROBE='' PG_EXTRA_CONTRACT_TARGET='' _w_to sh "$_w_f" </dev/null >"$_w_res/out1" 2>&1 || _w_rc=$?
+case "$_w_rc" in
+  124|142) _w_contention >"$_w_res/cont1" ;;
+esac
+printf '%s\n' "$_w_rc" >"$_w_res/rc1"
+[ "$_w_rc" = "0" ] || exit 0
+_w_rc=0
+_w_to env $(_w_contam_args "$4") PG_EXTRA_CONTRACT_PROBE=force-fail PG_EXTRA_CONTRACT_TARGET="$_w_id" sh "$_w_f" </dev/null >"$_w_res/out2" 2>&1 || _w_rc=$?
+case "$_w_rc" in
+  124|142) _w_contention >"$_w_res/cont2" ;;
+esac
+printf '%s\n' "$_w_rc" >"$_w_res/rc2"
+exit 0
+T61W
+_t61_queue=""
 for _t61_b in $_T61_STANDALONE_LIST; do
+  [ "${_t61_b%.sh}" = "$_T61_SELF_ID" ] && continue
+  _t61_queue="$_t61_queue $_t61_b"
+done
+if [ -n "$_t61_queue" ]; then
+  # shellcheck disable=SC2086
+  printf '%s\n' $_t61_queue | xargs -n 1 -P "$_T61_PARALLEL" sh "$_T61_WORKER" "$_T61_RES" "$_T61_DIR" "$_T61_RUN_TIMEOUT" "$_T61_GUARDED_ENVS" ||
+    t61_fail "TC-12: per-file dispatcher (xargs -P $_T61_PARALLEL) exited non-zero"
+fi
+
+for _t61_b in $_t61_queue; do
   _t61_id="${_t61_b%.sh}"
-  [ "$_t61_id" = "$_T61_SELF_ID" ] && continue
-  _t61_f="$_T61_DIR/$_t61_b"
+  _t61_r="$_T61_RES/$_t61_id"
+  if [ ! -f "$_t61_r/rc1" ]; then
+    t61_fail "TC-12: $_t61_id stage-1 result missing (worker did not complete) — fail-closed"
+    continue
+  fi
   # Stage 1 — classify with a clean, probe-free run (counted for TC-25(3))
   _T61_EXEC_COUNT=$((_T61_EXEC_COUNT + 1))
-  _t61_rc=0
-  _t61_out=$(PG_EXTRA_CONTRACT_PROBE='' PG_EXTRA_CONTRACT_TARGET='' _t61_to sh "$_t61_f" </dev/null 2>&1) || _t61_rc=$?
+  _t61_rc=$(cat "$_t61_r/rc1")
+  _t61_out=$(cat "$_t61_r/out1")
   if [ "$_t61_rc" = "124" ] || [ "$_t61_rc" = "142" ]; then
-    t61_fail "TC-12: stage-1 run TIMED OUT: $_t61_id / $(_t61_contention)"
+    t61_fail "TC-12: stage-1 run TIMED OUT: $_t61_id / $(cat "$_t61_r/cont1" 2>/dev/null)"
     continue
   fi
   case "$_t61_rc" in
@@ -422,10 +489,10 @@ for _t61_b in $_T61_STANDALONE_LIST; do
       # per-file 確認。これは helper 側の 1 箇所の比較（_extra-contract.sh の
       # PROBE_TARGET == _PG_EXTRA_ID）であって per-file のコードではないため、
       # 下の合成 TC-15(target-isolation) で helper レベルに 1 本で担保する。
-      _t61_crc=0
-      _t61_cout=$(_t61_to env $(_t61_contam_args) PG_EXTRA_CONTRACT_PROBE=force-fail PG_EXTRA_CONTRACT_TARGET="$_t61_id" sh "$_t61_f" </dev/null 2>&1) || _t61_crc=$?
+      _t61_crc=$(cat "$_t61_r/rc2" 2>/dev/null || echo missing)
+      _t61_cout=$(cat "$_t61_r/out2" 2>/dev/null || true)
       if [ "$_t61_crc" = "124" ] || [ "$_t61_crc" = "142" ]; then
-        t61_fail "TC-12(b)/TC-15: $_t61_id merged run TIMED OUT: $(_t61_contention)"
+        t61_fail "TC-12(b)/TC-15: $_t61_id merged run TIMED OUT: $(cat "$_t61_r/cont2" 2>/dev/null)"
       else
         _t61_cfails=$(printf '%s\n' "$_t61_cout" | grep -c '^[[:space:]]*\[FAIL\]' 2>/dev/null || true)
         _t61_pcontam=$(printf '%s\n' "$_t61_cout" | sed -n 's/^TA-[0-9]* standalone: \([0-9]*\) passed.*/\1/p' | tail -1)
