@@ -26,8 +26,10 @@ PlanGate の責務はレビューそのものでなく「**レビュー結果で
 ### 2.1 設計原則
 
 - **安全側倒し**: 未知 Decision 値・欠落は人間 C-3 強制（autonomous APPROVE 不可）
-- **additive 拡張**: `review_decision` は `c3.json` の optional フィールドとして設計した（既存 c3.json は後方互換）。schema への追加は未適用（§6・#1562）
+- **additive 拡張**: `review_decision` は `c3.json` の optional フィールド（既存 c3.json は後方互換）
 - **R-NNN 集約フロー**: `revise_plan` → CONDITIONAL 時は `review-external.md` に R-NNN で集約し、確定反映後に `c3.json` を APPROVED で発行（既存 CONDITIONAL フロー不変）
+
+> 注: 上の optional フィールドは設計であり、schema への追加は未適用（§6・#1562）。
 
 ## 3. Risk → mode/autonomous 接続
 
