@@ -3,8 +3,8 @@
 # Sourced by tests/run-tests.sh — uses $pass / $fail counters
 # TASK-0146 (#527): EHS-2/3 strict 発火配線（増分2: EHS-3 fix-loop / 増分3: EHS-2 handoff）
 #
-# 前提: scripts/apply-task-0146-ehs23-wiring.sh --apply で bin/plangate に適用済み。
-#   未適用時は SKIP（ta-45/46 と同方式: apply 済みでなければ skip して CI を割らない）。
+# 前提: bin/plangate に EHS-2/3 が配線済み（旧 apply-task-0146-ehs23-wiring.sh は適用後に削除）。
+#   未配線時は SKIP（ta-45/46 と同方式: 配線済みでなければ skip して CI を割らない）。
 
 # ---- extras execution contract bootstrap (#921) ----------------------------
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
@@ -40,10 +40,10 @@ _T47_PG="$_T47_ROOT/bin/plangate"
 
 # 適用判定: 未適用なら SKIP（EHS-3 か EHS-2 の両方がなければ未適用とみなす）
 if ! grep -q "EHS-3" "$_T47_PG" 2>/dev/null || ! grep -q "EHS-2" "$_T47_PG" 2>/dev/null; then
-  printf '  [SKIP] EHS-2/3 未適用（sh scripts/apply-task-0146-ehs23-wiring.sh --apply で適用後に PASS）\n'
+  printf '  [SKIP] EHS-2/3 が bin/plangate に未配線\n'
   # #921: standalone では skip が rc=3 で exit、harness では skip 後の
   # top-level return 0 で source 元へ戻る（R-021: 旧 || true 型はシェル依存）
-  pg_extra_contract_skip "EHS-2/3 配線が未適用 (apply-task-0146-ehs23-wiring.sh --apply)"
+  pg_extra_contract_skip "EHS-2/3 が bin/plangate に未配線"
   return 0
 fi
 
