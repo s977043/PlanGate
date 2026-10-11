@@ -65,8 +65,9 @@ v8.23.0 タグ以降、main へ蓄積した変更を `2ea049de` まで反映す�
 子へ渡す env・stdin・timeout（180 秒）は変更前と同一です。
 
 - **直列に戻す kill-switch: `PG_T61_PARALLEL=1`**（恒久は `git revert`）
-- 手元の実測は ta-61 単体で直列平均 776.59 秒 → P=2 平均 422.87 秒。**CI での短縮幅は merge 後の main の CI 5 run で観測中**
-  （Test job の所要・ta-62 / ta-71 / ta-65 の timeout・ta-61 の FAIL）。結果によって本節の記述を更新または削除する
+- 手元の実測は ta-61 単体で直列平均 776.59 秒 → P=2 平均 422.87 秒。merge 後の main の CI 5 run
+  （Test job の所要・ta-62 / ta-71 / ta-65 の timeout・ta-61 の FAIL）はすべて閾値内だった。並列ループ内の書き込み競合の可能性は
+  既知の課題 #1557 を参照
 - 自分の環境の `tests/run-tests.sh` で timeout が増えた場合は、まず `PG_T61_PARALLEL=1` で切り分けてください
 
 #### 3. opt-in の pre-push ガードが push 先 ref で判定します（#1552 / #937）
@@ -75,6 +76,11 @@ v8.23.0 タグ以降、main へ蓄積した変更を `2ea049de` まで反映す�
 pre-push の stdin から得た**push 先**のブランチ名を `scripts/check-branch-not-merged.sh` に渡します（従来は checkout 中の HEAD を見ていた）。
 `check-branch-not-merged.sh` は同名ブランチの MERGED 履歴の有無を `gh pr list --state merged --limit 1` で確認するように変わり、
 従来の `state=all` 先頭 1 件依存による見逃しを直しました。1 つでも危険な ref があれば push 全体を中止します。
+
+**利用者への影響**: 新しい hook を入れた環境では、**merge 済みで remote から削除された destination ref の再作成**
+（例: `git push origin HEAD:refs/heads/<merge 済みのブランチ名>` や、同名ブランチでの作業の再 push）が block されます。
+従来は checkout 中の HEAD の名前で判定していたため、refspec で別名を指定した push は素通りしていました。
+意図して同名ブランチを作り直す場合は、別のブランチ名で push してください。
 
 - **インストール済みの `.git/hooks/pre-push` は自動では更新されません**。新しい判定を使うには再インストールが要ります
   （手順: `docs/ai/direct-push-prevention.md`）
@@ -140,6 +146,11 @@ pre-push の stdin から得た**push 先**のブランチ名を `scripts/check-
 
 - `workflow-conductor.md`（`.claude/agents/` と `plugin/plangate/agents/` の両方）に見出し「CLI 必須 / 不要 の分離（#1144）」が 2 回ある（#1512 由来）。
   HO 対象のため Human が適用する patch で直す予定。適用後に本節を更新する
+- **#1557（P1）**: `ta-61` の並列ループ（#1555）に、実 repo の固定パスへ書き込むテスト（`ta-44` / `ta-45` / `ta-76` / `ta-12`）が含まれ、
+  互いに競合しうる。merge 後の main の CI 5 run はすべて閾値内だった。切り戻しは `PG_T61_PARALLEL=1`
+- **#1558（P2）**: pre-push ガード（#1552）の helper が stdin を閉じずに呼ばれ、後続の ref 行を読んでしまいうる。
+  現在の `gh` / `git ls-remote` は stdin を消費しないため、潜在リスクにとどまる
+- **#1556**: CI の Interactive Review Browser E2E（#1536 / #1551）が CDP port の timeout で断続的に FAIL する（flake）
 
 ## v8.23.0 - 2026-10-07
 
