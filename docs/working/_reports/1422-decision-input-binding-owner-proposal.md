@@ -11,12 +11,12 @@ AC-1 of #1422 asks for one owner (#1391 / #1392 / #1395) and one timing (commit 
 
 | Rule | Baseline (2026-09-25 comment) | Treatment here | Proposed accountable owner | Proposed timing | Reason for any change |
 |---|---|---|---|---|---|
-| B-1 | #1395 / input construction | Preserved | #1395 | input construction (audit re-derives) | — |
-| B-2 | #1391 / load, audit | Preserved | #1391 | load, audit (append also checks) | — (the PASS/FAIL meaning of the boundary stays with the #1393 pure function, as the #1422 body already says) |
+| B-1 | #1395 / input construction | Preserved owner, **audit re-check added** | #1395 | input construction; audit re-derives | §2 audits the identity against the exact Git tree so that a wrong encoding recorded earlier is caught later |
+| B-2 | #1391 / load, audit | Preserved owner, **append check added** | #1391 | load, audit; also at append | §3 asks every case to be rejected at commit as well as at load, so a mismatched `contract_bound_seq` should not be accepted in the first place. The PASS/FAIL meaning of the boundary stays with the #1393 pure function, as the #1422 body already says |
 | B-3 | #1392 + #1391 / commit, load (#1392), audit (#1391) | Preserved (already split in the baseline) | #1392; #1391 audits | commit, load (#1392); audit (#1391) | — (#1422's own B-3 AC requires reject at both commit and load, so a single timing would contradict #1422) |
 | B-4 | #1392 / commit | **Timing extended** | #1392 | commit (under-lock snapshot); load replays historical state | Without a load check, tampered persisted data is never re-checked; a load check against the *current* RunState rejects valid history, so load must replay the state before each decision (§2) |
 | B-5 | #1392 / commit | **Timing extended** | #1392 | commit (derive the edge from `(state, action)`); load replays it | Same reason as B-4 |
-| B-6 | #1391 / event vocabulary | Preserved | #1391 | event vocabulary; enforced at append, re-validated at load | — |
+| B-6 | #1391 / event vocabulary | Preserved owner, **append and load checks added** | #1391 | event vocabulary; enforced at append, re-validated at load | The baseline names only where the verifier set is defined. §3 `binding-required-set` requires the reject on commit and on replay, so both timings are stated |
 | B-7 | no row (struck in the #1422 body) | **Retired** | none; folded into B-9 (#1391) | — | #1393 Revision 2.2 made effective-FR selection a pure rule (I-7); only omission detection remains, which is B-9 |
 | B-8 | #1391 (vocabulary) + #1395 (construction) | Preserved | #1395 builds inputs; #1391 owns the policy-event vocabulary | vocabulary / input construction | — (the accepted policy event does not exist yet, §4) |
 | B-9 | #1391 / load, audit | Preserved | #1391 | load, audit | — |
