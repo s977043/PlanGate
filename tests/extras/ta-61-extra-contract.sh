@@ -168,6 +168,20 @@ ta-60-run-evidence.sh
 EOF
 }
 
+# 実 repo の固定パス（docs/working/ 配下の固定名など）を作成・削除・上書きする子（#1557）。
+# 並列バッチには入れず、バッチ完了後に 1 本ずつ実行する。明示列挙であり述語では解決しない。
+# 新しい実 repo 書込テストが covered に入ると TC-34 が落ちる（ここへ足すまで緑にならない）。
+_exclusive_real_repo() {
+  cat <<'EOF'
+ta-111-status-c3-phase.sh
+ta-112-cli-project-root.sh
+ta-44-eh457-cli-wiring.sh
+ta-45-c3-mode-config.sh
+ta-76-extras-temp-state-scope.sh
+EOF
+}
+_T61_EXCLUSIVE=$(_exclusive_real_repo)
+
 # ---------------------------------------------------------------------------
 # Discovery (TC-28: same glob definition as the runner's extras loop)
 _T61_DISCOVERED=$( (cd "$_T61_DIR" && ls $_T61_GLOB 2>/dev/null) || true )
@@ -435,14 +449,76 @@ esac
 printf '%s\n' "$_w_rc" >"$_w_res/rc2"
 exit 0
 T61W
+# 起動・終了時刻（秒の小数）を子ごとに記録する薄い wrapper。排他の実測（TC-35 / TC-36）用。
+# $1=worker script  $2..$6=worker の引数（$6 が basename）
+_T61_WRAP="$_T61_TMP/exec-wrap.sh"
+cat > "$_T61_WRAP" <<'T61WR'
+_w_worker=$1
+shift
+_w_id=${5%.sh}
+mkdir -p "$1/$_w_id" || exit 0
+_w_now() { perl -MTime::HiRes=time -e 'printf "%.3f\n", time' 2>/dev/null; }
+_w_now >"$1/$_w_id/t0"
+sh "$_w_worker" "$@"
+_w_now >"$1/$_w_id/t1"
+exit 0
+T61WR
+
+# $1=worker $2=result root $3=extras dir $4=timeout $5=guarded envs $6=並列度
+# $7=exclusive 一覧（改行区切り）$8=queue（空白区切り）
+# exclusive は並列バッチの完了後に 1 本ずつ起動する。両者は互いに素で、二重実行も欠落もない。
+t61_dispatch() {
+  _td_worker=$1 _td_res=$2 _td_dir=$3 _td_to=$4 _td_envs=$5 _td_par=$6 _td_excl=$7 _td_queue=$8
+  _td_pq=""
+  _td_xq=""
+  _td_rc=0
+  for _td_b in $_td_queue; do
+    if printf '%s\n' "$_td_excl" | grep -Fxq "$_td_b"; then
+      _td_xq="$_td_xq $_td_b"
+    else
+      _td_pq="$_td_pq $_td_b"
+    fi
+  done
+  if [ -n "$_td_pq" ]; then
+    # shellcheck disable=SC2086
+    printf '%s\n' $_td_pq | xargs -n 1 -P "$_td_par" sh "$_T61_WRAP" "$_td_worker" "$_td_res" "$_td_dir" "$_td_to" "$_td_envs" || _td_rc=1
+  fi
+  if [ -n "$_td_xq" ]; then
+    # shellcheck disable=SC2086
+    printf '%s\n' $_td_xq | xargs -n 1 -P 1 sh "$_T61_WRAP" "$_td_worker" "$_td_res" "$_td_dir" "$_td_to" "$_td_envs" || _td_rc=1
+  fi
+  return "$_td_rc"
+}
+
+# exclusive の区間が他の子（exclusive 同士を含む）の区間と重なった件数と、時刻欠落の件数を
+# "overlaps missing" で返す。時刻欠落は fail-closed（TC 側で FAIL にする）。
+# $1=result root  $2=exclusive 一覧  $3=ids（空白区切り, .sh なし）
+t61_overlap_report() {
+  for _to_id in $3; do
+    _to_x=0
+    printf '%s\n' "$2" | grep -Fxq "$_to_id.sh" && _to_x=1
+    printf '%s %s %s %s\n' "$_to_id" "$_to_x" "$(cat "$1/$_to_id/t0" 2>/dev/null || echo -)" "$(cat "$1/$_to_id/t1" 2>/dev/null || echo -)"
+  done | awk '
+    { id[NR]=$1; x[NR]=$2; a[NR]=$3; b[NR]=$4 }
+    END {
+      o=0; m=0
+      for (i=1;i<=NR;i++) if (a[i]=="-" || b[i]=="-" || a[i]=="" || b[i]=="") m++
+      for (i=1;i<=NR;i++) for (j=i+1;j<=NR;j++) {
+        if (!x[i] && !x[j]) continue
+        if (a[i]=="-" || a[j]=="-" || b[i]=="-" || b[j]=="-") continue
+        if (a[i]+0 < b[j]+0 && a[j]+0 < b[i]+0) o++
+      }
+      print o, m
+    }'
+}
+
 _t61_queue=""
 for _t61_b in $_T61_STANDALONE_LIST; do
   [ "${_t61_b%.sh}" = "$_T61_SELF_ID" ] && continue
   _t61_queue="$_t61_queue $_t61_b"
 done
 if [ -n "$_t61_queue" ]; then
-  # shellcheck disable=SC2086
-  printf '%s\n' $_t61_queue | xargs -n 1 -P "$_T61_PARALLEL" sh "$_T61_WORKER" "$_T61_RES" "$_T61_DIR" "$_T61_RUN_TIMEOUT" "$_T61_GUARDED_ENVS" ||
+  t61_dispatch "$_T61_WORKER" "$_T61_RES" "$_T61_DIR" "$_T61_RUN_TIMEOUT" "$_T61_GUARDED_ENVS" "$_T61_PARALLEL" "$_T61_EXCLUSIVE" "$_t61_queue" ||
     t61_fail "TC-12: per-file dispatcher (xargs -P $_T61_PARALLEL) exited non-zero"
 fi
 
@@ -533,6 +609,161 @@ elif [ "$_T61_EXEC_COUNT" -gt 0 ]; then
   t61_pass "TC-25(3): per-file execution loop started $_T61_EXEC_COUNT file run(s) (non-zero)"
 else
   t61_fail "TC-25(3): per-file execution loop executed ZERO files — contract checks are vacuous (covered set collapsed in $_T61_DIR)"
+fi
+
+# ---------------------------------------------------------------------------
+# TC-34 / TC-35 / TC-36: 実 repo の固定パスを書く子は並列バッチと同時に走らない（#1557）
+# TC-34: covered な子を静的に走査し、実 repo root 由来の変数（ROOT 系 + alias）を書込先に持つ子は
+#        _exclusive_real_repo に載っていること。検出器は合成 fixture の陽性 / 陰性で生存を確認する。
+#        走査は「書込動詞または redirect の対象語が root 由来変数で始まる行」だけを見る。
+#        関数引数経由・他スクリプト経由の書込は検出できない（残存。TC-36 の実測が補う）。
+_T61_SCAN="$_T61_TMP/scan.awk"
+cat > "$_T61_SCAN" <<'T61SC'
+function refre(t) { return "\\$\\{?" t "([^A-Za-z0-9_]|$)" }
+function startre(t) { return "^\"?\\$\\{?" t "([^A-Za-z0-9_]|$)" }
+{ line[NR] = $0 }
+END {
+  for (i = 1; i <= NR; i++) {
+    s = line[i]
+    if (s ~ /^[ \t]*#/) continue
+    if (!match(s, /^[ \t]*(local[ \t]+)?[A-Za-z_][A-Za-z0-9_]*=/)) continue
+    head = substr(s, 1, RLENGTH); rhs = substr(s, RLENGTH + 1)
+    sub(/^[ \t]*(local[ \t]+)?/, "", head); sub(/=$/, "", head)
+    if (tolower(head) ~ /root/ && (rhs ~ /\.\./ || rhs ~ /%\/tests\/extras/ || rhs ~ /show-toplevel/)) T[head] = 1
+  }
+  for (pass = 0; pass < 3; pass++) {
+    for (i = 1; i <= NR; i++) {
+      s = line[i]
+      if (s ~ /^[ \t]*#/) continue
+      if (!match(s, /^[ \t]*(local[ \t]+)?[A-Za-z_][A-Za-z0-9_]*=/)) continue
+      head = substr(s, 1, RLENGTH); rhs = substr(s, RLENGTH + 1)
+      sub(/^[ \t]*(local[ \t]+)?/, "", head); sub(/=$/, "", head)
+      for (t in T) if (rhs ~ startre(t)) { T[head] = 1; break }
+    }
+  }
+  for (i = 1; i <= NR; i++) {
+    s = line[i]
+    if (s ~ /^[ \t]*#/) continue
+    for (t in T) {
+      w = "[ \t]\"?\\$\\{?" t "([^A-Za-z0-9_]|$)"
+      if (s ~ (">>?[ \t]*\"?\\$\\{?" t "([^A-Za-z0-9_]|$)") ||
+          s ~ ("(^|[^A-Za-z0-9_./-])(mkdir|touch|rm|tee|truncate|chmod)[ \t][^|;&]*" w) ||
+          s ~ ("(^|[^A-Za-z0-9_./-])(cp|mv|ln)[ \t][^|;&]*" w "[^ \t|;&]*\"?[ \t]*($|[;&|)])")) {
+        printf "%d:%s\n", i, s
+        break
+      }
+    }
+  }
+}
+T61SC
+mkdir -p "$_T61_TMP/scanfx"
+cat > "$_T61_TMP/scanfx/pos.sh" <<'T61FP'
+_F_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+_F_WD="${_F_ROOT:?}/docs/working"
+mkdir -p "$_F_WD/TASK-FIXED"
+T61FP
+cat > "$_T61_TMP/scanfx/neg.sh" <<'T61FN'
+_F_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+_F_TMP=$(mktemp -d)
+_F_REL="${_F_ROOT#/}"
+mkdir -p "$_F_TMP/docs/working/TASK-X" "$_F_TMP/$_F_REL"
+cp "$_F_ROOT/bin/plangate" "$_F_TMP/bin-plangate"
+T61FN
+_t61_sc_pos=$(awk -f "$_T61_SCAN" "$_T61_TMP/scanfx/pos.sh" | wc -l | tr -d ' ')
+_t61_sc_neg=$(awk -f "$_T61_SCAN" "$_T61_TMP/scanfx/neg.sh" | wc -l | tr -d ' ')
+if [ "$_t61_sc_pos" -lt 1 ] || [ "$_t61_sc_neg" -ne 0 ]; then
+  t61_fail "TC-34: real-repo-writer scanner self-check failed (positive hits=$_t61_sc_pos want >=1; negative hits=$_t61_sc_neg want 0)"
+else
+  _t61_sc_bad=""
+  _t61_sc_n=0
+  for _t61_b in $_T61_DISCOVERED; do
+    _t61_in_pending "$_t61_b" && continue
+    [ "${_t61_b%.sh}" = "$_T61_SELF_ID" ] && continue
+    _t61_sc_n=$((_t61_sc_n + 1))
+    if [ -n "$(awk -f "$_T61_SCAN" "$_T61_DIR/$_t61_b")" ] && ! printf '%s\n' "$_T61_EXCLUSIVE" | grep -Fxq "$_t61_b"; then
+      _t61_sc_bad="$_t61_sc_bad $_t61_b"
+    fi
+  done
+  for _t61_b in $_T61_EXCLUSIVE; do
+    [ -f "$_T61_DIR/$_t61_b" ] || _t61_sc_bad="$_t61_sc_bad missing:$_t61_b"
+  done
+  if [ -n "$_t61_sc_bad" ]; then
+    t61_fail "TC-34: covered extras write fixed real-repo paths but are not in _exclusive_real_repo (add them to the list in $0):$_t61_sc_bad"
+  elif [ "$_t61_sc_n" -lt 1 ]; then
+    t61_fail "TC-34: scanner inspected ZERO covered files — vacuous"
+  else
+    t61_pass "TC-34: every covered extras that writes a fixed real-repo path is in _exclusive_real_repo ($_t61_sc_n files scanned; scanner positive/negative controls OK)"
+  fi
+fi
+
+if [ "$_T61_EXEC_LOOP" = "1" ]; then
+  # TC-35: 合成の子（sleep だけ）で dispatcher を直接検証する。exclusive は他の子と重ならず、
+  #        全員がちょうど 1 回走る。陽性コントロール: exclusive を空にすれば、x の 3 本すべてが
+  #        他の子と重なる。対照用の子は「他の子が生存中であること」を観測するまで待つ
+  #        （待ち上限 20 秒）ため、重なりは起動時刻のずれ（負荷）に左右されない。
+  _T61_FK="$_T61_TMP/fake-worker.sh"
+  cat > "$_T61_FK" <<'T61FK'
+printf x >>"$1/${5%.sh}.cnt"
+sleep 0.4
+exit 0
+T61FK
+  _T61_FKB="$_T61_TMP/fake-worker-barrier.sh"
+  cat > "$_T61_FKB" <<'T61FKB'
+_fk_id=${5%.sh}
+: >"$1/live.$_fk_id"
+case "$_fk_id" in
+  x*)
+    _fk_n=0
+    while [ "$(ls "$1" | grep -c '^live\.')" -lt 2 ] && [ "$_fk_n" -lt 400 ]; do
+      sleep 0.05
+      _fk_n=$((_fk_n + 1))
+    done
+    ;;
+esac
+sleep 0.2
+rm -f "$1/live.$_fk_id"
+exit 0
+T61FKB
+  _t61_fq="c1.sh x1.sh c2.sh x2.sh c3.sh x3.sh c4.sh c5.sh c6.sh"
+  _t61_fx="x1.sh
+x2.sh
+x3.sh"
+  _t61_fids="c1 x1 c2 x2 c3 x3 c4 c5 c6"
+  _t61_have_perl=1
+  command -v perl >/dev/null 2>&1 || _t61_have_perl=0
+  if [ "$_t61_have_perl" = 0 ]; then
+    t61_fail "TC-35: perl (Time::HiRes) is required for dispatch timing — fail-closed"
+  else
+    mkdir -p "$_T61_TMP/fk-a" "$_T61_TMP/fk-b"
+    t61_dispatch "$_T61_FK" "$_T61_TMP/fk-a" "$_T61_DIR" 180 "" 2 "$_t61_fx" "$_t61_fq" || true
+    t61_dispatch "$_T61_FKB" "$_T61_TMP/fk-b" "$_T61_DIR" 180 "" 2 "" "$_t61_fq" || true
+    _t61_ra=$(t61_overlap_report "$_T61_TMP/fk-a" "$_t61_fx" "$_t61_fids")
+    _t61_rb=$(t61_overlap_report "$_T61_TMP/fk-b" "$_t61_fx" "$_t61_fids")
+    _t61_once=1
+    for _t61_i in $_t61_fids; do
+      [ "$(cat "$_T61_TMP/fk-a/$_t61_i.cnt" 2>/dev/null)" = "x" ] || _t61_once=0
+    done
+    _t61_rb_o=${_t61_rb% *}
+    if [ "$_t61_ra" = "0 0" ] && [ "$_t61_once" = 1 ] && [ "${_t61_rb_o:-0}" -ge 3 ] && [ "${_t61_rb#* }" = "0" ]; then
+      t61_pass "TC-35: dispatcher runs exclusive children alone after the parallel batch, each exactly once (control: without exclusive overlaps='$_t61_rb')"
+    else
+      t61_fail "TC-35: dispatcher exclusivity broken (with exclusive: '$_t61_ra' want '0 0'; run-once=$_t61_once; control without exclusive: '$_t61_rb' want overlaps>=3 and missing 0)"
+    fi
+  fi
+
+  # TC-36: 実 run の実測。実際に起動した子の区間で、exclusive が他の子と重なっていないこと。
+  #        呼び出し側が exclusive 一覧を渡し忘れる退行（call site の欠落）をここで落とす。
+  #        並列度 1 では構造的に重ならないため、この TC が意味を持つのは PG_T61_PARALLEL>=2 のとき。
+  if [ -n "$_t61_queue" ]; then
+    _t61_qids=""
+    for _t61_b in $_t61_queue; do _t61_qids="$_t61_qids ${_t61_b%.sh}"; done
+    _t61_rr=$(t61_overlap_report "$_T61_RES" "$_T61_EXCLUSIVE" "$_t61_qids")
+    if [ "$_t61_rr" = "0 0" ]; then
+      t61_pass "TC-36: in this run no exclusive child overlapped another child (PG_T61_PARALLEL=$_T61_PARALLEL; overlaps/missing=$_t61_rr)"
+    else
+      t61_fail "TC-36: exclusive children overlapped other children or lack timing (overlaps/missing='$_t61_rr' want '0 0')"
+    fi
+  fi
 fi
 
 # ---------------------------------------------------------------------------
