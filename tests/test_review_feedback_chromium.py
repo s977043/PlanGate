@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,6 +48,34 @@ class ChromiumPlanFeedbackTest(unittest.TestCase):
             f"Browser E2E executable={cls.browser!r} "
             f"version={cls.browser_version!r}", flush=True
         )
+        cls.warm_up_browser()
+
+    @classmethod
+    def warm_up_browser(cls):
+        """Pay the cold-start cost once, outside every test's wait budget.
+
+        The first headless launch on a hosted runner has been measured at
+        9-27 s (#1556). `--version` does not load the browser process, so it
+        does not warm anything up.
+        """
+        home = tempfile.TemporaryDirectory()
+        cmd = [cls.browser, "--headless", "--disable-gpu",
+               "--disable-dev-shm-usage", "--no-first-run",
+               "--dump-dom", "about:blank"]
+        if (hasattr(os, "geteuid") and os.geteuid() == 0) or \
+                os.environ.get("PLANGATE_CHROME_NO_SANDBOX") == "1":
+            cmd.insert(2, "--no-sandbox")
+        started = time.monotonic()
+        try:
+            warm = subprocess.run(cmd, capture_output=True, text=True, check=False,
+                                  timeout=90, env={**os.environ, "HOME": home.name})
+            outcome = f"rc={warm.returncode}"
+        except subprocess.TimeoutExpired:
+            outcome = "timeout"
+        finally:
+            home.cleanup()
+        print(f"Browser E2E warm-up {outcome} "
+              f"seconds={time.monotonic() - started:.1f}", flush=True)
 
     def test_browser_executable_and_version_are_recorded(self):
         self.assertTrue(Path(self.browser).is_file())
@@ -168,12 +197,18 @@ class ChromiumPlanFeedbackTest(unittest.TestCase):
         download_dir.mkdir()
         script = ROOT / "tests" / "browser_feedback_download_cdp.mjs"
         env = {**os.environ, "HOME": str(self.dir)}
+        # Must exceed the script's own waits (CDP port 60 s + later 20 s steps).
         result = subprocess.run(
             [node, str(script), self.browser, str(self.page), str(download_dir)],
-            capture_output=True, text=True, check=False, timeout=45, env=env
+            capture_output=True, text=True, check=False, timeout=150, env=env
         )
         self.assertEqual(result.returncode, 0, result.stderr[-3500:])
         info = json.loads(result.stdout.strip())
+        port_wait_ms = info.get("cdpPortWaitMs", 0)
+        print(f"Browser E2E cdp_port_wait_ms={port_wait_ms}", flush=True)
+        if port_wait_ms > 30000:
+            # Slow but passing: surface it before it grows into a timeout.
+            print(f"::warning::CDP port wait took {port_wait_ms} ms (#1556)", flush=True)
         self.assertTrue(info["persisted"])
         self.assertTrue(info["tabFocus"])
         self.assertFalse(info["approval_granted"])

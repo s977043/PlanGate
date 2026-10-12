@@ -22,8 +22,12 @@ processChrome.stderr.on('data', chunk => {
   chromeStderr = (chromeStderr + String(chunk)).slice(-4000);
 });
 processChrome.on('exit', (code, signal) => { chromeExit = { code, signal }; });
+// A cold Chromium start on hosted runners has been measured at 9-27 s (#1556),
+// so the first wait (DevToolsActivePort) gets its own, larger budget.
+const CDP_PORT_TIMEOUT_MS = Number(process.env.PLANGATE_CDP_PORT_TIMEOUT_MS) || 60000;
 async function waitUntil(fn, label, timeout = 20000) {
-  const until = Date.now() + timeout;
+  const started = Date.now();
+  const until = started + timeout;
   while (Date.now() < until) {
     try {
       const result = await fn();
@@ -31,7 +35,9 @@ async function waitUntil(fn, label, timeout = 20000) {
     } catch { /* not ready */ }
     await sleep(80);
   }
-  throw new Error('timeout: ' + label + ' chromeExit=' + JSON.stringify(chromeExit) +
+  throw new Error('timeout: ' + label + ' elapsedMs=' + (Date.now() - started) +
+    ' devToolsActivePort=' + existsSync(path.join(profile, 'DevToolsActivePort')) +
+    ' chromeExit=' + JSON.stringify(chromeExit) +
     ' chromiumStderr=' + chromeStderr.slice(-2500));
 }
 class Cdp {
@@ -61,10 +67,12 @@ class Cdp {
 }
 let controller, page;
 try {
+  const portWaitStarted = Date.now();
   const port = await waitUntil(() => {
     const f = path.join(profile, 'DevToolsActivePort');
     return existsSync(f) ? Number(readFileSync(f, 'utf8').split('\n')[0]) : 0;
-  }, 'CDP port');
+  }, 'CDP port', CDP_PORT_TIMEOUT_MS);
+  const cdpPortWaitMs = Date.now() - portWaitStarted;
   const endpoint = 'http://127.0.0.1:' + port;
   const version = await (await fetch(endpoint + '/json/version')).json();
   const pages = await (await fetch(endpoint + '/json/list')).json();
@@ -130,7 +138,7 @@ try {
   assert.match(result.source.plan.sha256, /^[0-9a-f]{64}$/);
   assert.match(result.source.questions.sha256, /^[0-9a-f]{64}$/);
   console.log(JSON.stringify({ persisted: true, tabFocus: true,
-    filename, approval_granted: false }));
+    filename, approval_granted: false, cdpPortWaitMs }));
 } finally {
   page?.close();
   controller?.close();
