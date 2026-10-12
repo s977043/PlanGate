@@ -24,7 +24,11 @@ processChrome.stderr.on('data', chunk => {
 processChrome.on('exit', (code, signal) => { chromeExit = { code, signal }; });
 // A cold Chromium start on hosted runners has been measured at 9-27 s (#1556),
 // so the first wait (DevToolsActivePort) gets its own, larger budget.
-const CDP_PORT_TIMEOUT_MS = Number(process.env.PLANGATE_CDP_PORT_TIMEOUT_MS) || 60000;
+// Accept only a positive value that still leaves the caller's 150 s timeout
+// room for the later 20 s waits; otherwise the diagnostic below would be lost.
+const cdpPortTimeoutEnv = Number(process.env.PLANGATE_CDP_PORT_TIMEOUT_MS);
+const CDP_PORT_TIMEOUT_MS = Number.isFinite(cdpPortTimeoutEnv) &&
+  cdpPortTimeoutEnv > 0 && cdpPortTimeoutEnv <= 90000 ? cdpPortTimeoutEnv : 60000;
 async function waitUntil(fn, label, timeout = 20000) {
   const started = Date.now();
   const until = started + timeout;

@@ -58,7 +58,7 @@ class ChromiumPlanFeedbackTest(unittest.TestCase):
         9-27 s (#1556). `--version` does not load the browser process, so it
         does not warm anything up.
         """
-        home = tempfile.TemporaryDirectory()
+        home = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         cmd = [cls.browser, "--headless", "--disable-gpu",
                "--disable-dev-shm-usage", "--no-first-run",
                "--dump-dom", "about:blank"]
@@ -74,8 +74,12 @@ class ChromiumPlanFeedbackTest(unittest.TestCase):
             outcome = "timeout"
         finally:
             home.cleanup()
-        print(f"Browser E2E warm-up {outcome} "
-              f"seconds={time.monotonic() - started:.1f}", flush=True)
+        seconds = time.monotonic() - started
+        print(f"Browser E2E warm-up {outcome} seconds={seconds:.1f}", flush=True)
+        # The cold start now lands here, so this is where slowness shows up.
+        if outcome != "rc=0" or seconds > 45:
+            print(f"::warning::Chromium warm-up {outcome} took {seconds:.1f} s (#1556)",
+                  flush=True)
 
     def test_browser_executable_and_version_are_recorded(self):
         self.assertTrue(Path(self.browser).is_file())
