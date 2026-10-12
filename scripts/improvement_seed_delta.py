@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Read-only inventory of confirmed improvement-seeds not indexed by the last digest.
+"""Read-only inventory of seed entries with declared confirmation markers.
 
-This is evidence for a HUMAN review, not a hygiene classifier or promotion gate.
+A confirmation marker is not authenticated Human approval. This is a\nreview input, not a hygiene classifier, a promotion gate, or attestation.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ SEED_HEADING = re.compile(r"^## (\d{4}-\d{2}-\d{2} — .+)$", re.MULTILINE)
 DIGEST_SECTION = re.compile(r"^## 対象エントリ\s*\n(.*?)(?=^## |\Z)", re.MULTILINE | re.DOTALL)
 
 
-def read_confirmed_seeds(path: Path) -> list[str]:
+def read_declared_seeds(path: Path) -> list[str]:
     source = path.read_text(encoding="utf-8")
     matches = list(SEED_HEADING.finditer(source))
     if not matches:
@@ -24,7 +24,7 @@ def read_confirmed_seeds(path: Path) -> list[str]:
     for index, match in enumerate(matches):
         body = source[match.end():matches[index + 1].start() if index + 1 < len(matches) else len(source)]
         confirmations = re.findall(r"^- confirmed_by:\s*(.+)$", body, flags=re.MULTILINE)
-        if len(confirmations) != 1 or not confirmations[0].strip():
+        if len(confirmations) != 1 or not confirmations[0].strip() or confirmations[0].strip().lower() in {"<human>", "pending", "tbd", "none", "未確認"}:
             raise ValueError(f"seed has missing or ambiguous human confirmation: {match.group(1)}")
         entries.append(match.group(1))
     if len(entries) != len(set(entries)):
@@ -56,7 +56,7 @@ def read_digest_index(path: Path) -> list[str]:
 def inventory(seeds_path: Path, digest_path: Path, threshold: int) -> dict:
     if threshold < 1:
         raise ValueError("threshold must be positive")
-    seeds = read_confirmed_seeds(seeds_path)
+    seeds = read_declared_seeds(seeds_path)
     indexed = read_digest_index(digest_path)
     missing = set(indexed) - set(seeds)
     if missing:
@@ -64,12 +64,12 @@ def inventory(seeds_path: Path, digest_path: Path, threshold: int) -> dict:
     new = [entry for entry in seeds if entry not in set(indexed)]
     return {
         "status": "REVIEW_CANDIDATE" if len(new) >= threshold else "BELOW_THRESHOLD",
-        "total_confirmed": len(seeds),
+        "entries_with_confirmation_marker": len(seeds),
         "already_indexed": len(indexed),
         "unindexed_count": len(new),
         "threshold": threshold,
         "unindexed_entries": new,
-        "authority": "READ_ONLY_NO_PROMOTION",
+        "authority": "READ_ONLY_UNVERIFIED_MARKER_NO_PROMOTION",
     }
 
 
