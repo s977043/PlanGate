@@ -82,7 +82,9 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     _pg_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
     _pg_branch_guard="${_pg_root:+$_pg_root/scripts/check-branch-not-merged.sh}"
     if [ -n "$_pg_branch_guard" ] && [ -f "$_pg_branch_guard" ]; then
-      if ! sh "$_pg_branch_guard" "$remote_branch"; then
+      # </dev/null: the helper (git ls-remote / gh) must not consume the
+      # remaining ref lines of this loop's stdin (#1558).
+      if ! sh "$_pg_branch_guard" "$remote_branch" </dev/null; then
         printf 'ERROR: Refusing recreation of a previously merged branch: %s (#937)\n' "$remote_branch" >&2
         exit 1
       fi
