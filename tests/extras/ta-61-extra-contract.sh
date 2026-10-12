@@ -698,17 +698,37 @@ fi
 
 if [ "$_T61_EXEC_LOOP" = "1" ]; then
   # TC-35: 合成の子（sleep だけ）で dispatcher を直接検証する。exclusive は他の子と重ならず、
-  #        全員がちょうど 1 回走る。陽性コントロール: exclusive を空にすれば重なりが検出される。
+  #        全員がちょうど 1 回走る。陽性コントロール: exclusive を空にすれば、x の 3 本すべてが
+  #        他の子と重なる。対照用の子は「他の子が生存中であること」を観測するまで待つ
+  #        （待ち上限 20 秒）ため、重なりは起動時刻のずれ（負荷）に左右されない。
   _T61_FK="$_T61_TMP/fake-worker.sh"
   cat > "$_T61_FK" <<'T61FK'
 printf x >>"$1/${5%.sh}.cnt"
 sleep 0.4
 exit 0
 T61FK
-  _t61_fq="c1.sh c2.sh c3.sh c4.sh x1.sh x2.sh c5.sh"
+  _T61_FKB="$_T61_TMP/fake-worker-barrier.sh"
+  cat > "$_T61_FKB" <<'T61FKB'
+_fk_id=${5%.sh}
+: >"$1/live.$_fk_id"
+case "$_fk_id" in
+  x*)
+    _fk_n=0
+    while [ "$(ls "$1" | grep -c '^live\.')" -lt 2 ] && [ "$_fk_n" -lt 400 ]; do
+      sleep 0.05
+      _fk_n=$((_fk_n + 1))
+    done
+    ;;
+esac
+sleep 0.2
+rm -f "$1/live.$_fk_id"
+exit 0
+T61FKB
+  _t61_fq="c1.sh x1.sh c2.sh x2.sh c3.sh x3.sh c4.sh c5.sh c6.sh"
   _t61_fx="x1.sh
-x2.sh"
-  _t61_fids="c1 c2 c3 c4 x1 x2 c5"
+x2.sh
+x3.sh"
+  _t61_fids="c1 x1 c2 x2 c3 x3 c4 c5 c6"
   _t61_have_perl=1
   command -v perl >/dev/null 2>&1 || _t61_have_perl=0
   if [ "$_t61_have_perl" = 0 ]; then
@@ -716,7 +736,7 @@ x2.sh"
   else
     mkdir -p "$_T61_TMP/fk-a" "$_T61_TMP/fk-b"
     t61_dispatch "$_T61_FK" "$_T61_TMP/fk-a" "$_T61_DIR" 180 "" 2 "$_t61_fx" "$_t61_fq" || true
-    t61_dispatch "$_T61_FK" "$_T61_TMP/fk-b" "$_T61_DIR" 180 "" 2 "" "$_t61_fq" || true
+    t61_dispatch "$_T61_FKB" "$_T61_TMP/fk-b" "$_T61_DIR" 180 "" 2 "" "$_t61_fq" || true
     _t61_ra=$(t61_overlap_report "$_T61_TMP/fk-a" "$_t61_fx" "$_t61_fids")
     _t61_rb=$(t61_overlap_report "$_T61_TMP/fk-b" "$_t61_fx" "$_t61_fids")
     _t61_once=1
@@ -724,10 +744,10 @@ x2.sh"
       [ "$(cat "$_T61_TMP/fk-a/$_t61_i.cnt" 2>/dev/null)" = "x" ] || _t61_once=0
     done
     _t61_rb_o=${_t61_rb% *}
-    if [ "$_t61_ra" = "0 0" ] && [ "$_t61_once" = 1 ] && [ "${_t61_rb_o:-0}" -gt 0 ]; then
+    if [ "$_t61_ra" = "0 0" ] && [ "$_t61_once" = 1 ] && [ "${_t61_rb_o:-0}" -ge 3 ] && [ "${_t61_rb#* }" = "0" ]; then
       t61_pass "TC-35: dispatcher runs exclusive children alone after the parallel batch, each exactly once (control: without exclusive overlaps='$_t61_rb')"
     else
-      t61_fail "TC-35: dispatcher exclusivity broken (with exclusive: '$_t61_ra' want '0 0'; run-once=$_t61_once; control without exclusive: '$_t61_rb' want overlaps>0)"
+      t61_fail "TC-35: dispatcher exclusivity broken (with exclusive: '$_t61_ra' want '0 0'; run-once=$_t61_once; control without exclusive: '$_t61_rb' want overlaps>=3 and missing 0)"
     fi
   fi
 
