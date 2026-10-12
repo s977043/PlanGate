@@ -43,7 +43,7 @@ class SeedInventoryTests(unittest.TestCase):
     def test_below_threshold_does_not_pretend_to_promote(self):
         result = MODULE.inventory(self.seeds, self.digest, threshold=2)
         self.assertEqual(result["status"], "BELOW_THRESHOLD")
-        self.assertEqual(result["authority"], "READ_ONLY_NO_PROMOTION")
+        self.assertEqual(result["authority"], "READ_ONLY_UNVERIFIED_MARKER_NO_PROMOTION")
 
     def test_missing_human_confirmation_is_rejected(self):
         self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: human\n\n## {SEED_B}\n- reason: drafted\n", encoding="utf-8")
