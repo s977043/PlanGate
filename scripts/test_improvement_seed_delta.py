@@ -47,7 +47,7 @@ class SeedInventoryTests(unittest.TestCase):
 
     def test_missing_human_confirmation_is_rejected(self):
         self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: human\n\n## {SEED_B}\n- reason: drafted\n", encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "human confirmation"):
+        with self.assertRaisesRegex(ValueError, "confirmation marker"):
             MODULE.inventory(self.seeds, self.digest, 1)
 
     def test_duplicate_seed_identity_is_rejected(self):
@@ -57,7 +57,7 @@ class SeedInventoryTests(unittest.TestCase):
 
     def test_unknown_digest_identity_is_rejected(self):
         self.digest.write_text("# Digest\n\n## 対象エントリ\n\n- 2026-06-09 — unknown\n", encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "absent or unconfirmed"):
+        with self.assertRaisesRegex(ValueError, "absent or lack a confirmation marker"):
             MODULE.inventory(self.seeds, self.digest, 1)
 
     def test_malformed_digest_does_not_pass_as_empty(self):
