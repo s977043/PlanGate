@@ -25,7 +25,7 @@ def read_declared_seeds(path: Path) -> list[str]:
         body = source[match.end():matches[index + 1].start() if index + 1 < len(matches) else len(source)]
         confirmations = re.findall(r"^- confirmed_by:\s*(.+)$", body, flags=re.MULTILINE)
         if len(confirmations) != 1 or not confirmations[0].strip() or confirmations[0].strip().lower() in {"<human>", "pending", "tbd", "none", "未確認"}:
-            raise ValueError(f"seed has missing or ambiguous human confirmation: {match.group(1)}")
+            raise ValueError(f"seed has missing or ambiguous confirmation marker: {match.group(1)}")
         entries.append(match.group(1))
     if len(entries) != len(set(entries)):
         raise ValueError("duplicate seed heading")
@@ -60,8 +60,9 @@ def inventory(seeds_path: Path, digest_path: Path, threshold: int) -> dict:
     indexed = read_digest_index(digest_path)
     missing = set(indexed) - set(seeds)
     if missing:
-        raise ValueError("digest refers to seeds that are absent or unconfirmed")
-    new = [entry for entry in seeds if entry not in set(indexed)]
+        raise ValueError("digest refers to seeds that are absent or lack a confirmation marker")
+    indexed_set = set(indexed)
+    new = [entry for entry in seeds if entry not in indexed_set]
     return {
         "status": "REVIEW_CANDIDATE" if len(new) >= threshold else "BELOW_THRESHOLD",
         "entries_with_confirmation_marker": len(seeds),
