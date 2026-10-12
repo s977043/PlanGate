@@ -142,7 +142,10 @@ T17_GIT
 cat >"$T17_GUARD_TMP/bin/gh" <<'T17_GH'
 #!/bin/sh
 # #1558: a helper that reads stdin must not swallow the hook's remaining refs.
-[ "${T17_GH_DRAIN_STDIN:-0}" = "1" ] && cat >/dev/null
+if [ "${T17_GH_DRAIN_STDIN:-0}" = "1" ]; then
+  cat >/dev/null
+  : >"$T17_GH_DRAIN_MARKER"
+fi
 # Historical merged PR lookup must filter state=merged, not select the newest
 # PR from state=all. The reused-with-open branch models a newer OPEN PR.
 case " $* " in
@@ -270,12 +273,17 @@ fi
 
 # TC-22 (#1558): a new branch first (the helper runs and drains stdin), then a
 # protected branch. The protected ref must still be read and blocked.
+T17_DRAIN_MARKER="$T17_GUARD_TMP/gh-drained"
 T17_RC=0
 T17_OUT=$({
   printf 'refs/heads/new %s refs/heads/fresh %s\n' "$T17_SHA" "$T17_ZERO"
   printf 'refs/heads/main %s refs/heads/main %s\n' "$T17_SHA" "$T17_SHA"
-} | T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 T17_GH_DRAIN_STDIN=1 PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
-if [ "$T17_RC" -eq 1 ] && printf '%s' "$T17_OUT" | grep -q "Direct push to protected branch 'main'"; then
+} | T17_GUARD_ROOT="$PG_T17_ROOT" T17_REMOTE_EXISTS=0 T17_GH_DRAIN_STDIN=1 T17_GH_DRAIN_MARKER="$T17_DRAIN_MARKER" PATH="$T17_GUARD_TMP/bin:$PATH" "$PG_T17_HOOK" origin example 2>&1) || T17_RC=$?
+# Positive control: the drain must actually have happened, otherwise this TC
+# would pass even with the unfixed hook (e.g. if the helper stops calling gh).
+if [ ! -f "$T17_DRAIN_MARKER" ]; then
+  t17_fail "TC-22 fake gh never drained stdin; the test did not exercise #1558"
+elif [ "$T17_RC" -eq 1 ] && printf '%s' "$T17_OUT" | grep -q "Direct push to protected branch 'main'"; then
   t17_pass "TC-22 stdin-reading helper does not hide a later protected ref"
 else
   t17_fail "TC-22 protected ref after a fresh branch bypassed (rc=$T17_RC): $T17_OUT"
