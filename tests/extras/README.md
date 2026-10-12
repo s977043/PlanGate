@@ -632,6 +632,14 @@ extras が 1 本増えると 2 起動増える。**絶対件数は契約値に�
 いずれも **テスト実行専用**であり、`PG_EXTRA_CONTRACT_PROBE` と同様に
 CI 設定・開発シェル・`.env` へ設定してはならない。
 
+**実 repo の固定パスを書く子は並列バッチに入れない（#1557）。** 実 repo の
+`docs/working/` 配下の固定名（`TASK-T4400-ta44-tmp` / `TASK-T45` / `TASK-962FALLBACK` など）や
+`docs/working/_maintenance/maintenance.json` を作成・削除・上書きする子は、`ta-61` の
+`_exclusive_real_repo` に列挙し、並列バッチの完了後に 1 本ずつ実行する。`TC-34` は、一覧の子が
+exclusive phase で起動されたことと、起動時に他の子と重なっていなかったことを実測する。
+一覧への追加は手作業であり、**新しい extras が実 repo の固定パスを書くなら同一覧へ足す**
+（足し忘れは `TC-34` では検出できない。sandbox（mktemp 配下）で書く規約 9 を優先する）。
+
 なお `ta-61` は covered 集合に比例して長くなるため、下記ウォッチドッグの既定閾値
 `PG_EXTRA_WATCHDOG_SEC=300` を正常時でも超えうる。ウォッチドッグは既定で
 **警告のみ**（実行意味論を変えない）なので、`ta-61` の警告行は stall ではなく

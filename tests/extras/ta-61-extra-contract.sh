@@ -168,6 +168,23 @@ ta-60-run-evidence.sh
 EOF
 }
 
+# 実 repo の固定パス（docs/working/ 配下の固定名・maintenance.json など）を作成・削除・
+# 上書きする子（#1557）。並列バッチには入れず、バッチの完了後に 1 本ずつ実行する。
+# ta-76 は ta-42 / ta-44 / ta-45 / ta-12 を実 repo 上で孫として再実行する。
+_exclusive_real_repo() {
+  cat <<'EOF'
+ta-111-status-c3-phase.sh
+ta-112-cli-project-root.sh
+ta-44-eh457-cli-wiring.sh
+ta-45-c3-mode-config.sh
+ta-76-extras-temp-state-scope.sh
+EOF
+}
+_T61_EXCLUSIVE=$(_exclusive_real_repo)
+_t61_in_exclusive() {
+  printf '%s\n' "$_T61_EXCLUSIVE" | grep -Fxq "$1"
+}
+
 # ---------------------------------------------------------------------------
 # Discovery (TC-28: same glob definition as the runner's extras loop)
 _T61_DISCOVERED=$( (cd "$_T61_DIR" && ls $_T61_GLOB 2>/dev/null) || true )
@@ -392,12 +409,22 @@ _T61_RES="$_T61_TMP/exec"
 _T61_WORKER="$_T61_TMP/exec-worker.sh"
 mkdir -p "$_T61_RES"
 cat > "$_T61_WORKER" <<'T61W'
-# $1=result root  $2=extras dir  $3=timeout sec  $4=guarded env names  $5=basename
+# $1=result root  $2=extras dir  $3=timeout sec  $4=guarded env names
+# $5=phase（parallel / exclusive）  $6=basename
 _w_sec=$3
-_w_id=${5%.sh}
-_w_f="$2/$5"
+_w_id=${6%.sh}
+_w_f="$2/$6"
 _w_res="$1/$_w_id"
 mkdir -p "$_w_res" || exit 0
+# 排他の実測用（TC-34）: 自分の phase と、起動時に走っていた他の子を記録する。
+printf '%s\n' "$5" >"$_w_res/phase"
+: >"$_w_res/running"
+for _w_p in "$1"/*/running; do
+  [ -e "$_w_p" ] || continue
+  _w_pid=${_w_p%/running}
+  _w_pid=${_w_pid##*/}
+  [ "$_w_pid" = "$_w_id" ] || printf '%s\n' "$_w_pid"
+done >"$_w_res/peers"
 if command -v timeout >/dev/null 2>&1; then
   _w_to() { timeout "$_w_sec" "$@"; }
 else
@@ -426,24 +453,39 @@ case "$_w_rc" in
   124|142) _w_contention >"$_w_res/cont1" ;;
 esac
 printf '%s\n' "$_w_rc" >"$_w_res/rc1"
-[ "$_w_rc" = "0" ] || exit 0
-_w_rc=0
-_w_to env $(_w_contam_args "$4") PG_EXTRA_CONTRACT_PROBE=force-fail PG_EXTRA_CONTRACT_TARGET="$_w_id" sh "$_w_f" </dev/null >"$_w_res/out2" 2>&1 || _w_rc=$?
-case "$_w_rc" in
-  124|142) _w_contention >"$_w_res/cont2" ;;
-esac
-printf '%s\n' "$_w_rc" >"$_w_res/rc2"
+if [ "$_w_rc" = "0" ]; then
+  _w_rc=0
+  _w_to env $(_w_contam_args "$4") PG_EXTRA_CONTRACT_PROBE=force-fail PG_EXTRA_CONTRACT_TARGET="$_w_id" sh "$_w_f" </dev/null >"$_w_res/out2" 2>&1 || _w_rc=$?
+  case "$_w_rc" in
+    124|142) _w_contention >"$_w_res/cont2" ;;
+  esac
+  printf '%s\n' "$_w_rc" >"$_w_res/rc2"
+fi
+rm -f "$_w_res/running"
 exit 0
 T61W
 _t61_queue=""
+_t61_pq=""
+_t61_xq=""
 for _t61_b in $_T61_STANDALONE_LIST; do
   [ "${_t61_b%.sh}" = "$_T61_SELF_ID" ] && continue
   _t61_queue="$_t61_queue $_t61_b"
+  if _t61_in_exclusive "$_t61_b"; then
+    _t61_xq="$_t61_xq $_t61_b"
+  else
+    _t61_pq="$_t61_pq $_t61_b"
+  fi
 done
-if [ -n "$_t61_queue" ]; then
+if [ -n "$_t61_pq" ]; then
   # shellcheck disable=SC2086
-  printf '%s\n' $_t61_queue | xargs -n 1 -P "$_T61_PARALLEL" sh "$_T61_WORKER" "$_T61_RES" "$_T61_DIR" "$_T61_RUN_TIMEOUT" "$_T61_GUARDED_ENVS" ||
+  printf '%s\n' $_t61_pq | xargs -n 1 -P "$_T61_PARALLEL" sh "$_T61_WORKER" "$_T61_RES" "$_T61_DIR" "$_T61_RUN_TIMEOUT" "$_T61_GUARDED_ENVS" parallel ||
     t61_fail "TC-12: per-file dispatcher (xargs -P $_T61_PARALLEL) exited non-zero"
+fi
+# 実 repo の固定パスを書く子は、並列バッチの完了後に 1 本ずつ走らせる（#1557）。
+if [ -n "$_t61_xq" ]; then
+  # shellcheck disable=SC2086
+  printf '%s\n' $_t61_xq | xargs -n 1 -P 1 sh "$_T61_WORKER" "$_T61_RES" "$_T61_DIR" "$_T61_RUN_TIMEOUT" "$_T61_GUARDED_ENVS" exclusive ||
+    t61_fail "TC-12: per-file dispatcher (exclusive, xargs -P 1) exited non-zero"
 fi
 
 for _t61_b in $_t61_queue; do
@@ -533,6 +575,53 @@ elif [ "$_T61_EXEC_COUNT" -gt 0 ]; then
   t61_pass "TC-25(3): per-file execution loop started $_T61_EXEC_COUNT file run(s) (non-zero)"
 else
   t61_fail "TC-25(3): per-file execution loop executed ZERO files — contract checks are vacuous (covered set collapsed in $_T61_DIR)"
+fi
+
+# TC-34: 実 repo の固定パスを書く子（_exclusive_real_repo）は並列 worker と同時に走らない（#1557）。
+#   (a) 一覧の各子が exclusive phase で起動されたこと（並列度に依らず決定的）
+#   (b) 起動時に記録した peers に、exclusive と他の子の組が無いこと（実測）
+#   (c) 陽性コントロール: P>=2 では並列バッチの子どうしの重なりが peers に記録されること
+#       （記録が 0 件なら (b) の検査器が死んでいる = vacuous として FAIL）
+if [ "$_T61_EXEC_LOOP" = "1" ] && [ "$_T61_EXEC_SCOPE" = "all" ]; then
+  _t61_bad34=""
+  _t61_xn=0
+  for _t61_b in $_T61_EXCLUSIVE; do
+    _t61_xn=$((_t61_xn + 1))
+    case " $_t61_queue " in
+      *" $_t61_b "*) : ;;
+      *) _t61_bad34="$_t61_bad34 $_t61_b(not-in-loop)"; continue ;;
+    esac
+    _t61_ph=$(cat "$_T61_RES/${_t61_b%.sh}/phase" 2>/dev/null || echo missing)
+    [ "$_t61_ph" = exclusive ] || _t61_bad34="$_t61_bad34 ${_t61_b%.sh}(phase=$_t61_ph)"
+  done
+  _t61_pn=0
+  _t61_seen=0
+  for _t61_b in $_t61_queue; do
+    _t61_id="${_t61_b%.sh}"
+    _t61_pf="$_T61_RES/$_t61_id/peers"
+    if [ ! -f "$_t61_pf" ]; then
+      _t61_bad34="$_t61_bad34 $_t61_id(peers-missing)"
+      continue
+    fi
+    if _t61_in_exclusive "$_t61_b"; then
+      [ -s "$_t61_pf" ] && _t61_bad34="$_t61_bad34 $_t61_id(overlapped:$(tr '\n' ' ' <"$_t61_pf"))"
+      continue
+    fi
+    _t61_pn=$((_t61_pn + 1))
+    [ -s "$_t61_pf" ] && _t61_seen=$((_t61_seen + 1))
+    for _t61_p in $(cat "$_t61_pf"); do
+      _t61_in_exclusive "$_t61_p.sh" && _t61_bad34="$_t61_bad34 $_t61_id(overlapped:$_t61_p)"
+    done
+  done
+  if [ "$_t61_xn" -lt 1 ]; then
+    t61_fail "TC-34: _exclusive_real_repo is empty — exclusivity check is vacuous"
+  elif [ -n "$_t61_bad34" ]; then
+    t61_fail "TC-34: real-repo writers ran concurrently with other children or outside the exclusive phase:$_t61_bad34"
+  elif [ "$_T61_PARALLEL" -ge 2 ] && [ "$_t61_pn" -ge 2 ] && [ "$_t61_seen" -lt 1 ]; then
+    t61_fail "TC-34: overlap recorder saw no concurrency in the parallel batch (P=$_T61_PARALLEL, $_t61_pn children) — detector is dead"
+  else
+    t61_pass "TC-34: $_t61_xn real-repo writers ran alone after the parallel batch (P=$_T61_PARALLEL; parallel children with recorded peers: $_t61_seen/$_t61_pn)"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
