@@ -43,8 +43,8 @@ if [ "$_t116_rc" -eq 0 ] && python3 - "$_t116_tmp/inventory.json" <<'PY'
 import json, sys
 with open(sys.argv[1], encoding="utf-8") as handle:
     x = json.load(handle)
-assert x["total_confirmed"] == x["already_indexed"] + x["unindexed_count"]
-assert x["authority"] == "READ_ONLY_NO_PROMOTION"
+assert x["entries_with_confirmation_marker"] == x["already_indexed"] + x["unindexed_count"]
+assert x["authority"] == "READ_ONLY_UNVERIFIED_MARKER_NO_PROMOTION"
 assert x["status"] in ("BELOW_THRESHOLD", "REVIEW_CANDIDATE")
 PY
 then
