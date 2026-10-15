@@ -166,14 +166,23 @@ printf 'DRIVER-SUMMARY: pass=%s fail=%s\n' "$pass" "$fail"
 T62_DRIVER
 
 if [ -f "$_T62_TA26" ] && [ -d "$_T62_FIXTURES" ]; then
-  _t62_rc_leak=0
+  # leak / clean は互いに独立（出力先は別ファイル、ta-26 は実 repo の固定パスを
+  # 書かない = ta-61 の _exclusive_real_repo 外）なので同時に起動する。逐次では
+  # ta-26 2 本分の所要が ta-61 の per-file 予算 180s に迫っていた（#1293）。
+  # wait は PID を指定する（harness から source されるため、引数なしの wait は
+  # runner 側の子まで待ってしまう）。
   ( PG_T26_NO_RECURSE=1; export PG_T26_NO_RECURSE
     _t62_to sh "$_t62_tmp/driver.sh" "$_T62_FIXTURES" "$_T62_TA26" </dev/null \
-      >"$_t62_tmp/leak.out" 2>&1 ) || _t62_rc_leak=$?
-  _t62_rc_clean=0
+      >"$_t62_tmp/leak.out" 2>&1 ) &
+  _t62_pid_leak=$!
   ( unset PG_T26_NO_RECURSE 2>/dev/null || true
     _t62_to sh "$_t62_tmp/driver.sh" "$_T62_FIXTURES" "$_T62_TA26" </dev/null \
-      >"$_t62_tmp/clean.out" 2>&1 ) || _t62_rc_clean=$?
+      >"$_t62_tmp/clean.out" 2>&1 ) &
+  _t62_pid_clean=$!
+  _t62_rc_leak=0
+  wait "$_t62_pid_leak" || _t62_rc_leak=$?
+  _t62_rc_clean=0
+  wait "$_t62_pid_clean" || _t62_rc_clean=$?
   _t62_skips=$(grep -c '再帰防止' "$_t62_tmp/leak.out" 2>/dev/null || true)
   _t62_passes=$(grep -c '\[PASS\]' "$_t62_tmp/clean.out" 2>/dev/null || true)
   _t62_diff_ok=0
