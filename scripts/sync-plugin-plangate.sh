@@ -341,6 +341,7 @@ _sync_ai_loop_file() {
 # 衝突）。同一実体判定のため basename → **バンドル元ソース実パス** の写像も
 # ここで確定し TSV でリライタへ渡す（key 集合がバンドル集合を成す）。
 _ai_loop_expected_refs=""
+_ai_loop_ref_base_count=0
 _ai_loop_map_file="$(mktemp)"
 : > "$_ai_loop_map_file"
 if [ -d "$AI_LOOP_WORKFLOWS_DIR" ]; then
@@ -348,6 +349,7 @@ if [ -d "$AI_LOOP_WORKFLOWS_DIR" ]; then
     [ -f "$_f" ] || continue
     _b="$(basename "$_f")"
     _ai_loop_expected_refs="$_ai_loop_expected_refs $_b"
+    _ai_loop_ref_base_count=$((_ai_loop_ref_base_count + 1))
     printf '%s\t%s\n' "$_b" "$_f" >> "$_ai_loop_map_file"
   done
 fi
@@ -355,10 +357,12 @@ if [ -d "$AI_LOOP_SPEC_DIR" ]; then
   for _name in $_ai_loop_spec_files; do
     [ -f "$AI_LOOP_SPEC_DIR/$_name" ] || continue
     _ai_loop_expected_refs="$_ai_loop_expected_refs $_name"
+    _ai_loop_ref_base_count=$((_ai_loop_ref_base_count + 1))
     printf '%s\t%s\n' "$_name" "$AI_LOOP_SPEC_DIR/$_name" >> "$_ai_loop_map_file"
   done
   if [ -f "$AI_LOOP_SPEC_DIR/ho-paths.md" ]; then
     _ai_loop_expected_refs="$_ai_loop_expected_refs ho-paths.md"
+    _ai_loop_ref_base_count=$((_ai_loop_ref_base_count + 1))
     printf '%s\t%s\n' "ho-paths.md" "$AI_LOOP_SPEC_DIR/ho-paths.md" >> "$_ai_loop_map_file"
   fi
 fi
@@ -426,11 +430,8 @@ fi
 #   ディレクトリ単位の完全欠損を個別に検出したい場合は正本ごとに base を
 #   分離する必要があるが、本 PBI では合算方式を採用した。
 if [ -d "$PLUGIN_AI_LOOP_REFS" ]; then
-  # 要素数の算出は意図的な未 quote 展開（スペース区切りのワード分割）。後段に
-  # 位置パラメータの使用（$@ / shift / set --）が無いことは確認済み（U-2。
-  # $1 の --dry-run 判定は冒頭で消費済み）。
-  set -- $_ai_loop_expected_refs
-  _ai_loop_ref_base_count=$#
+  # base は期待集合の構築時に 1 件ずつ数えた値を使う。未 quote のワード分割で
+  # 数えると正本名のスペース / glob 文字で過大化し guard が fail-open する（#1009）。
   # stale の定義（*.md 実ファイル + 期待集合に無い）は下の削除ループの条件と
   # **必ず一致させること**。片方だけ変えると「N 件と数えて M 件消す」形で
   # guard が無効化される（#861 再発型）。
