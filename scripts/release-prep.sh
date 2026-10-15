@@ -71,11 +71,12 @@ check_pending_applies() {
 }
 
 check_changelog_sync() {
-  if sh "$ROOT/scripts/sync-release-docs.sh" --check >/dev/null 2>&1; then
-    ok "docs/changelog.md 同期済み"
-  else
-    ng "docs/changelog.md が未同期 — 実行: sh scripts/sync-release-docs.sh（--check は書き込まない）"
-  fi
+  sh "$ROOT/scripts/sync-release-docs.sh" --check >/dev/null 2>&1 && rc=0 || rc=$?
+  case "$rc" in
+    0) ok "docs/changelog.md 同期済み" ;;
+    2) ng "docs/changelog.md が未同期 — 実行: sh scripts/sync-release-docs.sh（--check は書き込まない）" ;;
+    *) ng "docs/changelog.md の同期判定エラー (rc=$rc)" ;;
+  esac
 }
 
 check_plugin_cache_sync() {
