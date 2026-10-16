@@ -421,10 +421,23 @@ fi
 # when the only expected filename was "x y.md". Reuse the link rewriter map
 # instead of introducing another lossy serialized set. POSIX awk required.
 _ai_loop_ref_is_expected() {
-  awk -F '\t' -v ref_name="$1" '
+  # Map errors are UNKNOWN, not permission to delete. awk uses exit 1 only
+  # for a successful lookup that found no matching basename.
+  if [ ! -r "$_ai_loop_map_file" ]; then
+    _warn "WARN: expected-ref map unreadable; preserving plugin references (#1583)"
+    return 0
+  fi
+  if awk -F '\t' -v ref_name="$1" '
     $1 == ref_name { found = 1; exit }
     END { exit(found ? 0 : 1) }
-  ' "$_ai_loop_map_file"
+  ' "$_ai_loop_map_file"; then
+    return 0
+  else
+    _lookup_rc=$?
+    if [ "$_lookup_rc" -eq 1 ]; then return 1; fi
+    _warn "WARN: expected-ref lookup failed (rc=$_lookup_rc); preserving plugin references (#1583)"
+    return 0
+  fi
 }
 
 # plugin 側の skills/ai-loop-cycle/references/ から、正本側に存在しなくなったファイルを削除する
