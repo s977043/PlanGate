@@ -6,7 +6,7 @@
 # 範囲外（docs/release-process.md の Iron Law フローに従い、Human または明示承認済み AI）。
 #
 # 使い方:
-#   sh scripts/release-prep.sh --check     # readiness 検査のみ（変更なし）
+#   sh scripts/release-prep.sh --check     # readiness 検査のみ（作業ツリーに書き込まない）
 #   sh scripts/release-prep.sh vX.Y.Z      # 準備実行（CHANGELOG 確定 / version bump / 同期 + 検査）
 set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -71,11 +71,12 @@ check_pending_applies() {
 }
 
 check_changelog_sync() {
-  if sh "$ROOT/scripts/sync-release-docs.sh" | grep -q "no-op"; then
-    ok "docs/changelog.md 同期済み"
-  else
-    ng "docs/changelog.md が未同期だったため今同期した（コミットに含めること）"
-  fi
+  sh "$ROOT/scripts/sync-release-docs.sh" --check >/dev/null 2>&1 && rc=0 || rc=$?
+  case "$rc" in
+    0) ok "docs/changelog.md 同期済み" ;;
+    2) ng "docs/changelog.md が未同期 — 実行: sh scripts/sync-release-docs.sh（--check は書き込まない）" ;;
+    *) ng "docs/changelog.md の同期判定エラー (rc=$rc)" ;;
+  esac
 }
 
 check_plugin_cache_sync() {

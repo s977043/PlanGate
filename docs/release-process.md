@@ -110,6 +110,9 @@ sh scripts/release-prep.sh --check
 #   （VERSION_BUMP_MISSING の場合は `sh scripts/release-prep.sh vX.Y.Z` で
 #     CHANGELOG 確定 + 宣言箇所の bump を行い、PR → merge してから本手順に戻る。
 #     この準備実行も NOT READY のときは rc≠0 で終了する）
+#   --check は作業ツリーに書き込まない（#1496）。docs/changelog.md が未同期なら
+#   NG と同期コマンド（sh scripts/sync-release-docs.sh）を表示するだけで、
+#   同期は `release-prep.sh vX.Y.Z` の準備実行が行い、準備 PR に含める
 
 # 2. tag push
 git push origin <tag>
@@ -225,7 +228,7 @@ v8.16.0 の README_en 漏れ（レビューで水際検出）が実害・ヒヤ�
 | `README_en.md` | 同上（英語） | なし（レビュー観点） |
 | `plugin/plangate/README.md` | `**Version**:` 行 | なし（レビュー観点） |
 | **`CLAUDE.md`「最新リリース」節** | **HO パスのため AI は apply スクリプト提示まで・適用は Human**（`sh scripts/apply-claude-md-*.sh --apply`。v8.14〜8.16 で 3 世代 stale になった構造原因への対策として本表に常設） | なし（Human 適用の確認） |
-| `docs/changelog.md` | 更新**不要**（release published 後に `release-docs-sync` が自動 PR。**リリース後に run 結果確認 — 本書末尾「リリース後の workflow run 結果確認」参照**） | 自動 PR の run 結果確認 |
+| `docs/changelog.md` | 更新**不要**（release published 後に `release-docs-sync` が自動 PR。**リリース後に run 結果確認 — 本書末尾「リリース後の workflow run 結果確認」参照**）。`release-prep.sh vX.Y.Z` は同期済みにするが、`--check` は未同期を NG で報告するだけで書き込まない（#1496） | `release-prep.sh --check`（書き込みなし）/ 自動 PR の run 結果確認 |
 
 `.codex-plugin/plugin.json` が本表から漏れていた件について: 追加は **予防**であって、
 過去の payload 分岐の**原因ではない**。両 manifest の version は git 履歴上つねに
