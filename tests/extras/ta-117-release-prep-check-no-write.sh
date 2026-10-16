@@ -92,8 +92,13 @@ else
   _t117_ng "TC-04 expected judgement-error NG, rc=$_t117_rc out=$(printf '%s' "$_t117_out" | grep changelog)"
 fi
 
-if [ "$_pg_extra_mode" = standalone ]; then
-  rm -rf "$_T117_SB"
-  printf 'TA-117 result: pass=%s fail=%s\n' "$pass" "$fail"
-  [ "$fail" -eq 0 ]
+unset _t117_out _t117_rc _t117_st 2>/dev/null || true
+
+if [ "$_pg_extra_mode" = harness ]; then
+  printf 'T117DBG pwd=%s TMPDIR=%s self=%s\n' "$(pwd)" "${TMPDIR:-}" "$_T117_ROOT/tests/extras/ta-117-release-prep-check-no-write.sh"
+  ls -la "$_T117_ROOT/tests/extras/ta-117-release-prep-check-no-write.sh" | sed 's/^/T117DBG /'
+  timeout 60 env PG_EXTRA_CONTRACT_PROBE=force-fail PG_EXTRA_CONTRACT_TARGET=ta-117-release-prep-check-no-write PG_HARNESS_SOURCED=1 sh "$_T117_ROOT/tests/extras/ta-117-release-prep-check-no-write.sh" </dev/null 2>&1 | sed 's/^/T117DBG /'
+  printf 'T117DBG rc=%s\n' "$?"
 fi
+
+pg_extra_contract_finalize
