@@ -243,6 +243,27 @@ gh auth switch --user <expected-user> \
   CI が緑の PR 同士を続けて merge すると main で重複しうる。merge 後の main に対しても
   このコマンドを実行する
 
+- **closing keyword の照合**: merge-ready 判定の前に
+  `gh pr view <N> --json closingIssuesReferences` を実行し、close される issue が
+  本文の意図と一致するか照合する。「Do not close #N」のような否定文でも GitHub は
+  closing keyword として解釈する。関連付けるだけの issue は `Refs #N` とし、
+  close / fix / resolve 系の動詞を `#N` の直前に置かない（2026-10-12 #1550/#811 誤 close、
+  2026-10-15 #1574）
+
+  取得に失敗したときの空出力を「close なし」と取り違えないため、取得失敗は ABORT と
+  非 0 で終わる
+
+  ```bash
+  if out=$(gh pr view <N> --json closingIssuesReferences \
+      --jq '.closingIssuesReferences[] | "closes #\(.number) \(.title)"'); then
+    printf '%s\n' "$out"
+  else
+    echo "ABORT: closingIssuesReferences is unavailable; empty output does not mean no close" >&2; false
+  fi
+  ```
+
+  ABORT が出ず出力が空のときだけ「close される issue なし」と読む
+
 ## 関連ドキュメント
 
 - [`docs/workflows/ai-loop/review-feedback-loop.md`](../../../docs/workflows/ai-loop/review-feedback-loop.md) — suppression 表・L4 学習閉ループの正本
