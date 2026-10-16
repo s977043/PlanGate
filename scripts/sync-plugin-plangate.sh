@@ -416,6 +416,17 @@ if [ -d "$AI_LOOP_SPEC_DIR" ]; then
     rm -f "$_tmp_ho"
   fi
 fi
+# #1583: membership is exact on field 1 of the existing basename→source TSV.
+# The old space-delimited `case " $refs "` falsely treated y.md as present
+# when the only expected filename was "x y.md". Reuse the link rewriter map
+# instead of introducing another lossy serialized set. POSIX awk required.
+_ai_loop_ref_is_expected() {
+  awk -F '\t' -v ref_name="$1" '
+    $1 == ref_name { found = 1; exit }
+    END { exit(found ? 0 : 1) }
+  ' "$_ai_loop_map_file"
+}
+
 # plugin 側の skills/ai-loop-cycle/references/ から、正本側に存在しなくなったファイルを削除する
 # mass-delete safety guard（#914 経路2）: 削除実行前に base（期待集合
 # _ai_loop_expected_refs の要素数）と stale（dst にあって期待集合に無い *.md 数）を
@@ -439,24 +450,20 @@ if [ -d "$PLUGIN_AI_LOOP_REFS" ]; then
   for _f in "$PLUGIN_AI_LOOP_REFS"/*.md; do
     [ -f "$_f" ] || continue
     _base="$(basename "$_f")"
-    case " $_ai_loop_expected_refs " in
-      *" $_base "*) : ;;
-      *) _ai_loop_ref_stale_count=$((_ai_loop_ref_stale_count + 1)) ;;
-    esac
+    if ! _ai_loop_ref_is_expected "$_base"; then
+      _ai_loop_ref_stale_count=$((_ai_loop_ref_stale_count + 1))
+    fi
   done
   # 呼び出しを $(...) 内へ置かないこと（guard_fired の global 伝播条件）
   if ! _mass_delete_blocked "skills/ai-loop-cycle/references" "$_ai_loop_ref_base_count" "$_ai_loop_ref_stale_count"; then
     for _f in "$PLUGIN_AI_LOOP_REFS"/*.md; do
       [ -f "$_f" ] || continue
       _base="$(basename "$_f")"
-      case " $_ai_loop_expected_refs " in
-        *" $_base "*) : ;;
-        *)
-          if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/ai-loop-cycle/references/$_base"
-          else rm "$_f"; _log "DELETE: skills/ai-loop-cycle/references/$_base"; fi
-          changed=1
-          ;;
-      esac
+      if ! _ai_loop_ref_is_expected "$_base"; then
+        if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/ai-loop-cycle/references/$_base"
+        else rm "$_f"; _log "DELETE: skills/ai-loop-cycle/references/$_base"; fi
+        changed=1
+      fi
     done
   fi
 fi
