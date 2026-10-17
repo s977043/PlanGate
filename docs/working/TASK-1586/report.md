@@ -49,7 +49,7 @@
 
 **原因候補の反証:** `.github/workflows/test.yml`（mainのblob `e33f57940d07da745a110e0c9df0b609a305cb15`）に `concurrency.group: test-${{ github.workflow }}-${{ github.ref }}` / `cancel-in-progress: true` がある。新しいrunによる同一refの旧runキャンセルは**意図された制御として説明可能**。64件全てのキャンセル原因をGitHub側で実証したわけではない。キャンセルを一律にFlaky Test、無駄な費用、または削減できる実行と判定しない。
 
-特に `main` のcancelled 5件は約36.05分のelapsedを含む（例：[run 38870521020](https://github.com/s977043/PlanGate/actions/runs/38870521020)、約7.15分）。CI Ownerは必要な新mainチェックが後続runで完了したか、concurrency groupの意図とbranch protectionの必須checkに問題がないかを確認する。**cancel-in-progressを無断変更・無効化してはならない**。
+特に `main` のcancelled 5件は約36.05分のelapsedを含む。別途 `branch=main` の直近runを時系列で照合すると、2026-10-12のcancelled [38226105171](https://github.com/s977043/PlanGate/actions/runs/38226105171)（08:50:51開始、08:58:17終了）の次に [38226863850](https://github.com/s977043/PlanGate/actions/runs/38226863850)（08:58:13開始、09:03:41終了）がsuccess。2026-10-16のcancelled [38870521020](https://github.com/s977043/PlanGate/actions/runs/38870521020)（07:57:39開始、08:04:48終了）の次に [38871258689](https://github.com/s977043/PlanGate/actions/runs/38871258689)（08:04:26開始、08:11:57終了）がsuccess（時刻はUTC）。これはconcurrencyによる置換と**整合する2例**だが、置換が各取消しの直接原因であること、全件でrequired checksが維持されたこと、無駄・コスト削減余地の程度までは未証明。CI Ownerは残りもrun identity/必須check単位で確認する。**cancel-in-progressを無断変更・無効化してはならない**。
 
 **評価の最低条件:** 比較対象のrun ID集合を固定する。出典期間・created日時・event/branch・結論・cancel理由・job課金分数を別記し、(a) run経過秒、(b)実CPU/Runner実行、(c)課金額、(d) required-check coverageを分けて測る。改善手段と安全影響が不明なら `INCONCLUSIVE`。以上はread-onlyのEvidence、HO変更の承認ではない。
 
