@@ -34,6 +34,25 @@
 
 **Owner decision:** Runner課金履歴・jobの実稼働秒・workflow elapsedを別々に定義し、同等検証範囲を維持する変更仮説が承認されるまで`.github/workflows/**`を変更しない。改善前後の費用差は`UNKNOWN`。
 
+## キャンセルされたCIの反証レビュー（後続スナップショット）
+
+**再取得した動的スナップショット**（GitHub REST `actions/runs?per_page=100&page=1..10`、全ブランチの最新1,000件、2026-10-08T03:03:25Z〜10-17T19:13:16Z）ではTestは **209一意run**。内訳は success139 / cancelled64 / failure6。取得時刻・上位1,000件の境界が変わったため、前節の210件・success138 / cancelled66の数値を上書きして同一の確定母集団と主張しない。
+
+| Classification | Run count | Elapsed time approximation |
+| --- | ---: | ---: |
+| `Test` success | 139 | 約1,024.20分 |
+| `Test` cancelled | 64 | **約136.63分** |
+| `Test` failure | 6 | 約43.03分 |
+| `Test` total | 209 | 約1,203.87分 |
+| cancelled / pull_request | 59 | 約100.58分 |
+| cancelled / push | 5 | 約36.05分 |
+
+**原因候補の反証:** `.github/workflows/test.yml`（mainのblob `e33f57940d07da745a110e0c9df0b609a305cb15`）に `concurrency.group: test-${{ github.workflow }}-${{ github.ref }}` / `cancel-in-progress: true` がある。新しいrunによる同一refの旧runキャンセルは**意図された制御として説明可能**。64件全てのキャンセル原因をGitHub側で実証したわけではない。キャンセルを一律にFlaky Test、無駄な費用、または削減できる実行と判定しない。
+
+特に `main` のcancelled 5件は約36.05分のelapsedを含む（例：[run 38870521020](https://github.com/s977043/PlanGate/actions/runs/38870521020)、約7.15分）。CI Ownerは必要な新mainチェックが後続runで完了したか、concurrency groupの意図とbranch protectionの必須checkに問題がないかを確認する。**cancel-in-progressを無断変更・無効化してはならない**。
+
+**評価の最低条件:** 比較対象のrun ID集合を固定する。出典期間・created日時・event/branch・結論・cancel理由・job課金分数を別記し、(a) run経過秒、(b)実CPU/Runner実行、(c)課金額、(d) required-check coverageを分けて測る。改善手段と安全影響が不明なら `INCONCLUSIVE`。以上はread-onlyのEvidence、HO変更の承認ではない。
+
 ## Skillsコピー比較の方法と限界
 
 1. GitHubから固定mainの各 `SKILL.md` を個別取得し、Git blob SHAを比較した。対象は `intent-classifier` と `plangate-setup` の各4経路、計8ファイル。
