@@ -23,6 +23,25 @@
 3. **結果**: 2/2でClaude版だけ異なる。比較した8ファイル以外の構成・reference・frontmatter検証・Runtime実行は行っていない。**Blob不一致そのものは危険動作を証明しない**。
 4. `.claude/skills/**` はLegacyの`docs/ai/ai-loop/ho-paths.md`で明示されたパスに一致しないが、これを自動変更の許可とみなさない。C-3と現在のOwner/ガバナンスが優先。
 
+## Skill差分の精密レビュー（正本差分がただちに実害を意味するわけではない）
+
+GitHub blob不一致を、両バージョンの行単位LCSで照合した。**Claude版にも一部の停止・fail-closed記述は既に存在する**ため、「安全説明が全部欠落している」とは判断しない。
+
+| Skill | 正本だけにある重要な説明 | Claude側にも残る説明 | 反証 / 未確認 |
+| --- | --- | --- | --- |
+| `intent-classifier` | `.agents` の78〜84行に、配布するのはskills/rules/agents/commandsの読み物層のみ、CLI・enforcementは配布対象外、CLIがなければ明示停止・silent skip禁止とする7行の説明 | Claude版71〜73行にproject root解決とdownstream `doctor --fix`のrc=2/no-write、以降にCLIがPATHにない場合のdegrade説明 | CLI利用不可を明示する他箇所が存在するか、consumerによる誤った完了報告があるかは未検証 |
+| `plangate-setup` | `.agents` の41〜67行に、#1497で明示検証済みのdownstream操作（status/validate/approve/read-only doctor、および限定render）、script-relative helper非保証、CLI未配布の注意を詳述 | Claude版41〜48行にCLIの必要性と `doctor --fix`/dry-runのrc=2/no-write、CLIがない場合の手動確認を記載 | 細かい適用範囲の欠落が行動・テスト失敗につながるかは未確認 |
+
+### 修正前の検証計画（未実行、Human C-3レビュー用）
+
+1. **Canonicalとconsumerの契約確認**: `scripts/sync-plugin-plangate.sh` の配布正本が `.agents/skills` であることを固定mainで確認。Claude固有の差分は意図的かOwnerが判断し、無条件にファイル全体を上書きしない。
+2. **CLI非配布の負例**: downstreamに`plangate` CLIが無いfixtureで、実行できないことを明示し、未実施の`approve`/`render`/`doctor`をPASSと報告しないことを判定する。
+3. **`doctor --fix` の負例**: downstreamで修復不可の場合は `rc=2 / no-write` を維持。read-only `doctor`の可用性とwrite可能性を別判定。
+4. **下流コマンドの範囲**: #1497で確認した明示コマンドに限ることを示し、`exec`やscript-relative helperをCLI root resolverだけで対応済みと推測しない。
+5. **更新後のdrift確認**: source/Claude/Codex/Pluginの実際の配布経路・同期コマンドのdry-run、既存Skill lintとCIを現行headで評価する。機械生成先を正本と取り違えない。
+
+この計画は変更許可やテストPASSではない。テストの実行者・環境・exit code・実測結果がまだないため、判断は **DIFF_CONFIRMED / BEHAVIOR_UNKNOWN / NEEDS_APPROVAL** とする。
+
 ## 採否と最小の次ステップ
 
 1. **まずSKILL-01/02を優先してHumanへ提出**。失われた規範が実際の利用場面に影響するか、静的diffだけでなく負例を確認。最初から全コピーを上書きしない。
