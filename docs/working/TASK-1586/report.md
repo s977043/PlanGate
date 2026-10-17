@@ -16,6 +16,24 @@
 | NEG-02: Ratchet | [run 38330052668](https://github.com/s977043/PlanGate/actions/runs/38330052668) は2026-10-13の`TemporaryDirectory` cleanup `ENOTEMPTY(pack)`。[#1578](https://github.com/s977043/PlanGate/issues/1578)は2026-10-15 Closed。現mainの`test_ratchet.py` は`gc.auto=0`/`maintenance.auto=false` | このrunを**修正後再発**とみなすのは誤り。修正後の継続的失敗率は未測定 | **Historical / 除外**。新runの観測があれば切り分け直す |
 | HO-01: `CLAUDE.md`説明・配線乖離 | [#1586](https://github.com/s977043/PlanGate/issues/1586) の旧SHA観測に2912文字の行・Hook配線記述の不一致 | 現mainでの行数と実Hook配線は**未再検証** | **Human HO**。現在の物理配線を先に実測。Human-only apply/rollbackが承認されるまで変更しない |
 
+## Actions 1,000件の再集計（2026-10-18 / read-only）
+
+[Issue #1586](https://github.com/s977043/PlanGate/issues/1586) の旧報告`Test 210 run / 合計約2,155分`について、**210件は再現・時間合計は未再現**と判明した。今回の結果を優先し、同じ期間の料金削減と誤解しない。
+
+| Metric | Actual observation | Limitation |
+| --- | --- | --- |
+| Collection | `GET /actions/runs?per_page=100&page=1..10`、全branch・全workflowの最新1,000run | スナップショット・ページ移動による変動を許容し、run IDを検証する |
+| Window | 2026-10-08 03:02:28Z ～ 2026-10-17 17:46:14Z | 取得された最古・最新の`created_at` |
+| Test count | **210 unique run IDs** | `name == "Test"`、旧件数と一致 |
+| Status | **success 138 / cancelled 66 / failure 6** | Cancelledをfailure/成功に読み替えない |
+| Total elapsed | **71,853秒 = 1,197.55分** | 各runの`updated_at - run_started_at`合計。billable時間とは異なる |
+| Success elapsed | **約1,016.88分** | successの138runのみ。単一Runの成功時間でもない |
+| Original `2,155分` | **今回の同一run集合・elapsed定義では再現しない** | 差957.45分。課金Runner時間、別集計の混入、計算手順の再検証が必要 |
+
+再現手順：GitHub Actions runs APIのページ1〜10を全件取得 → `name == "Test"`でフィルタ → run IDを一意化・`conclusion`集計 → `max(0, updated_at - run_started_at)` を秒で合計（`2026-10-18`閲覧時）。代表4件の`/actions/runs/{id}/timing`で`run_duration_ms`も検証。報告された`billable.UBUNTU.total_ms=0`を全件の費用ゼロとは解釈しない。
+
+**Owner decision:** Runner課金履歴・jobの実稼働秒・workflow elapsedを別々に定義し、同等検証範囲を維持する変更仮説が承認されるまで`.github/workflows/**`を変更しない。改善前後の費用差は`UNKNOWN`。
+
 ## Skillsコピー比較の方法と限界
 
 1. GitHubから固定mainの各 `SKILL.md` を個別取得し、Git blob SHAを比較した。対象は `intent-classifier` と `plangate-setup` の各4経路、計8ファイル。
