@@ -23,6 +23,8 @@
 - #911のContext Package / Work Itemでsource revision・AC・assumptionを引き渡す。#920のFactory方針を再実装しない。
 - Verificationと判定を分離し、Builderの説明や自己評価を独立Evidenceとみなさない。
 - C-3 / C-3' の現行policy、C-4 / merge（Human-owned）、HO-paths・権限境界を保持する。文書を置くこと自体にruntime enforcementはない。
+- Discovery / Spike には C-3 の境界を適用する。**未承認の production code 変更は禁止**。read-only調査と、明示された承認範囲の隔離検証を区別し、Spikeを理由にHO領域や承認前変更へ進まない。
+- Plan→Work Item→Runの引き渡しでは、分類理由を提案データとして扱い、risk_class / execution_profile / allowed_paths / AC を再推定・上書きしない。根拠が不十分ならunknownのまま停止・照会する。
 
 ## 最小検証（コード変更前）
 
