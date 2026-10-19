@@ -46,7 +46,7 @@ v1_release: ""
 
 | 課題 | Severity | 状態 | V2 候補か |
 |------|---------|------|---------|
-| Codex 節「EH-1/2/3/6/9 物理発火」と hook-enforcement.md #1078 が矛盾している疑い | major | open（未照合） | Yes（別 issue、ユーザー判断 a） |
+| Codex 節「EH-1/2/3/6/9 物理発火」と hook-enforcement.md #1078 が矛盾している疑い | major | open（未照合） | Yes（#1592、ユーザー判断 a） |
 | skills の写しの乖離（intent-classifier / plangate-setup） | minor | open | No |
 | run 38714254251（fix/1496）が 2 attempt とも同じ失敗 | minor | open（branch 側の実バグの可能性） | No |
 | c3_status が不明な 1 件、status.md 45 件と c3.json 90 件の件数差 | minor | open（Unknown） | Yes |
@@ -58,11 +58,11 @@ v1_release: ""
 
 | V2 候補 | 理由 | 推定優先度 | 関連 Issue（あれば） |
 |--------|------|----------|-----------------|
-| Codex 節の事実照合 | ユーザー判断 a により別 issue で扱う | High | — |
+| Codex 節の事実照合 | ユーザー判断 a により別 issue で扱う | High | #1592 |
 | lite.size_ok の機械算出 | HOTL Phase 1 | High | #780 |
 | working-context.md の分割検討 | 承認規定を含むため HO 該当 | Medium | — |
-| apply-* 41 本の棚卸し | 1 本ずつ適用状態を確認する必要がある | Low | — |
-| Test workflow の分割 | test.yml は偽の緑を防ぐため今回は変えない | Medium | — |
+| apply-* 41 本の棚卸し | 1 本ずつ適用状態を確認する必要がある | Low | #1593 |
+| Test workflow の分割 | test.yml は偽の緑を防ぐため今回は変えない | Medium | #1594 |
 
 ## 4. 妥協点
 
@@ -94,7 +94,7 @@ v1_release: ""
 - `PLANGATE_SKIP_REASON` を付けて再起動したセッションで、`ho/apply-ci-cost.sh` と `ho/apply-claude-agents-md.sh` を追加する
 - Human が C-4 で PR をレビューし、merge する
 - Human が `ho/README.md` の手順に沿って、作業ブランチで HO 適用スクリプトを実行する（AI は dry-run も含めて実行しない）
-- 別 issue として起票する候補: Codex 節の事実照合（判断 a）、skills の写しの正本決定、apply-* の棚卸し、Test workflow の分割、HOTL Phase 1（#780 slice C）
+- 別 issue（2026-10-20 起票）: #1592（Codex 節の事実照合、判断 a）・#1593（apply-* の棚卸し）・#1594（Test workflow の分割）。skills の写しの正本決定は既存 #1086 / #1263、HOTL Phase 1 は既存 EPIC #1035（#780 slice C）と重なるため起票していない
 - 着手する前に、基準 SHA 以降の変更を再測定する
 - 避けること: 削除候補をこの PR で削除すること、test.yml を変えること
 
