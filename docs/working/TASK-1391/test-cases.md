@@ -99,13 +99,13 @@ At minimum:
 | EV-19 | R-006 | 5 フィールドのいずれかが値域外 / freshness フィールドを持つ | reject |
 | EV-20 | R-008 | blocker snapshot の `blockers` 重複 / 非 list / ref 欠落 | reject |
 | EV-21 | R-010 | decision に `input_last_event_seq` / `contract_bound_seq` / `decided_in_state` 欠落 | reject |
-| EV-22 | R-010 | `inputs` 件数 > `MAX_INPUT_REFS` / payload > `MAX_DECISION_EVENT_BYTES`（#1393 から import） | reject at append |
+| EV-22 | R-010 / R-034 | `inputs` 件数 > `MAX_INPUT_REFS` / #1393 PF-5 で確定した範囲のバイト数 > `MAX_DECISION_EVENT_BYTES`（#1393 から import） | reject at append。load では再適用しない（EV-34） |
 | EV-23 | R-010 | `inputs` が latest prior decision より前の ref だけ | reject |
-| EV-24 | R-011 | `state_transitioned` / `state_conflict` が #1392 定義と不一致 | reject |
+| EV-24 | R-011 / R-036 | `state_transitioned` / `state_conflict` が #1392 定義と不一致 | reject。**#1392 exec と同時に入れる（D-7）。今回は EV-35 / EV-36 のみ** |
 | EV-25 | R-013 | 2 イベントが同じ registered ref（verification id 等）を登録 | invalid |
 | EV-26 | R-013 | 同一 event_seq が 2 件 | invalid |
 | EV-27 | R-013 | 既存 stream の 1 件をそのまま再 append（replay） | invalid |
-| EV-28 | R-013 | `outcome=MERGE_READY` かつ policy `DENIED` 等の Outcome 矛盾 | invalid（具体的組合せは RED で凍結） |
+| EV-28 | R-013 / R-020 | `outcome=MERGE_READY` かつ Outcome 矛盾。組合せは plan P1B-6 の 4 種（policy `DENIED`/`HUMAN_REQUIRED` / policy 無し / convergence 非 pass / blockers 非空）を各 1 ケース（EV-28a〜d） | invalid（append と load の両方） |
 
 ### Projection
 
@@ -113,9 +113,9 @@ At minimum:
 |---|---|---|---|
 | PJ-04b | R-012 | 空 list / 非 list / 非 object 要素 | 例外で reject、RunEvidence を返さない |
 | PJ-11 | R-007 | `policy_verdict_recorded` を含む stream | `policy_verdicts[]` がイベントから導出される |
-| PJ-12 | R-009 | bound 無しで terminal decision（inputs:[]） | invalid（`ready` にならない）。旧実装で `ready` になることを実行再現 |
-| PJ-13 | R-009 | `required_verifiers` の一部に結果が無い terminal | invalid |
-| PJ-14 | R-009 | 最新セグメントの bound 前の verification しか無い | invalid |
+| PJ-12 | R-009 / R-023 | bound 無しで `MERGE_READY` の terminal decision（inputs:[]） | invalid（`ready` にならない）。旧実装で `ready` になることを実行再現 |
+| PJ-13 | R-009 | `required_verifiers` の一部に結果が無い `MERGE_READY` | invalid |
+| PJ-14 | R-009 / R-023 | `MERGE_READY` で最新セグメントの bound 前の verification しか無い | invalid |
 | PJ-15 | R-013 | producer が payload に `evidence_status=ready` を入れる | reject（未知キー）、receiver 判定のみ |
 
 ### Mutation targets（追加）
@@ -128,3 +128,58 @@ At minimum:
 16. `ready` 判定から required_verifiers 充足を外す（PJ-13）
 17. MAX_* の append 時再検査を外す（EV-22）
 18. 使用不能入力を `invalid` で返す（PJ-04b）
+
+## Revision 2.1 追加（C-2 R1 / R-020〜R-041）
+
+ID 体系は plan の `P1B-n`（#1422 B-n とは別系統、plan「ID 対応表」）。
+
+### 検査層タグ（R-024）
+
+`A` = append 時（`validate_append`）、`L` = 既受理 stream の load/audit（`validate_stream` / `project_run_evidence` に stream を直接渡す）。`A+L` は両方で RED を書く。
+
+| ID | 層 |
+|---|---|
+| EV-11 / EV-12 / EV-13 / EV-13a | A+L |
+| EV-14 / EV-15 | A（draft 段階） |
+| EV-16 / EV-17 / EV-18 / EV-19 / EV-20 / EV-21 / EV-23 / EV-25〜28 | A+L |
+| EV-22 | A のみ（L は EV-34 で非適用を確認） |
+| PJ-11〜15 | L（append 経由の stream でも同じ結果になることを併記） |
+
+### Event
+
+| ID | 由来 | 層 | Condition | Expected |
+|---|---|---|---|---|
+| EV-29 | R-022 | A+L | `input_last_event_seq == decision.event_seq − 2`（以下だが隣接しない） | invalid |
+| EV-30 | R-022 | A+L | `input_last_event_seq == decision.event_seq − 1` | accepted（GREEN 対照） |
+| EV-31 | R-020 | A+L | convergence の各フィールドが値域内の全 pass 値・`blocking_threads=0`・`conflict=false` | accepted（GREEN 対照） |
+| EV-31a | R-020 | A+L | `blocking_threads=true` / `conflict=0` / `ci="passed"` | reject（bool と int、語彙の取り違え） |
+| EV-32 | R-020 | A+L | decision キーが閉集合（plan P1B-7 の 10 キー）から 1 つ欠ける / 1 つ多い | reject |
+| EV-32a | R-020 | A+L | `decided_in_state="EXECUTING"` / `verdicts` 値 `"ok"` | reject |
+| EV-33 | R-020 / R-028 | A+L | `blockers_observed` の `blockers=[]`（空 snapshot） | accepted |
+| EV-33a | R-028 | A+L | `blockers` 要素が非文字列 / payload に `cause_hypothesis` 等の追加キー | reject |
+| EV-34 | R-037 | L | 既受理 stream（受理時は上限内）を、上限値を下げたモジュールで load | invalid にならない（append-only 検査を再適用しない） |
+| EV-35 | R-036 / D-7 | A+L | 未登録 event type（例: `state_conflict_v2`） | reject（fail-closed） |
+| EV-36 | R-036 / D-7 | A+L | 旧名 `state_conflict_recorded` を現行 payload で記録（`run_state.py` L189 の経路） | accepted（`test_delivery_v2.py` L188 を維持） |
+| EV-37 | R-020 | A+L | 同じ `observed_artifact_ref` で同 seq の convergence / policy が 2 件 | invalid |
+| EV-38 | R-026 | A+L | `inputs` が latest prior decision 以降の ref を含むが、#1395 が別の decision を選んだと仮定した入力 | #1391 は stream 上の latest のみで検証（選択ロジックを持たない。BD-04 と同じく静的確認） |
+
+### Projection
+
+| ID | 由来 | 層 | Condition | Expected |
+|---|---|---|---|---|
+| PJ-16 | R-023 / D-5 | L | bound 無しで terminal `BLOCKED` + Stop Reason | invalid でも ready でもない（GREEN 対照） |
+| PJ-17 | R-023 / D-5 | L | `required_verifiers` が一部欠けた `HUMAN_ESCALATED` + Stop Reason | invalid でも ready でもない（GREEN 対照） |
+| PJ-18 | R-023 / D-5 | L | 条件をすべて満たした `MERGE_READY` | ready（GREEN 対照） |
+| PJ-19 | R-024 | L | `failure.verification_ref` が missing の stream を append を経ずに load | invalid |
+| PJ-20 | R-033 | — | `delivery_runtime` 経由で使用不能入力 | delivery 失敗、RunEvidence を作らない |
+
+### 既存資産の再実行（R-032 / R-037）
+
+- `tests/fixtures/ai-loop-v2/delivery/*.json`、ta-87、ta-93、`test_delivery_v2.py`、`test_ratchet.py` を新 ready 条件で再実行。期待が変わるものは変更理由を status に記録
+
+### Mutation targets（追加）
+
+19. `input_last_event_seq` の等号を `<=` に戻す（EV-29）
+20. append-only 検査を load にも適用する（EV-34）
+21. `MERGE_READY` 以外の terminal も ready 条件不足で invalid にする（PJ-16 / PJ-17）
+22. load 経路で `verification_ref` 検査を外す（PJ-19）

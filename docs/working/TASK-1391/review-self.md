@@ -153,3 +153,21 @@ Mode: high-risk（plan §Mode判定）。
 ```text
 簡易 C-1: PASS（WARN 2 件。いずれも依存・deferred の明示で、C-3 で Human 判断）
 ```
+
+## 簡易 C-1（Revision 2.1 / C-2 R1 反映後 / 2026-10-22）
+
+失効注記（R-029）: 本ファイル L62 の「exact transaction retry is absorbed by #1392 before append」（および pbi-input L60 の「exact replay returns the already accepted event」）は R-002 により失効。再送は #1392 の CAS で拒否され、accepted stream 上の同一内容は invalid。
+
+| 項目 | 判定 | 根拠 |
+|---|---|---|
+| C1-PLAN-01 受入基準網羅 | PASS | R-020〜R-038 が plan §P1B-n / test-cases の ID に対応（review-external C-2 R1 監査表）。#1422 B-n との対応は plan「ID 対応表」 |
+| C1-PLAN-02 Unknowns 処理 | WARN | decision の後ろ 3 キー名と MAX_* の値・範囲は #1393 PF-5 待ち。exec BLOCKED として明示（D-6） |
+| C1-PLAN-03 スコープ制御 | PASS | 改名は #1392 exec へ（D-7）、latest 選択は #1395、replay は #1395 / #1393 |
+| C1-PLAN-04 テスト戦略 | PASS | 各ケースに A / L 層タグ、D-5 の GREEN 対照、mutation 11〜22 |
+| C1-PLAN-05 Work Breakdown Output | PASS | T1〜T6 |
+| C1-PLAN-06 依存関係 | WARN | #1393 PF-5 / #1392 exec に依存。replan trigger に PF-5 の key 名変更を追加 |
+| C1-PLAN-07 動作検証自動化 | PASS | 既存 test_delivery_v2 / test_ratchet / ta-87 / ta-93 / fixtures の再実行 + full suite |
+
+```text
+簡易 C-1（Rev 2.1）: PASS（WARN 2 件。いずれも PF-5 依存の明示で、C-3 で Human 判断）
+```
