@@ -2,6 +2,7 @@
 
 > 状態: 未検証。V2 の設計判断には使わない。
 > 一次ソース: <https://github.com/s977043/PlanGate/issues/870#issuecomment-6310129824>
+> 書式: hypothesis-logger（WF-07 探索的デバッグ用）の書式を、運用仮説の記録に流用している。
 
 ## 仮説
 
@@ -27,6 +28,13 @@ V2 の Stop Reason（NO_PROGRESS 等）は主に 1 Run の中で止まるため�
 - RESOLVED: 判断に効いた条件がある
 - REJECTED: どれも使われなかった・判断を誤らせた
 - DEFERRED: イテレーションが進まず評価不能
+
+## イテレーション別観察
+
+### Iteration 1（[レビュー](https://github.com/s977043/PlanGate/issues/870#issuecomment-6312556556)、Human 判断=続ける）
+
+- 判断に照合できた条件: 1（AC 増加なし 0/2、計画イテレーションのため想定内）/ 2（C-3 再発行 1/2）/ 3（敵対レビュー未実施のため該当なし）
+- 判定不能: 条件 4 と指標「Human 待ち時間」（時間を未計測。Iteration 2 から依頼・応答の時刻を記録する）
 
 ## 検証結果
 

@@ -1,14 +1,17 @@
 # PBI-870 作業ステータス
 
-> 最終更新: 2026-10-21 16:52
+> 最終更新: 2026-10-21 18:22
 > 現在フェーズ: exec
 > モード: standard
+>
+> 本ディレクトリは ai-loop V2 運用（イテレーション）の観察記録の置き場であり、親 PBI 分解（orchestrator-mode）は行わない。
 
 ## フェーズ履歴
 
 | 日時 (YYYY-MM-DD HH:mm) | フェーズ | 結果 / メモ |
 |------------------------|---------|------------|
 | 2026-10-21 16:52 | exec | ai-loop V2 運用 Iteration 1 開始に伴い仮説-1 を記録 |
+| 2026-10-21 18:22 | exec | Iteration 1 レビュー: Human 判断=続ける / Iteration 2 = #1391・#1392 plan 確定 |
 
 ## 残タスク
 
@@ -23,3 +26,4 @@
 
 - 運用の開始記録（Iteration 1）: <https://github.com/s977043/PlanGate/issues/870#issuecomment-6310093146>
 - 仮説-1 の一次ソース: <https://github.com/s977043/PlanGate/issues/870#issuecomment-6310129824>
+- Iteration 1 レビュー: <https://github.com/s977043/PlanGate/issues/870#issuecomment-6312556556>
