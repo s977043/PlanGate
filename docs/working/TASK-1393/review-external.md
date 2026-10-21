@@ -211,6 +211,26 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-079 | 整合 L-C7 | minor | #1402 の呼び出し側（`delivery_runtime.py` / `test_delivery_v2.py` / ta-87・ta-93 fixture）の移行が書かれていない | R-058 の是正漏れ | reflected: PF-1 に移行対象と `DecisionError` → `DecisionInputError` |
 | R-080 | 整合 L-C8 | info | `plan_contract_bound` が loop_contract_ref / required 集合を運べない（exec の順序） | R-065 の周辺 | reflected: PF-8 |
 
+## Human 決定（2026-10-21）— PF-1 の移行対象と #1422 部分凍結
+
+レビューラウンドの指摘ではなく、C-3 承認後に出た Human 決定 2 件を、確定反映の手順（R-NNN 集約 → 1 回確定反映 → 簡易 C-1 → Human の c3.json 再発行）に載せるために採番する。
+
+| ID | 出典 | severity | 内容 | 是正 / 状態 |
+|---|---|---|---|---|
+| R-081 | Human 決定 2026-10-21（2026-09-29 の #1395 コメントでの Human 指示の実施）/ #1422 裁定コメント「Not changed by this ruling」 | major | PF-1 の移行対象に `scripts/ai-loop-v2/ratchet.py` と TA-92（`scripts/ai-loop-v2/test_ratchet.py`・`tests/extras/ta-92-ai-loop-v2-ratchet.sh`）が無い。ratchet.py は `:16` で `from decision_core import DecisionError, decide` し、`:193` で `decide(loop_contract=..., run_state={"state": "PR_CONVERGING"}, verifications=..., failures=[], current_artifact_ref=..., pr_convergence=..., changed_paths=...)` を呼び、`:208` で `DecisionError` を catch して `ERROR` を返す。plan の `decide(decision_input)` と呼び出し形が違い、`changed_paths` は plan では #1393 が受け取らない（scope は #1395 observer の verdict） | open → Revision 2.6 で反映 |
+| R-082 | Human 裁定 2026-10-21（<https://github.com/s977043/PlanGate/issues/1422#issuecomment-6308427967>） | major | #1422 の B 表の部分凍結。B-4 / B-5 は #1392 commit + historical replay で、再構成できない履歴は INCONCLUSIVE（PASS にしない）。B-7 は RETIRED（B-9 に統合）。B-11 は #1395 が実行し #1393 が意味論の唯一の owner。B-8 / B-13 は未凍結の gap で、B-13 未成立の間の空集合は B-13 の PASS ではない。plan の B 表・Trust boundary・Known limitations がこれを反映していない | open → Revision 2.6 で反映 |
+
+## PR #1595 レビュー / Codex レビュー（2026-10-21、C-3 承認後）— exec 時要件
+
+C-3 承認（Revision 2.6、`plan_hash` `ec2a0db8…`）後に出た指摘。承認後の plan 本体編集は禁止のため、**plan / todo / test-cases は変更せず、exec 時の要件**として記録する。いずれも PF-1 / RT-03 / RT-04 の既定範囲内であり plan の変更を要しない。
+
+| ID | 出典 | severity | 内容 | 是正 / 状態 |
+|---|---|---|---|---|
+| R-083 | PR #1595 レビュー | major | plan PF-1 は `changed_paths` を #1393 の入力にせず、TA-92 を無変更で通すとしている。しかし origin/main（`1d624d95`、2026-10-21 実測）の `scripts/ai-loop-v2/ratchet.py` は `:182-191` の `pr_convergence` で `"scope": "pass"` を固定値で渡し（`:188`）、範囲外検出の唯一の経路は `:206` の `changed_paths` である。`scripts/ai-loop-v2/test_ratchet.py:935` `test_negative_control_failing_on_baseline_is_inconclusive` はこの経路経由の INCONCLUSIVE / `NEGATIVE_CONTROL_BASELINE_INVALID` を期待する。`changed_paths` を外すだけではこの検出が消える | open（exec 時要件）: exec で ratchet.py 側が fixture の `changed_paths` と `allowed_scope` から `pr_convergence.scope` を導出する（`pass` の固定をやめる）。当該テストを RT-04 の名指し回帰として追加する。PF-1 の既定範囲（scope = observer verdict）内であり plan 変更なし |
+| R-084 | Codex レビュー | minor | RT-03 に、`make_decision_input` が拒否する入力（例: 空の `required_verifiers`）を ratchet まで届かせる注入方法が無く、`DecisionInputError` → `ERROR` の対応を明示的に assert していない | open（exec 時要件）: exec で注入方法（fixture のフィールド）を特定し、`DecisionInputError` → `ERROR` の明示 assert を置く |
+
+**不採用**: Codex の「main に `make_decision_input` が無いので移行は実行不能」という指摘は採らない。`make_decision_input` は plan.md:141 で #1393 exec 自身が新設する API として定義されている。
+
 ## 監査表（追記専用）
 
 | R-ID | status | reflected_in(commit) | notes |
@@ -258,3 +278,10 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-070, R-072〜R-080 | reflected（Revision 2.5） | `3fd00ebf` | C-2 R2。#1422 B-1 表記 / B-13 の追記は Human 承認待ち |
 | R-071 | open | — | Human y/n（pbi-input Required 3 の文言） |
 | R-071 | reflected（Human y、2026-09-28） | `20a1701e` | pbi-input Required 3 に DENIED 時の BLOCKED を追記。#1422 に B-1 表記と B-13 を追加（Human y） |
+| R-081 | open | — | Human 決定 2026-10-21。PF-1 に ratchet.py / TA-92 を追加（Revision 2.6 で確定反映予定） |
+| R-082 | open | — | Human 裁定 2026-10-21（#1422 issuecomment-6308427967）。B 表の凍結状態（Revision 2.6 で確定反映予定） |
+| R-081 | reflected（Revision 2.6） | `03bae6aa` | PF-1 に ratchet.py / TA-92 と呼び出し形の移行。todo（caller migration / TA-92 回帰）、test-cases RT-01〜RT-04 |
+| R-082 | reflected（Revision 2.6） | `03bae6aa` | Revision 2.6 見出し、Audit 段落、B 表の凍結列、Known limitations（B-13 / B-8）。test-cases IT-16 / IT-17 |
+| R-083 | open（exec で対応） | — | exec 時要件（C-3 後のため plan 本体は不変）。ratchet.py で `pr_convergence.scope` を `changed_paths` × `allowed_scope` から導出、`test_negative_control_failing_on_baseline_is_inconclusive` を RT-04 の名指し回帰に |
+| R-084 | open（exec で対応） | — | exec 時要件（plan 本体は不変）。RT-03 の注入方法（fixture フィールド）と `DecisionInputError` → `ERROR` の明示 assert |
+| Codex「make_decision_input が main に無い」 | rejected | — | plan.md:141 で #1393 exec が新設する API と定義済み |
