@@ -206,3 +206,22 @@ EV-28b（policy 無しの `MERGE_READY` が invalid）は D-9 により**無効�
 24. ta-87 L117 の oracle だけ旧判定のまま残す（PJ-22）
 25. convergence 不在の検査を外す（EV-28e）
 26. `observed_artifact_ref` 照合を外す（EV-28g）
+
+## Revision 2.3 追加（C-2 R3 / R-049〜R-055）
+
+EV-28h の Expected は本節で置き換える（D-10）: 入力は **fixture 更新後**の `repair-convergence.json`（convergence に `observed_artifact_ref`、decision に `artifact_ref` を持つ。値は一致）。更新前の fixture では EV-28i / EV-28j により invalid になることを RED で確認する。
+
+EV-28b / EV-28f は引き続き無効（D-9）。有効化は #1395 producer 後の #1391 plan 改訂 + 再 C-3 で RED を追加する（D-12。skip marker で置いて自動で有効になる形にはしない）。
+
+| ID | 由来 | 層 | Input | Expected |
+|---|---|---|---|---|
+| EV-28i | R-049 / D-10 | A+L | `MERGE_READY` stream で `pr_convergence_recorded` に `observed_artifact_ref` が無い | invalid（append では reject） |
+| EV-28j | R-049 / D-10 | A+L | `MERGE_READY` stream で `decision_made.decision` に `artifact_ref` が無い | invalid（append では reject） |
+| EV-28k | R-049 / D-10 | — | `delivery_runtime` の repair 経路を実行 | 出力 stream の convergence / decision が両 ref を持ち一致、`ready` |
+| PJ-23 | R-050 / D-11 | — | 更新後 `evolution-input-non-success.json`（`terminal_unready`）を ratchet に入力 | evolution input として受理（GREEN、`test_ratchet.py`） |
+| PJ-24 | R-050 / D-11 | L | 更新後 `no-progress-stop.json` を投影 | L44 の期待値 `terminal_unready` と完全一致 |
+
+### Mutation targets（追加）
+
+27. convergence `observed_artifact_ref` / decision `artifact_ref` の必須検査を外す（EV-28i / EV-28j）
+28. ratchet の evolution input 許容値から `terminal_unready` を外す（PJ-23）

@@ -93,3 +93,23 @@ ID は plan の `P1B-n` に読み替える（上節の B-n は旧ラベル。pla
 - [ ] 🤖 P1B-13 adapter 境界文書（R-025）— rollback: 文書 revert
 - [ ] 🤖 mutation 19〜22 — rollback: 不要
 - [ ] 🤖 #1392 exec 時: `state_conflict` 改名・payload・EV-24（D-7。本 TASK の exec 範囲外として追跡のみ）— rollback: 不要
+
+## Revision 2.2（C-2 R2 / R-042〜R-048）
+
+- [x] C-2 R2 指摘集約（review-external R-042〜R-048）と確定反映
+- [ ] 🤖 RED/GREEN: `terminal_unready`（PJ-16 / PJ-17 完全一致、PJ-21 / PJ-22）— rollback: test 追加と `run_evidence.py` 判定変更の commit を revert
+- [ ] 🤖 ta-87 L117 の複製 oracle と `test_delivery_v2.py` の期待値を D-8 に更新 — rollback: 当該 commit を revert（`run_evidence.py` の判定変更と同時に戻す）
+- [ ] 🤖 RED: EV-28e / EV-28g、EV-28h（D-9 下の現状挙動固定）— rollback: test 追加の revert
+- [ ] 🤖 mutation 23〜26 — rollback: 不要
+- [ ] 🤖 #1392 への引き継ぎ発行: R-045（`validate_append` 経由のみ不変条件）/ R-046（旧名削除・混在 stream invalid の RED）— rollback: 不要（引き継ぎコメントの訂正で足りる）
+
+## Revision 2.3（C-2 R3 / R-049〜R-055）
+
+- [x] C-2 R3 指摘集約（review-external R-049〜R-055）と確定反映
+- [ ] 👤 C-3（Human）
+- [ ] 🤖 RED: EV-28i / EV-28j（ref 欠落の `MERGE_READY` は invalid）— rollback: test 追加の revert
+- [ ] 🤖 GREEN: `delivery_runtime.py` L65 / L238 と `tests/fixtures/ai-loop-v2/delivery/*.json` に convergence `observed_artifact_ref` / decision `artifact_ref` を追加、EV-28h / EV-28k を緑に（D-10）— rollback: producer と fixture の commit を同時に revert（片側だけ戻すと EV-28h が赤）
+- [ ] 🤖 GREEN: ratchet fixture と `no-progress-stop.json` L44 を `terminal_unready` に、`test_ratchet.py` に PJ-23 を追加（D-11）— rollback: fixture と test の commit を revert（`run_evidence.py` の D-8 変更と同時に戻す）
+- [ ] 🤖 `docs/ai/ai-loop-v2/artifact-responsibilities.md` L57 / L63 に `terminal_unready` を反映（D-11）— rollback: 文書 revert
+- [ ] 🤖 mutation 27〜28 — rollback: 不要
+- [ ] 👤 #1395 producer 後: EV-28b / EV-28f 有効化のための #1391 plan 改訂 + 再 C-3（D-12。本 TASK の今回 exec 範囲外として追跡のみ）— rollback: 不要

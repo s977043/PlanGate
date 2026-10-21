@@ -187,3 +187,19 @@ Mode: high-risk（plan §Mode判定）。
 ```text
 簡易 C-1（Rev 2.2）: PASS（WARN 2 件。D-9 の残存脅威と #1392 不変条件依存の明示）
 ```
+
+## 簡易 C-1（Revision 2.3 / C-2 R3 反映後 / 2026-10-22）
+
+| 項目 | 判定 | 根拠 |
+|---|---|---|
+| C1-PLAN-01 受入基準網羅 | PASS | R-049〜R-052 が plan §Decisions D-10〜D-12 / §P1B-5〜7 / §Files / test-cases Rev 2.3 / todo Rev 2.2〜2.3 に対応（review-external C-2 R3 監査表） |
+| C1-PLAN-02 Unknowns 処理 | WARN | D-9 の残存脅威は継続。有効化手続きは D-12（plan 改訂 + 再 C-3）で明示 |
+| C1-PLAN-03 スコープ制御 | PASS | D-10 の producer 更新は #1391 語彙内（#1395 責務に入らない）。`docs/ai/` / `scripts/` / fixtures は exec 時の Files として列挙のみ |
+| C1-PLAN-04 テスト戦略 | PASS | EV-28i〜k、PJ-23〜24、EV-28h は fixture 更新後で固定、mutation 27〜28 |
+| C1-PLAN-05 Work Breakdown Output | PASS | todo に Rev 2.2 / 2.3 タスクと rollback を追加（R-051） |
+| C1-PLAN-06 依存関係 | WARN | #1393 PF-5（D-6）と #1395 producer（D-12）に依存。replan trigger に追加 |
+| C1-PLAN-07 動作検証自動化 | PASS | ratchet / test_ratchet / no-progress-stop / artifact-responsibilities を Files に追加（D-11） |
+
+```text
+簡易 C-1（Rev 2.3）: PASS（WARN 2 件。D-9 残存脅威と #1393 / #1395 依存の明示）
+```

@@ -194,6 +194,40 @@ F-3 と D-9 の整合: EV-28e は維持（convergence は今日 produce され�
 
 reflected_in の commit は本 PR の C-2 R2 反映 commit（`Refs: R-042..R-048`）。
 
+## C-2 Round 3（追記専用 / 2026-10-22）
+
+照合 base: PR #1602 head `5999081c`、`git show origin/main:<path>`。
+
+| R-NNN | 由来 | severity | 指摘（照合結果） |
+|---|---|---|---|
+| R-049 | F-1 | major | EV-28g は convergence の `observed_artifact_ref`（plan P1B-5）と decision の `artifact_ref`（P1B-7、必須性が未記載）を比べるが、`repair-convergence.json` の `pr_convergence_recorded`（L197）/ `decision_made`（L214）はどちらも持たない（fixture 内 `observed_artifact_ref` grep 0 件を確認）。`delivery_runtime.py` L65 / L238 も書かない（照合済み）。必須にすると EV-28h が赤、任意にすると欠落で EV-28g を迂回できる → D-10 |
+| R-050 | F-2 | major | `terminal_unready` が `docs/ai/ai-loop-v2/artifact-responsibilities.md` L57（値域 `ready \| partial \| invalid`）と L63（ready = Outcome 到達）に反映されていない（照合済み）。`tests/fixtures/ai-loop-v2/ratchet/evolution-input-non-success.json` は `HUMAN_ESCALATED` / `BLOCKED` を `evidence_status: "ready"` で ratchet に渡しており（L7-L33 を確認）、`no-progress-stop.json` L44 は `"ready"` を期待（確認済み）→ D-11 |
+| R-051 | F-3 | minor | todo.md に Revision 2.2 のタスク（PJ-21/22、EV-28e〜h、mutation 23〜26、ta-87 L117 と test_delivery_v2 の D-8 更新、#1392 引き継ぎ R-045 / R-046）と rollback が無い（todo.md を確認） |
+| R-052 | F-4 | minor | D-9 の再有効化経路: plan は「#1395 側の変更で行う」とするが EV-28b / f に RED が無く、誰がどの手続きで有効化するか曖昧 → D-12 |
+| R-053 | Human D-10 | decision | 下記 verbatim |
+| R-054 | Human D-11 | decision | 下記 verbatim |
+| R-055 | Human D-12 | decision | 下記 verbatim |
+
+棄却した指摘: なし（F-1 / F-2 は一次ソースで症状を確認。F-3 / F-4 は plan / todo の記述と照合して成立を確認）。
+
+### Human 決定（2026-10-22 / verbatim）
+
+- **D-10**: #1391 also updates the producer: delivery_runtime.py (L65/L238) and fixtures emit convergence observed_artifact_ref and decision artifact_ref; both fields are required; MERGE_READY with a missing ref is invalid (add RED). Both are #1391 event vocabulary, so this does not enter #1395's responsibility. EV-28h is pinned to the post-fixture-update state.
+- **D-11**: ratchet accepts terminal_unready as an evolution input. Update the ratchet fixture to terminal_unready and add a GREEN; include artifact-responsibilities.md L57/L63, test_ratchet.py and no-progress-stop.json L44 in Files.
+- **D-12**: Enabling the D-9-disabled requirement (EV-28b/f) is done by a #1391 plan revision + re-C-3 after #1395 producers exist; state this explicitly (no skip-marker auto-enable).
+
+### 監査表（C-2 R3）
+
+| R-NNN | status | reflected_in | notes |
+|---|---|---|---|
+| R-049 | reflected | plan §Decisions D-10 / §P1B-5 / §P1B-7 / §Files / EV-28g / EV-28h / EV-28i〜j | D-10 |
+| R-050 | reflected | plan §Decisions D-11 / §P1B-6 / §Files / PJ-23 / PJ-24 | D-11 |
+| R-051 | reflected | todo.md Revision 2.2 / 2.3 節 | rollback 付き |
+| R-052 | reflected | plan §P1B-6（D-12）/ test-cases Rev 2.3 | D-12 |
+| R-053〜R-055 | recorded | plan §Decisions | Human 決定 |
+
+reflected_in の commit は本 PR の C-2 R3 反映 commit（`Refs: R-049..R-055`）。
+
 ## 回避クラス台帳（追記専用 / review-principles §7-quater）
 
 | クラス | 代表例（最小再現） | 検出ラウンド | 是正 | 前ラウンドが見つけられなかった理由 |
@@ -207,3 +241,5 @@ reflected_in の commit は本 PR の C-2 R2 反映 commit（`Refs: R-042..R-048
 | 存在・同一性による迂回 | convergence 無し / 別 head の convergence で Outcome 矛盾を素通り | R2（R-044） | EV-28e / EV-28g | R1 の Outcome 矛盾は「値が非 pass」だけを列挙し、イベントの不在と対象 ref の不一致を別経路として扱わなかった |
 | 層分離の迂回 writer | `validate_append` を経ない writer が上限超え stream を作る | R2（R-045） | #1392 不変条件 | R1 の層分離は正規経路だけを前提にしていた |
 | 改名の残存 | 旧名と新名の混在 stream | R2（R-046） | #1392 引き継ぎ / EV-39 | R1 は改名の時期（D-7）だけを決め、移行後の残存を検査対象にしていなかった |
+| 存在・同一性による迂回（同型・フィールド粒度） | 照合キー `observed_artifact_ref` / decision `artifact_ref` の欠落で EV-28g を素通り | R3（R-049） | D-10 必須化 + producer 更新 / EV-28i〜j | **新クラスではない**（R-044 と同型）。R2 はイベントの不在を経路として扱ったが、照合に使うフィールドの不在と producer がそれを書くかを照合しなかった（R-043 の producer 照合をフィールド粒度へ適用しなかった） |
+| 状態値の欠落（同型・下流消費者） | ratchet fixture が非成功 terminal を `ready` で渡す / 正本 doc の値域が三値のまま | R3（R-050） | D-11 / PJ-23〜24 | **新クラスではない**（R-042 と同型）。R2 は値域を projection と ta-87 oracle の 2 箇所だけで照合し、値域の正本 doc と下流消費者（ratchet）を数え切らなかった |
