@@ -183,3 +183,26 @@ ID 体系は plan の `P1B-n`（#1422 B-n とは別系統、plan「ID 対応表�
 20. append-only 検査を load にも適用する（EV-34）
 21. `MERGE_READY` 以外の terminal も ready 条件不足で invalid にする（PJ-16 / PJ-17）
 22. load 経路で `verification_ref` 検査を外す（PJ-19）
+
+## Revision 2.2 追加（C-2 R2 / R-042〜R-048）
+
+PJ-16 / PJ-17 の Expected は本節で置き換える（D-8）: `evidence_status == "terminal_unready"` の**完全一致**で assert する（「invalid でも ready でもない」の否定形 assert にしない）。
+
+EV-28b（policy 無しの `MERGE_READY` が invalid）は D-9 により**無効化**する。#1395 の producer が入るまで実装も RED も置かない（下記 EV-28h が現状の挙動を固定する）。
+
+| ID | 由来 | 層 | Condition | Expected |
+|---|---|---|---|---|
+| PJ-21 | R-042 / D-8 | L | terminal 未到達（outcome null）の stream | `evidence_status == "partial"`（完全一致） |
+| PJ-22 | R-042 / D-8 | L | `no-progress-stop.json`（`HUMAN_ESCALATED`）を `project_run_evidence` と ta-87 L117 の oracle の両方で投影 | どちらも `terminal_unready`（両者一致） |
+| EV-28e | R-044 | A+L | `MERGE_READY` かつ同セグメントに `pr_convergence_recorded` が無い | invalid |
+| EV-28f | R-044 / D-9 | A+L | `MERGE_READY` かつ `blockers_observed` が無い | **D-9 で無効化**（#1395 producer 後に RED） |
+| EV-28g | R-044 | A+L | 存在する convergence / policy / blockers の `observed_artifact_ref` ≠ decision `artifact_ref` | invalid |
+| EV-28h | R-043 / D-9 | L | `repair-convergence.json`（policy / blockers 無し、convergence あり）を投影 | `ready`（`test_repair_converges_to_merge_ready` / ta-87 L346-357 / ta-93 が緑のまま） |
+| EV-39 | R-046 | — | （#1392 引き継ぎ）同一 stream に `state_conflict_recorded` と `state_conflict` が混在 | invalid。**#1392 exec で置く** |
+
+### Mutation targets（追加）
+
+23. `terminal_unready` を `partial` に戻す（PJ-16 / PJ-17 / PJ-22）
+24. ta-87 L117 の oracle だけ旧判定のまま残す（PJ-22）
+25. convergence 不在の検査を外す（EV-28e）
+26. `observed_artifact_ref` 照合を外す（EV-28g）

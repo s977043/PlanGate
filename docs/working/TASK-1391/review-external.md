@@ -157,3 +157,53 @@ DL = 設計妥当性レーン、CL = コードベース整合レーン。
 | R-039〜R-041 | recorded | plan §Decisions | Human 決定 |
 
 reflected_in の commit は本 PR の C-2 R1 反映 commit（`Refs: R-020..R-041`）。
+
+## C-2 Round 2（追記専用 / 2026-10-22）
+
+照合 base: PR #1602 head `4b743aac`、`git show origin/main:<path>`。
+
+| R-NNN | 由来 | severity | 指摘（照合結果） |
+|---|---|---|---|
+| R-042 | F-1 | major | D-5 の「invalid でも ready でもない」に対応する値が無い。`run_evidence.py` L78 と ta-87 L117 の複製 oracle はどちらも `"ready" if outcome is not None else "partial"`（照合済み）で、`no-progress-stop.json`（`HUMAN_ESCALATED` を含むことを確認）は今日 ready。plan §Files は ta-87 L260-263 しか触れていなかった → D-8 |
+| R-043 | F-2 | major | EV-28b / P1B-6「policy verdict 無しの MERGE_READY は invalid」は、`repair-convergence.json` に policy / blockers イベントが無く（grep 0 件）、`delivery_runtime.py` も出さない（grep 0 件）ため `test_repair_converges_to_merge_ready`（L296）と ta-87 L346-357 を赤にする（照合済み）。producer は #1395 → D-9 |
+| R-044 | F-3 | major | R-020 と同型（是正漏れ）: convergence / blockers の不在と、別 head の convergence で P1B-6 を迂回できる。EV-28e（convergence 無し。fixture に convergence があることを確認したので有効）、EV-28f（blockers 無し。D-9 で無効化）、EV-28g（存在するイベントの `observed_artifact_ref` ≠ decision `artifact_ref`）。current-head 判定は #1393 / #1395 |
+| R-045 | F-4 | minor | EV-34 の層分離により `validate_append` を迂回する writer（durable writer / 手書き fixture）が上限超え stream を作ると load で受理される。#1392 の不変条件として引き継ぎ、constants version 案は先送り（理由は plan） |
+| R-046 | F-5 | minor | 旧名 `state_conflict_recorded` が残りうる。#1392 引き継ぎ必須項目に旧名削除と混在 stream invalid の RED を追加 |
+| R-047 | Human D-8 | decision | 下記 verbatim |
+| R-048 | Human D-9 | decision | 下記 verbatim |
+
+棄却した指摘: なし（F-1〜F-3 は一次ソースで症状を確認。F-4 / F-5 は設計上の指摘で、plan 記述と照合して成立を確認）。
+
+### Human 決定（2026-10-22 / verbatim）
+
+- **D-8**: Non-ready terminal streams (BLOCKED / HUMAN_ESCALATED etc.) get a new evidence_status value `terminal_unready`, distinct from `partial` (unfinished). Include ta-87 L117 and test_delivery_v2 in Files/AC; PJ-16/17 assert exact evidence_status equality.
+- **D-9**: Keep the policy/blockers vocabulary and checks in #1391, but the "absent ⇒ invalid" requirement for MERGE_READY stays disabled until #1395 producers exist. Record as residual threat; until then MERGE_READY uses existing conditions only.
+
+F-3 と D-9 の整合: EV-28e は維持（convergence は今日 produce されている）、EV-28f は D-9 で無効化、EV-28g はイベントが存在するときに適用。
+
+### 監査表（C-2 R2）
+
+| R-NNN | status | reflected_in | notes |
+|---|---|---|---|
+| R-042 | reflected | plan §Decisions D-8 / §P1B-6 / §Files / PJ-16, 17, 21, 22 | D-8 |
+| R-043 | reflected | plan §P1B-6（D-9 無効化）/ EV-28b 無効化 / EV-28h | D-9・残存脅威 |
+| R-044 | reflected | plan §P1B-6 / EV-28e〜g | EV-28f は D-9 |
+| R-045 | reflected | plan §#1392 への引き継ぎ不変条件 / Replan triggers | |
+| R-046 | reflected | plan §P1B-8 / EV-39 | #1392 exec |
+| R-047〜R-048 | recorded | plan §Decisions | Human 決定 |
+
+reflected_in の commit は本 PR の C-2 R2 反映 commit（`Refs: R-042..R-048`）。
+
+## 回避クラス台帳（追記専用 / review-principles §7-quater）
+
+| クラス | 代表例（最小再現） | 検出ラウンド | 是正 | 前ラウンドが見つけられなかった理由 |
+|-------|------------------|------------|------|--------------------------------|
+| 空虚な ready（non-vacuity） | bound 無し・inputs:[] の `decision_made` 1 件が ready | R0（C-3 準備 R-009） | P1B-6 / PJ-12〜14 | — （初回） |
+| ready 条件の過剰適用 | ready 条件を欠く `BLOCKED` が invalid | R1（R-023） | D-5 / PJ-16〜18 | R0 は MERGE_READY の穴だけを見ており、他 terminal への波及を検査対象にしていなかった |
+| Outcome 矛盾 | `MERGE_READY` かつ policy `DENIED` / convergence 非 pass / blockers 非空 | R1（R-020） | P1B-6 / EV-28a〜d | R0 は ready の前提（bound / verifier）だけを見て、他イベントとの矛盾を見ていなかった |
+| 層の取り違え（append 検査の load 再適用） | 上限を下げると既受理 stream が invalid | R1（R-037） | P1B 層分離 / EV-34 | R0 は検査内容だけを見て、どの層で走るかを見ていなかった |
+| 状態値の欠落（三値に収まらない terminal） | `HUMAN_ESCALATED` が ready と投影される | R2（R-042） | D-8 `terminal_unready` / PJ-21〜22 | R1 は D-5 で「何でないか」を決めただけで、値域（`evidence_status` の取りうる値）と複製 oracle を照合しなかった |
+| producer 不在の必須化 | policy 無しの `MERGE_READY` invalid が既存 fixture を赤にする | R2（R-043） | D-9 無効化 / EV-28h | R1 は検査側の語彙だけを見て、その事実を今日だれが produce するか（delivery_runtime / fixture）を照合しなかった |
+| 存在・同一性による迂回 | convergence 無し / 別 head の convergence で Outcome 矛盾を素通り | R2（R-044） | EV-28e / EV-28g | R1 の Outcome 矛盾は「値が非 pass」だけを列挙し、イベントの不在と対象 ref の不一致を別経路として扱わなかった |
+| 層分離の迂回 writer | `validate_append` を経ない writer が上限超え stream を作る | R2（R-045） | #1392 不変条件 | R1 の層分離は正規経路だけを前提にしていた |
+| 改名の残存 | 旧名と新名の混在 stream | R2（R-046） | #1392 引き継ぎ / EV-39 | R1 は改名の時期（D-7）だけを決め、移行後の残存を検査対象にしていなかった |

@@ -171,3 +171,19 @@ Mode: high-risk（plan §Mode判定）。
 ```text
 簡易 C-1（Rev 2.1）: PASS（WARN 2 件。いずれも PF-5 依存の明示で、C-3 で Human 判断）
 ```
+
+## 簡易 C-1（Revision 2.2 / C-2 R2 反映後 / 2026-10-22）
+
+| 項目 | 判定 | 根拠 |
+|---|---|---|
+| C1-PLAN-01 受入基準網羅 | PASS | R-042〜R-046 が plan §P1B-6 / §P1B-8 / §#1392 引き継ぎ / test-cases Rev 2.2 に対応（review-external C-2 R2 監査表） |
+| C1-PLAN-02 Unknowns 処理 | WARN | D-9 により policy / blockers 不在の `MERGE_READY` が ready になりうる。残存脅威として plan §P1B-6 に明記、有効化は #1395 |
+| C1-PLAN-03 スコープ制御 | PASS | current-head 判定は #1393 / #1395、旧名廃止は #1392、上限の版管理は #1393 |
+| C1-PLAN-04 テスト戦略 | PASS | PJ-16 / 17 / 21 / 22 は完全一致 assert、EV-28h で D-9 下の現状挙動を固定、mutation 23〜26 |
+| C1-PLAN-05 Work Breakdown Output | PASS | T1〜T6（変更なし） |
+| C1-PLAN-06 依存関係 | WARN | #1392 不変条件（validate_append 経由のみ）に依存。replan trigger に追加 |
+| C1-PLAN-07 動作検証自動化 | PASS | ta-87 L117 と test_delivery_v2 を Files に追加 |
+
+```text
+簡易 C-1（Rev 2.2）: PASS（WARN 2 件。D-9 の残存脅威と #1392 不変条件依存の明示）
+```
