@@ -143,6 +143,7 @@ invalid になるのを避けるため。`input_last_event_seq` の隣接性は 
 | `scope` | `pass` / `fail` |
 
 - `observed_artifact_ref` は**必須**（D-10 / R-049）。欠落は reject。今日の producer（`delivery_runtime.py` L65 の payload 構築と L238 の受信側）と `tests/fixtures/ai-loop-v2/delivery/*.json`（`repair-convergence.json` L197 など）はこのフィールドを持たないため、同じ変更で producer と fixture を更新する
+- トップレベル配置のため、payload キー閉集合 `EVENT_PAYLOAD_KEYS["pr_convergence_recorded"]`（`run_event.py` L49 = `{"convergence", "evidence_refs"}`。L199 / L253 が余剰キーを reject）に `observed_artifact_ref` を加える。変えないのは内側の `convergence` 5 キー閉集合だけ（R-062）。トップレベル配置の受理は EV-18b（append / load の GREEN）で固定する
 - freshness / wall-clock フィールドは **持たない**
 - **latest-current-head binding**（#1422 B-8 で #1391 plan が決めるとされたもの）: #1391 が提供するのは「同じ `observed_artifact_ref` を持つ当該種別イベントのうち event_seq 最大のもの」を一意に引ける stream 上の事実だけ（同 head・同 seq の重複は invalid）。それが current head かどうかの判定（`observed_artifact_ref == current_artifact_ref` かつ `observed_seq > contract_bound_seq`）は #1393 P-2、選択は #1395 が行う。policy verdict も同じ規則に従う
 - 検査層: append と load の両方
@@ -219,11 +220,11 @@ invalid になるのを避けるため。`input_last_event_seq` の隣接性は 
 
 ## Files / Components to Touch（R-031 / R-033 / R-035）
 
-- `scripts/ai-loop-v2/run_event.py`
+- `scripts/ai-loop-v2/run_event.py`（L49 `EVENT_PAYLOAD_KEYS["pr_convergence_recorded"]` に `observed_artifact_ref` を追加 — R-062）
 - `scripts/ai-loop-v2/run_evidence.py`
 - `scripts/ai-loop-v2/delivery_runtime.py`（P1B-11 の例外処理、P1B-3 の binding 参照、L65 / L238 で convergence `observed_artifact_ref` を出す — D-10。decision `artifact_ref` は L118 `_record_decision` で出し、L162 plan-gate `continue` では出さない — D-13 / R-056）
 - `scripts/ai-loop-v2/ratchet.py`（`evidence_status ∈ {ready, terminal_unready, partial}` の受理検査を追加。現状 `evidence_status` を一度も読まない — D-14 / R-057）
-- `tests/fixtures/ai-loop-v2/ratchet/verification-skipped.json`（L133 `HUMAN_ESCALATED` の `evidence_status` を `terminal_unready` に — D-8 の値域に揃える / R-059）
+- `tests/fixtures/ai-loop-v2/ratchet/verification-skipped.json`（L133 `HUMAN_ESCALATED` の `evidence_status` を `terminal_unready` に — D-8 の値域に揃える / R-059。L133 変更後、同 fixture の事前計算 digest（`run_evidence_refs` L36 / L43、`source_set_digest` L50、`evaluation_plan_digest` L73）を `ratchet.py` の `canonical_digest`（L57）系関数で再計算して更新する。`test_ratchet.py` には `rebind_sources` を通さず base fixture を評価するテストがあるため、更新しないと digest 不一致で落ちる — R-063）
 - `scripts/ai-loop-v2/test_delivery_v2.py`（既存テストの更新と RED 追加。`terminal_unready` の期待値 — D-8。`test_run_event.py` / `test_run_evidence.py` は存在しないため作らない）
 - `scripts/ai-loop-v2/test_ratchet.py`（`ratchet.py` の `validate_event` 依存の回帰確認、`terminal_unready` 受理の GREEN — D-11。現行 L468 付近が非成功 terminal を `ready` で扱う箇所）
 - `tests/fixtures/ai-loop-v2/ratchet/evolution-input-non-success.json`（`HUMAN_ESCALATED` / `BLOCKED` の `evidence_status` を `terminal_unready` に — D-11）

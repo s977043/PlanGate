@@ -219,3 +219,16 @@ Mode: high-risk（plan §Mode判定）。
 ```text
 簡易 C-1（Rev 2.4）: PASS（WARN 2 件。D-9 残存脅威と #1393 / #1395 依存の明示）
 ```
+
+## 簡易 C-1（R3 後スコープ検証 2 / R-062〜R-063 反映後 / 2026-10-22）
+
+| 項目 | 判定 | 根拠 |
+|---|---|---|
+| C1-PLAN-01 受入基準網羅 | PASS | R-062 → §P1B-5 / §Files / EV-18b、R-063 → §Files / PJ-23b / todo |
+| C1-PLAN-04 テスト戦略 | PASS | EV-18b（A+L GREEN）と EV-18a（内側配置 reject）が対。PJ-23b に digest 不一致の対照 |
+| C1-PLAN-05 Work Breakdown Output | PASS | todo に rollback 付きで 2 タスク追加 |
+| その他 | 変更なし | Rev 2.4 判定のまま |
+
+```text
+簡易 C-1（R-062〜R-063）: PASS（WARN は Rev 2.4 の 2 件のまま）
+```

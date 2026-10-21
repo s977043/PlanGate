@@ -260,6 +260,24 @@ reflected_in の commit は本 PR の C-2 R3 反映 commit（`Refs: R-049..R-055
 
 reflected_in の commit は本 PR の反映 commit（`Refs: R-056..R-061`）。
 
+## R3 後スコープ検証 2（追記専用 / 2026-10-22）
+
+照合 base: PR #1602 head `56d36d9a`、`git show origin/main:<path>`。
+
+| R-NNN | 由来 | severity | 指摘（照合結果） |
+|---|---|---|---|
+| R-062 | F-1 | major | §P1B-5（R-058）は `observed_artifact_ref` を payload トップレベルに置くが `EVENT_PAYLOAD_KEYS` に触れていない。`run_event.py` L49 = `"pr_convergence_recorded": {"convergence", "evidence_refs"}`、L199 / L253 が余剰キーを reject（確認）。**disposition**: L49 に `observed_artifact_ref` を追加すると明記し、不変なのは内側 `convergence` 5 キー閉集合だけと明確化。EV-18b（トップレベル配置の append / load 受理 GREEN）を追加 |
+| R-063 | F-2 | minor | `verification-skipped.json` は `run_evidence_refs`（L36 / L43）・`source_set_digest`（L50）・`evaluation_plan_digest`（L73）を事前計算で持つ（確認）。`ratchet.py` `canonical_digest`（L57）由来で、L133 の変更で不一致になる。`test_ratchet.py`（`scripts/ai-loop-v2/`）には `rebind_sources` を通さず base fixture を評価するテストがある。**disposition**: §Files / todo（rollback 付き）に digest 再計算を追加、PJ-23b Expected を調整 |
+
+### 監査表（R3 後スコープ検証 2）
+
+| R-NNN | status | reflected_in | notes |
+|---|---|---|---|
+| R-062 | reflected | plan §P1B-5 / §Files / EV-18b / todo | 閉集合検査の層 |
+| R-063 | reflected | plan §Files / PJ-23b / todo | digest 波及 |
+
+reflected_in の commit は本 PR の反映 commit（`Refs: R-062..R-063`）。
+
 ## 回避クラス台帳（追記専用 / review-principles §7-quater）
 
 | クラス | 代表例（最小再現） | 検出ラウンド | 是正 | 前ラウンドが見つけられなかった理由 |
@@ -277,3 +295,5 @@ reflected_in の commit は本 PR の反映 commit（`Refs: R-056..R-061`）。
 | 状態値の欠落（同型・下流消費者） | ratchet fixture が非成功 terminal を `ready` で渡す / 正本 doc の値域が三値のまま | R3（R-050） | D-11 / PJ-23〜24 | **新クラスではない**（R-042 と同型）。R2 は値域を projection と ta-87 oracle の 2 箇所だけで照合し、値域の正本 doc と下流消費者（ratchet）を数え切らなかった |
 | producer 不在の必須化（同型・producer 列挙の不足） | 全 decision に `artifact_ref` 必須だが plan-gate `continue`（`delivery_runtime.py` L162、`current_artifact=None`）は値を持てない | R3 後（R-056） | D-13（MERGE_READY のみ必須）/ EV-28l〜p | **新クラスではない**（R-043 / R-049 と同型）。R3 は producer を convergence の L65 / L238 で列挙し、`decision_made` を append する箇所（L118 / L162）と複製 oracle（ta-87 L107 / L197）を grep で数え切らなかった |
 | 検出力の無い GREEN（検査対象コードが存在しない） | `ratchet.py` が `evidence_status` を読まないため PJ-23 は値に関係なく PASS、mutation 28 の変異先が無い | R3 後（R-057） | D-14 受理検査 + PJ-23a RED / mutation 29 | **新クラス**。R3 は値の**消費者**（ratchet fixture / test）を照合したが、値を受理・拒否する**コードが存在するか**を照合しなかった（テストが注入して PASS を見るだけで、判定する側を grep していない） |
+| 閉集合検査の層の取りこぼし（同型） | `observed_artifact_ref` をトップレベルに置くが `EVENT_PAYLOAD_KEYS["pr_convergence_recorded"]`（`run_event.py` L49）が余剰キーとして reject | R3 後スコープ検証 2（R-062） | §P1B-5 / §Files に L49 追加 / EV-18b | **新クラスではない**（R-049 / R-056 と同型。閉集合検査を 1 層＝内側 `convergence` だけで照合し、外側の payload キー閉集合を数えなかった） |
+| digest 波及（既知の型） | fixture L133 を変えると事前計算 digest（L36 / L43 / L50 / L73）が不一致になり base fixture 評価テストが落ちる | R3 後スコープ検証 2（R-063） | §Files / todo に digest 再計算 / PJ-23b | **新クラスではない**（改番・内容変更が digest に波及する既知の型）。R-059 は値の矛盾だけを見て、その fixture が digest で自己束縛されていることを照合しなかった |

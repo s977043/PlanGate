@@ -124,4 +124,6 @@ ID は plan の `P1B-n` に読み替える（上節の B-n は旧ラベル。pla
 - [ ] 🤖 GREEN: ta-87 L107 / L197 の複製 oracle を D-13 に追従（EV-28p）— rollback: `run_event.py` の D-13 変更と同時に revert
 - [ ] 🤖 RED → GREEN: `ratchet.py` に `evidence_status` 受理検査（D-14）。PJ-23a が `origin/main` で FAIL することを先に実測 — rollback: `ratchet.py` と `test_ratchet.py` の commit を同時に revert
 - [ ] 🤖 `verification-skipped.json` L133 を `terminal_unready` に（R-059 / PJ-23b）— rollback: fixture revert（D-8 の `run_evidence.py` 変更と同時）
+- [ ] 🤖 L133 変更後に `verification-skipped.json` の digest（L36 / L43 / L50 / L73）を `ratchet.py` の関数で再計算して更新（R-063）— rollback: L133 変更と同じ commit で revert（digest だけ戻すと不一致）
+- [ ] 🤖 RED → GREEN: `EVENT_PAYLOAD_KEYS["pr_convergence_recorded"]` に `observed_artifact_ref`、EV-18b（R-062）— rollback: `run_event.py` の当該 commit を revert
 - [ ] 🤖 mutation 28（改訂）〜31。各変異の前に対象コードの存在を確認（R-057）— rollback: 不要

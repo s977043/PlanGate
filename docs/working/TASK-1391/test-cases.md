@@ -241,7 +241,8 @@ EV-28j の Expected は本節で置き換える（D-13）: 対象は **`outcome 
 | EV-18a | R-058 | A+L | `observed_artifact_ref` を `convergence` の内側（6 キー目）に置いた `pr_convergence_recorded` | A: `EventContractError("convergence keys")`。L: `== "invalid"`（トップレベルのみ受理） |
 | PJ-23 | R-050 / D-11 / D-14 | — | 更新後 `evolution-input-non-success.json`（`terminal_unready`）を ratchet に入力 | `result["experiment_result"]["result"] == "PASS"`（`test_ratchet.py` 既存 L458-475 を維持） |
 | PJ-23a | R-057 / D-14 | — | 同 fixture の `evidence_status` を `"invalid"` / `"done"` / 欠落にして ratchet に入力 | `result["experiment_result"]["result"] != "PASS"` かつ reject 理由に `evidence_status` を含む。**`ratchet.py` 変更前（`origin/main`）で FAIL（= 今は PASS が返る）ことを先に実測** |
-| PJ-23b | R-059 / D-8 | — | 更新後 `verification-skipped.json`（L133 `terminal_unready`）を ratchet に入力 | 既存期待（当該 fixture を使うテストの結果）が不変 |
+| EV-18b | R-062 | A+L | `observed_artifact_ref` を payload トップレベル（`convergence` の兄弟）に置いた `pr_convergence_recorded` | A: 受理（append 成功）。L: `!= "invalid"`（load 成功） |
+| PJ-23b | R-059 / R-063 / D-8 | — | 更新後 `verification-skipped.json`（L133 `terminal_unready`、digest を `ratchet.py` 関数で再計算済み）を ratchet に入力 | 既存期待（当該 fixture を使うテストの結果）が不変。再計算前の digest のままなら base fixture を評価するテストが digest 不一致で FAIL することを対照として確認 |
 
 ### Mutation targets（追加・改訂）
 
