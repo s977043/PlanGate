@@ -258,3 +258,17 @@ Verdict: PASS with WARN.
 | open decisions | WARN — for Human C-3: [P1] model B / bounds / durability / flush cost; [P2] CAS scope per root; provisional constants; acceptance of the residual threat model |
 
 Verdict: **PASS with WARN** — ready for Human C-3.
+
+## C-1 simple re-run after the C-3 preparation revision (2026-10-22)
+
+| item | result |
+|---|---|
+| every R-099〜R-104 reflected exactly once, at the cited plan / todo / test-cases location | PASS |
+| #1422 owner freeze (B-3 / B-4 / B-5) consistent with Decision-bound checks 1 / 2 / 3 and strict-load re-check | PASS (R-099 / R-102) |
+| `SnapshotInvalid` defined as stricter than INCONCLUSIVE and covered by a TC | PASS (R-100, ST-51) |
+| size-bound dependency points at #1393 I-11 / PF-5 that exist in TASK-1393 plan | PASS (R-101) |
+| Human decisions P1〜P4 recorded without widening scope | PASS (R-103) |
+| #1391 dependency status dated and verified | PASS (R-104) |
+| open items | WARN — exec still blocked by #1391 consumable / #1393 PF-5 / #1329 preflight (unchanged); `approvals/c3.json` is Human-issued |
+
+Verdict: **PASS with WARN** — ready for Human C-3 (c3.json issuance).
