@@ -228,6 +228,38 @@ reflected_in の commit は本 PR の C-2 R2 反映 commit（`Refs: R-042..R-048
 
 reflected_in の commit は本 PR の C-2 R3 反映 commit（`Refs: R-049..R-055`）。
 
+## R3 後スコープ検証（追記専用 / 2026-10-22）
+
+照合 base: PR #1602 head `53348182`、`git show origin/main:<path>`（各指摘を下記コマンドで照合）。
+
+| R-NNN | 由来 | severity | 指摘（照合結果） |
+|---|---|---|---|
+| R-056 | S-1 | major | `decision_made` の producer は plan が挙げた L65 / L238（convergence）ではなく `delivery_runtime.py` L116-118 `_record_decision`（L213 / L225 / L249 から呼ぶ）と L159-170 の plan-gate `continue`（`current_artifact` は L92 で None）の 2 箇所（grep で確認）。P1B-7 が全 decision に `artifact_ref` 必須とすると L162 は値を持てない。`run_event.py` L166-168 は decision キーを閉集合 `set(value) != required` で照合（確認）。ta-87 L107 / L197 が decision 分岐を複製（確認）、`no-progress-stop.json` の decision は L76 / L135 / L217（確認）→ D-13 |
+| R-057 | S-2 | major | **新クラス**: `ratchet.py` は `evidence_status` を一度も読まない（`grep -c` = 0）。`test_ratchet.py` L458-475 は fixture の値を `run_evidence["evidence_status"]` に注入して PASS を assert するだけで、PJ-23 は値に関係なく緑、mutation 28 は存在しないコードを狙っていた → D-14 |
+| R-058 | S-3 | minor | convergence の `observed_artifact_ref` の配置が未記載。`run_event.py` L159-161 は `convergence` を 5 キー閉集合で照合（確認）。内側に置くと閉集合の改訂が要る。**disposition**: payload トップレベル（`convergence` の兄弟）に確定。閉集合は不変、policy / blockers と同位置。EV-18a で内側配置を reject |
+| R-059 | S-4 | minor | `tests/fixtures/ai-loop-v2/ratchet/verification-skipped.json` L133 は `outcome: HUMAN_ESCALATED`（L119）で `evidence_status: "ready"`（確認）。D-8 では `terminal_unready`。**disposition**: Files に追加し `terminal_unready` に改める（D-14 後も `ready` は受理値なので放置しても赤にはならないが、D-8 の値域と矛盾した入力を正本 fixture に残さない）。PJ-23b |
+| R-060 | Human D-13 | decision | 下記 verbatim |
+| R-061 | Human D-14 | decision | 下記 verbatim |
+
+棄却した指摘: なし（S-1〜S-4 は一次ソースで症状を確認）。
+
+### Human 決定（2026-10-22 / verbatim）
+
+- **D-13**: artifact_ref is required only on MERGE_READY decisions and is the EV-28g comparison target. Other decisions: optional, format-checked if present. Add delivery_runtime.py L118/L162 and ta-87 L107/L197 to Files.
+- **D-14**: Add to ratchet an acceptance check evidence_status ∈ {ready, terminal_unready, partial}, with a RED rejecting invalid. PJ-23 and mutation 28 must then have detection power. Add ratchet.py to Files.
+
+### 監査表（R3 後スコープ検証）
+
+| R-NNN | status | reflected_in | notes |
+|---|---|---|---|
+| R-056 | reflected | plan §Decisions D-13 / §P1B-6 / §P1B-7 / §Files / EV-28j（改訂）・28l〜p / todo Rev 2.4 | D-13 |
+| R-057 | reflected | plan §Decisions D-14 / §P1B-6 / §Files / T4 / PJ-23a / mutation 28〜29 | D-14・新クラス |
+| R-058 | reflected | plan §P1B-5 / EV-18a | トップレベル配置 |
+| R-059 | reflected | plan §Files / PJ-23b / todo Rev 2.4 | Files に追加 |
+| R-060〜R-061 | recorded | plan §Decisions | Human 決定 |
+
+reflected_in の commit は本 PR の反映 commit（`Refs: R-056..R-061`）。
+
 ## 回避クラス台帳（追記専用 / review-principles §7-quater）
 
 | クラス | 代表例（最小再現） | 検出ラウンド | 是正 | 前ラウンドが見つけられなかった理由 |
@@ -243,3 +275,5 @@ reflected_in の commit は本 PR の C-2 R3 反映 commit（`Refs: R-049..R-055
 | 改名の残存 | 旧名と新名の混在 stream | R2（R-046） | #1392 引き継ぎ / EV-39 | R1 は改名の時期（D-7）だけを決め、移行後の残存を検査対象にしていなかった |
 | 存在・同一性による迂回（同型・フィールド粒度） | 照合キー `observed_artifact_ref` / decision `artifact_ref` の欠落で EV-28g を素通り | R3（R-049） | D-10 必須化 + producer 更新 / EV-28i〜j | **新クラスではない**（R-044 と同型）。R2 はイベントの不在を経路として扱ったが、照合に使うフィールドの不在と producer がそれを書くかを照合しなかった（R-043 の producer 照合をフィールド粒度へ適用しなかった） |
 | 状態値の欠落（同型・下流消費者） | ratchet fixture が非成功 terminal を `ready` で渡す / 正本 doc の値域が三値のまま | R3（R-050） | D-11 / PJ-23〜24 | **新クラスではない**（R-042 と同型）。R2 は値域を projection と ta-87 oracle の 2 箇所だけで照合し、値域の正本 doc と下流消費者（ratchet）を数え切らなかった |
+| producer 不在の必須化（同型・producer 列挙の不足） | 全 decision に `artifact_ref` 必須だが plan-gate `continue`（`delivery_runtime.py` L162、`current_artifact=None`）は値を持てない | R3 後（R-056） | D-13（MERGE_READY のみ必須）/ EV-28l〜p | **新クラスではない**（R-043 / R-049 と同型）。R3 は producer を convergence の L65 / L238 で列挙し、`decision_made` を append する箇所（L118 / L162）と複製 oracle（ta-87 L107 / L197）を grep で数え切らなかった |
+| 検出力の無い GREEN（検査対象コードが存在しない） | `ratchet.py` が `evidence_status` を読まないため PJ-23 は値に関係なく PASS、mutation 28 の変異先が無い | R3 後（R-057） | D-14 受理検査 + PJ-23a RED / mutation 29 | **新クラス**。R3 は値の**消費者**（ratchet fixture / test）を照合したが、値を受理・拒否する**コードが存在するか**を照合しなかった（テストが注入して PASS を見るだけで、判定する側を grep していない） |

@@ -225,3 +225,27 @@ EV-28b / EV-28f は引き続き無効（D-9）。有効化は #1395 producer 後
 
 27. convergence `observed_artifact_ref` / decision `artifact_ref` の必須検査を外す（EV-28i / EV-28j）
 28. ratchet の evolution input 許容値から `terminal_unready` を外す（PJ-23）
+
+## Revision 2.4 追加（R3 後スコープ検証 / R-056〜R-061）
+
+EV-28j の Expected は本節で置き換える（D-13）: 対象は **`outcome == MERGE_READY` の decision** だけ。PJ-23 / mutation 28 は D-14 の受理検査が入って初めて有効になる（R-057。それまでは検出力ゼロ）。
+
+| ID | 由来 | 層 | Input | Expected（assert） |
+|---|---|---|---|---|
+| EV-28j | R-049 / D-13 | A+L | `MERGE_READY` stream で terminal decision の `decision` に `artifact_ref` が無い | A: `validate_append` が `EventContractError` を raise。L: `project_run_evidence(stream)["evidence_status"] == "invalid"` |
+| EV-28l | R-056 / D-13 | A+L | 非 MERGE_READY の decision（`action=continue`, `outcome=None`）に `artifact_ref` が無い（`delivery_runtime.py` L162 の形、`no-progress-stop.json` L76 / L135 / L217） | A: 例外なく受理。L: 同 stream が `invalid` にならない（`no-progress-stop.json` は `== "terminal_unready"`） |
+| EV-28m | R-056 / D-13 | A+L | 非 MERGE_READY の decision に `artifact_ref="not-a-ref"` | A: `EventContractError`。L: `== "invalid"` |
+| EV-28n | R-056 / D-13 | A+L | EV-28g の比較対象: convergence `observed_artifact_ref = X`、先行の `continue` decision `artifact_ref = Y`、`MERGE_READY` decision `artifact_ref = X` | A: 受理。L: `== "ready"`（非 MERGE_READY decision の ref は比較に使わない） |
+| EV-28o | R-056 | — | `delivery_runtime` の plan-gate 経路（L159-170）と repair 経路（L213 / L225 / L249）を実行 | plan-gate `continue` decision は `"artifact_ref" not in decision`、`MERGE_READY` decision は `decision["artifact_ref"] == convergence["observed_artifact_ref"]` |
+| EV-28p | R-056 | — | ta-87 L107 / L197 の複製 oracle を EV-28o と同じ stream に適用 | oracle の decision 判定が `project_run_evidence` と一致（不一致で ta-87 FAIL） |
+| EV-18a | R-058 | A+L | `observed_artifact_ref` を `convergence` の内側（6 キー目）に置いた `pr_convergence_recorded` | A: `EventContractError("convergence keys")`。L: `== "invalid"`（トップレベルのみ受理） |
+| PJ-23 | R-050 / D-11 / D-14 | — | 更新後 `evolution-input-non-success.json`（`terminal_unready`）を ratchet に入力 | `result["experiment_result"]["result"] == "PASS"`（`test_ratchet.py` 既存 L458-475 を維持） |
+| PJ-23a | R-057 / D-14 | — | 同 fixture の `evidence_status` を `"invalid"` / `"done"` / 欠落にして ratchet に入力 | `result["experiment_result"]["result"] != "PASS"` かつ reject 理由に `evidence_status` を含む。**`ratchet.py` 変更前（`origin/main`）で FAIL（= 今は PASS が返る）ことを先に実測** |
+| PJ-23b | R-059 / D-8 | — | 更新後 `verification-skipped.json`（L133 `terminal_unready`）を ratchet に入力 | 既存期待（当該 fixture を使うテストの結果）が不変 |
+
+### Mutation targets（追加・改訂）
+
+28.（改訂）`ratchet.py` の受理集合から `terminal_unready` を外す（PJ-23 で検出）。対象コードは D-14 で新設するもの。**変異の前に対象行が存在することを確認する**
+29. `ratchet.py` の受理検査自体を外す（PJ-23a で検出）
+30. decision `artifact_ref` の必須条件を `MERGE_READY` 限定から全 decision に広げる（EV-28l で検出）/ 任意キーの形式検査を外す（EV-28m で検出）
+31. EV-28g の比較対象を「最新の decision」に変える（EV-28n で検出）

@@ -113,3 +113,15 @@ ID は plan の `P1B-n` に読み替える（上節の B-n は旧ラベル。pla
 - [ ] 🤖 `docs/ai/ai-loop-v2/artifact-responsibilities.md` L57 / L63 に `terminal_unready` を反映（D-11）— rollback: 文書 revert
 - [ ] 🤖 mutation 27〜28 — rollback: 不要
 - [ ] 👤 #1395 producer 後: EV-28b / EV-28f 有効化のための #1391 plan 改訂 + 再 C-3（D-12。本 TASK の今回 exec 範囲外として追跡のみ）— rollback: 不要
+
+## Revision 2.4（R3 後スコープ検証 / R-056〜R-061）
+
+- [x] 指摘集約（review-external R-056〜R-061）と確定反映
+- [ ] 👤 C-3（Human）
+- [ ] 🤖 RED: EV-28j（改訂）/ EV-28l / EV-28m / EV-28n / EV-18a — rollback: test 追加の revert
+- [ ] 🤖 GREEN: `run_event.py` decision キー検査を「必須 ⊆ キー ⊆ 必須 + 任意」に、`artifact_ref` を MERGE_READY のみ必須に（D-13）— rollback: 当該 commit を revert
+- [ ] 🤖 GREEN: `delivery_runtime.py` L118 `_record_decision` に `artifact_ref`、L162 は付けない、MERGE_READY で `current_artifact` null なら `ValueError`（EV-28o）— rollback: producer と fixture（`repair-convergence.json` L214）の commit を同時に revert
+- [ ] 🤖 GREEN: ta-87 L107 / L197 の複製 oracle を D-13 に追従（EV-28p）— rollback: `run_event.py` の D-13 変更と同時に revert
+- [ ] 🤖 RED → GREEN: `ratchet.py` に `evidence_status` 受理検査（D-14）。PJ-23a が `origin/main` で FAIL することを先に実測 — rollback: `ratchet.py` と `test_ratchet.py` の commit を同時に revert
+- [ ] 🤖 `verification-skipped.json` L133 を `terminal_unready` に（R-059 / PJ-23b）— rollback: fixture revert（D-8 の `run_evidence.py` 変更と同時）
+- [ ] 🤖 mutation 28（改訂）〜31。各変異の前に対象コードの存在を確認（R-057）— rollback: 不要

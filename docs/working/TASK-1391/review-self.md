@@ -203,3 +203,19 @@ Mode: high-risk（plan §Mode判定）。
 ```text
 簡易 C-1（Rev 2.3）: PASS（WARN 2 件。D-9 残存脅威と #1393 / #1395 依存の明示）
 ```
+
+## 簡易 C-1（Revision 2.4 / R3 後スコープ検証 反映後 / 2026-10-22）
+
+| 項目 | 判定 | 根拠 |
+|---|---|---|
+| C1-PLAN-01 受入基準網羅 | PASS | R-056〜R-059 が plan §Decisions D-13 / D-14・§P1B-5〜7・§Files / test-cases Rev 2.4 / todo Rev 2.4 に対応（review-external 監査表） |
+| C1-PLAN-02 Unknowns 処理 | WARN | D-9 残存脅威は継続。decision の任意キー名は #1393 PF-5 待ち（D-6） |
+| C1-PLAN-03 スコープ制御 | PASS | D-13 は #1391 語彙内、D-14 の ratchet 受理検査は値域の消費側のみ（ratchet の判定ロジックは変えない） |
+| C1-PLAN-04 テスト戦略 | PASS | 各ケースに A / L タグと完全一致 assert。PJ-23a は `origin/main` で FAIL を先に実測、mutation は対象コードの存在確認を前置（R-057） |
+| C1-PLAN-05 Work Breakdown Output | PASS | todo Rev 2.4 に rollback 付きタスク |
+| C1-PLAN-06 依存関係 | WARN | #1393 PF-5（D-6）と #1395 producer（D-12）に依存（変更なし） |
+| C1-PLAN-07 動作検証自動化 | PASS | `ratchet.py` / `verification-skipped.json` / `delivery_runtime.py` L118 / L162 / ta-87 L107 / L197 を Files に追加 |
+
+```text
+簡易 C-1（Rev 2.4）: PASS（WARN 2 件。D-9 残存脅威と #1393 / #1395 依存の明示）
+```
