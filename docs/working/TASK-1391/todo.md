@@ -55,3 +55,21 @@
 - [ ] #1392 interface handoff
 - [ ] #1393 interface handoff
 - [ ] #1383 integration evidence updated
+
+## Revision 2 / Phase 1B（R-001〜R-019）
+
+- [x] 指摘集約（review-external R-001〜R-019）
+- [x] plan 差分化（D-1）
+- [ ] 👤 C-3（Human）
+- [ ] 🤖 reviewed_at_sha / base SHA 記録 — rollback: 不要
+- [ ] 🤖 #1329 preflight（M-1/M-2/M-3 before）記録 — rollback: 不要
+- [ ] 🤖 RED: B-2 rebinding（EV-11〜13）— rollback: test 追加の revert
+- [ ] 🤖 RED: B-3 binding 供給（EV-14〜15）— rollback: 同上
+- [ ] 🤖 RED: B-6 / B-12 / B-8 / B-13 / B-10 / B-11 payload（EV-16〜24）— rollback: 同上
+- [ ] 🤖 RED: B-9 non-vacuity / B-8 policy projection / B-14（PJ-04b, PJ-11〜14）— R-009 は実行再現 — rollback: 同上
+- [ ] 🤖 RED: G13 不足分（EV-25〜28, PJ-15）— rollback: 同上
+- [ ] 🤖 GREEN: run_event.py / run_evidence.py 差分 — rollback: 当該 commit を revert（#1392 / #1393 側の呼び出しが未追従なら同時に戻す）
+- [ ] 🤖 mutation 11〜18 — rollback: 不要
+- [ ] 🤖 敵対レビュー R1 / R2 + 回避クラス台帳 — rollback: 不要
+- [ ] 🤖 R-014 / R-015 裁定記録 — rollback: 不要
+- [ ] 👤 C-4

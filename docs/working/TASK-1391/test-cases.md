@@ -78,3 +78,53 @@ At minimum:
 8. allow unknown payload keys
 9. drop reference-integrity check
 10. make projection depend on wall clock
+
+## Revision 2 / Phase 1B 追加（RED。`3331e5c4` で FAIL することを確認してから GREEN）
+
+`EV-02` の期待値は R-002 により「#1392 は CAS で再送を拒否する。stream に同一内容が現れたら invalid」と読み替える。
+
+### Event
+
+| ID | 由来 | Condition | Expected |
+|---|---|---|---|
+| EV-11 | R-001 | 2 本目の `plan_contract_bound` で plan_hash / source_sha が変わる | accepted（新セグメント） |
+| EV-12 | R-001 | 2 本目の bound で `harness_manifest_ref` が変わる | invalid |
+| EV-13 | R-001 | `contract_bound_seq` が直前の bound の seq と異なる | invalid |
+| EV-13a | R-001 / R-013 | bound 無しで binding（plan_hash）だけが途中で変わる | invalid（binding drift 単体） |
+| EV-14 | R-003 | draft の payload（ネスト含む）に binding キー | reject draft |
+| EV-15 | R-003 | `bound_context` 以外から binding 値を渡す | reject |
+| EV-16 | R-004 | bound に `loop_contract_ref` / `required_verifiers` 欠落・空・重複 | reject |
+| EV-17 | R-005 | `failure.verification_ref` 欠落 / future / missing | reject |
+| EV-18 | R-006 | convergence に `observed_artifact_ref` 欠落 | reject |
+| EV-19 | R-006 | 5 フィールドのいずれかが値域外 / freshness フィールドを持つ | reject |
+| EV-20 | R-008 | blocker snapshot の `blockers` 重複 / 非 list / ref 欠落 | reject |
+| EV-21 | R-010 | decision に `input_last_event_seq` / `contract_bound_seq` / `decided_in_state` 欠落 | reject |
+| EV-22 | R-010 | `inputs` 件数 > `MAX_INPUT_REFS` / payload > `MAX_DECISION_EVENT_BYTES`（#1393 から import） | reject at append |
+| EV-23 | R-010 | `inputs` が latest prior decision より前の ref だけ | reject |
+| EV-24 | R-011 | `state_transitioned` / `state_conflict` が #1392 定義と不一致 | reject |
+| EV-25 | R-013 | 2 イベントが同じ registered ref（verification id 等）を登録 | invalid |
+| EV-26 | R-013 | 同一 event_seq が 2 件 | invalid |
+| EV-27 | R-013 | 既存 stream の 1 件をそのまま再 append（replay） | invalid |
+| EV-28 | R-013 | `outcome=MERGE_READY` かつ policy `DENIED` 等の Outcome 矛盾 | invalid（具体的組合せは RED で凍結） |
+
+### Projection
+
+| ID | 由来 | Condition | Expected |
+|---|---|---|---|
+| PJ-04b | R-012 | 空 list / 非 list / 非 object 要素 | 例外で reject、RunEvidence を返さない |
+| PJ-11 | R-007 | `policy_verdict_recorded` を含む stream | `policy_verdicts[]` がイベントから導出される |
+| PJ-12 | R-009 | bound 無しで terminal decision（inputs:[]） | invalid（`ready` にならない）。旧実装で `ready` になることを実行再現 |
+| PJ-13 | R-009 | `required_verifiers` の一部に結果が無い terminal | invalid |
+| PJ-14 | R-009 | 最新セグメントの bound 前の verification しか無い | invalid |
+| PJ-15 | R-013 | producer が payload に `evidence_status=ready` を入れる | reject（未知キー）、receiver 判定のみ |
+
+### Mutation targets（追加）
+
+11. 2 本目の bound を binding drift として扱う（EV-11 で検出）
+12. 2 本目の bound で manifest 変化を許す（EV-12）
+13. draft の binding キーを許す（EV-14）
+14. `policy_verdicts` を `[]` に戻す（PJ-11）
+15. `ready` 判定から bound 先行条件を外す（PJ-12）
+16. `ready` 判定から required_verifiers 充足を外す（PJ-13）
+17. MAX_* の append 時再検査を外す（EV-22）
+18. 使用不能入力を `invalid` で返す（PJ-04b）

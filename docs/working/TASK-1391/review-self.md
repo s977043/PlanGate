@@ -133,3 +133,23 @@ Plan test strategy: GO
 Production code: BLOCKED
 Independent review: REQUIRED
 ```
+
+## 簡易 C-1（Revision 2 / 2026-10-22）
+
+対象: R-001〜R-019 の 1 回確定反映後の plan / todo / test-cases（Plan 項目 C1-PLAN-01〜07）。
+
+| 項目 | 判定 | 根拠 |
+|---|---|---|
+| C1-PLAN-01 受入基準網羅 | PASS | R-001〜R-013 の各指摘が plan §B-2〜B-14 と test-cases の ID に 1 対 1 以上で対応（review-external 監査表） |
+| C1-PLAN-02 Unknowns 処理 | WARN | R-014 / R-015 は deferred。R-009 は静的指摘で、PJ-12 の実行再現を RED の最初に置いた |
+| C1-PLAN-03 スコープ制御 | PASS | state 条件は #1392、MAX_* と Replan 意味は #1393（D-3）。freshness を持たない（D-2） |
+| C1-PLAN-04 テスト戦略 | PASS | RED → GREEN → mutation 11〜18 |
+| C1-PLAN-05 Work Breakdown Output | PASS | T1〜T5 |
+| C1-PLAN-06 依存関係 | WARN | B-10 / B-11 / EV-22 は #1392 / #1393 の定義に依存。定義が動けば replan trigger |
+| C1-PLAN-07 動作検証自動化 | PASS | TA + full suite |
+
+Mode: high-risk（plan §Mode判定）。
+
+```text
+簡易 C-1: PASS（WARN 2 件。いずれも依存・deferred の明示で、C-3 で Human 判断）
+```
