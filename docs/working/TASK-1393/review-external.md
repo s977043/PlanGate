@@ -218,7 +218,7 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | ID | 出典 | severity | 内容 | 是正 / 状態 |
 |---|---|---|---|---|
 | R-081 | Human 決定 2026-10-21（2026-09-29 の #1395 コメントでの Human 指示の実施）/ #1422 裁定コメント「Not changed by this ruling」 | major | PF-1 の移行対象に `scripts/ai-loop-v2/ratchet.py` と TA-92（`scripts/ai-loop-v2/test_ratchet.py`・`tests/extras/ta-92-ai-loop-v2-ratchet.sh`）が無い。ratchet.py は `:16` で `from decision_core import DecisionError, decide` し、`:193` で `decide(loop_contract=..., run_state={"state": "PR_CONVERGING"}, verifications=..., failures=[], current_artifact_ref=..., pr_convergence=..., changed_paths=...)` を呼び、`:208` で `DecisionError` を catch して `ERROR` を返す。plan の `decide(decision_input)` と呼び出し形が違い、`changed_paths` は plan では #1393 が受け取らない（scope は #1395 observer の verdict） | open → Revision 2.6 で反映 |
-| R-082 | Human 裁定 2026-10-21（https://github.com/s977043/PlanGate/issues/1422#issuecomment-6308427967） | major | #1422 の B 表の部分凍結。B-4 / B-5 は #1392 commit + historical replay で、再構成できない履歴は INCONCLUSIVE（PASS にしない）。B-7 は RETIRED（B-9 に統合）。B-11 は #1395 が実行し #1393 が意味論の唯一の owner。B-8 / B-13 は未凍結の gap で、B-13 未成立の間の空集合は B-13 の PASS ではない。plan の B 表・Trust boundary・Known limitations がこれを反映していない | open → Revision 2.6 で反映 |
+| R-082 | Human 裁定 2026-10-21（<https://github.com/s977043/PlanGate/issues/1422#issuecomment-6308427967>） | major | #1422 の B 表の部分凍結。B-4 / B-5 は #1392 commit + historical replay で、再構成できない履歴は INCONCLUSIVE（PASS にしない）。B-7 は RETIRED（B-9 に統合）。B-11 は #1395 が実行し #1393 が意味論の唯一の owner。B-8 / B-13 は未凍結の gap で、B-13 未成立の間の空集合は B-13 の PASS ではない。plan の B 表・Trust boundary・Known limitations がこれを反映していない | open → Revision 2.6 で反映 |
 
 ## 監査表（追記専用）
 
@@ -269,3 +269,5 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-071 | reflected（Human y、2026-09-28） | `20a1701e` | pbi-input Required 3 に DENIED 時の BLOCKED を追記。#1422 に B-1 表記と B-13 を追加（Human y） |
 | R-081 | open | — | Human 決定 2026-10-21。PF-1 に ratchet.py / TA-92 を追加（Revision 2.6 で確定反映予定） |
 | R-082 | open | — | Human 裁定 2026-10-21（#1422 issuecomment-6308427967）。B 表の凍結状態（Revision 2.6 で確定反映予定） |
+| R-081 | reflected（Revision 2.6） | `03bae6aa` | PF-1 に ratchet.py / TA-92 と呼び出し形の移行。todo（caller migration / TA-92 回帰）、test-cases RT-01〜RT-04 |
+| R-082 | reflected（Revision 2.6） | `03bae6aa` | Revision 2.6 見出し、Audit 段落、B 表の凍結列、Known limitations（B-13 / B-8）。test-cases IT-16 / IT-17 |

@@ -138,3 +138,17 @@ Human 裁定（2026-09-25）: Rev2-R5 の R-047 を R-037 と同型とみなし�
 判定: **PASS（受入基準の文言 1 件 WARN）**。C-2 は収束。次は Human の C-3（同期）。
 
 追記（2026-09-28 / R-071 反映後）: Human の y を受けて pbi-input Required 3 に DENIED 時の BLOCKED を追記し、DD-05 / DD-17 と一致した。受入基準網羅は **PASS**。簡易 C-1 は **PASS**（WARN なし）。#1422 に B-1 表記と B-13 を追加し、plan の B 表の「提案」表記を外した。
+
+### 追記（2026-10-21 14:50 / 簡易 C-1 — R-081 / R-082 の確定反映（Revision 2.6）後）
+
+| ID | 観点 | 判定 | 根拠 |
+|---|---|---|---|
+| C1-PLAN-01 | 受入基準網羅性 | PASS | pbi-input の Required 5 件は不変。判定規則（I-1〜I-11 / P-1〜P-3 / step 1-8）は変更なし |
+| C1-PLAN-02 | Unknowns 処理 | WARN | #1422 B-8 / B-13 は未凍結 gap（#1391 plan の C-3 待ち）。plan では fail-closed の扱いと「PASS と報告しない」を明記済み |
+| C1-PLAN-03 | スコープ制御 | PASS | 追加は PF-1 の移行対象（ratchet.py / TA-92）のみ。`changed_paths` を #1393 の入力にしないことを明記 |
+| C1-PLAN-04 | テスト戦略 | PASS | RT-01〜RT-04（TA-92 回帰・import・ERROR 写像・scope の出所）と IT-16 / IT-17（INCONCLUSIVE / B-13 非 PASS）を追加 |
+| C1-PLAN-05 | Work Breakdown Output | PASS | todo の RED/GREEN に caller migration（rollback 付き）と TA-92 回帰を追加 |
+| C1-PLAN-06 | 依存関係 | PASS | B 表に owner / 凍結状態を列で記録。#1422 AC は未チェックのまま |
+| C1-PLAN-07 | 動作検証自動化 | PASS | RT-01 は既存の `test_ratchet.py` / `ta-92` をそのまま使う |
+
+判定: **PASS（Unknowns WARN）**。Revision 2.5 の c3.json の `plan_hash` は改訂後 plan と一致しないため、Human の c3.json 再発行待ち。
