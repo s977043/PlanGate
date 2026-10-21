@@ -1,6 +1,6 @@
 # TASK-1392 INDEX
 
-> 最終更新: 2026-09-28
+> 最終更新: 2026-10-22
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従い、
 > plan 完了時に生成し、**以降はフェーズ遷移のたびに更新する**
 > （C-3 承認 / plan 確定反映・再編集 / exec 完了 / V-1 判定確定 / WF-05 発行 / BLOCKED 化・解除）。
@@ -12,6 +12,8 @@ V2 RunState の revision CAS と accepted RunEvent の durable commit を、1 �
 ## 現在のフェーズ
 
 C-3 待ち
+
+> **2026-10-22 追記（C-3 準備の改訂、R-099〜R-104）**: Human 決定 P1〜P4（2026-10-21、すべて推奨案 a）を記録し、#1422 の owner 凍結（B-3 / B-4 / B-5 = #1392）、load 時の `SnapshotInvalid` は INCONCLUSIVE より厳しい（PASS 不可）、#1393 I-11 / PF-5 への参照、#1391 の現状（OPEN・TASK-1391 は C-3 未実施）を plan / todo / test-cases に 1 回で反映。簡易 C-1 は **PASS with WARN**。残るのは Human による `approvals/c3.json` の発行。issue #1392 は 2026-10-22 時点で OPEN
 
 > **2026-09-29 追記（範囲レビュー）: main の事実との食い違い（Human 判断待ち）**
 > - PR #1406（この plan）は 2026-09-29 00:04:39Z に main へ merge された。C-3 の承認記録（`approvals/c3.json`）は無い
@@ -38,7 +40,7 @@ C-3 待ち
 
 ## 次のアクション
 
-1. **Human C-3**。判断事項:
+1. **Human C-3**（`approvals/c3.json` の発行）。下記の判断事項は 2026-10-21 に P1〜P4 として決定済み（R-103）:
    - [P1] WAL なしの単一 snapshot（モデル B）と、容量上限・durability の定義・flush 回数（commit あたり 5 回）
    - [P2] CAS の保証を同じ `runtime_root` の中に限る扱い
    - 暫定値（`MAX_EVENTS_PER_RUN` / `MAX_SNAPSHOT_BYTES` / `TERMINAL_RESERVE` / `MAX_CONFLICTS_PER_POSITION` / `LOCK_WAIT_TIMEOUT` / `MAX_REDERIVE_PER_POSITION` / `MAX_BUSY_RETRIES` / `MAX_HALT_BUSY_RETRIES`）を fixture で確定する進め方
@@ -54,7 +56,7 @@ C-3 待ち
 | todo.md | exec | タスク一覧・進捗（Preflight に #1391 consumable の条件） |
 | test-cases.md | exec, review | テストケース定義（ST-01〜ST-46。取り下げた ST は冒頭の注記を参照） |
 | review-self.md | C-3, review | C-1 結果（最新の節が有効） |
-| review-external.md | C-3, review | R-001〜R-098、Human 決定、残存脅威モデル（追記専用） |
+| review-external.md | C-3, review | R-001〜R-104、Human 決定、残存脅威モデル（追記専用） |
 | current-state.md | status, 復旧 | 現在状態スナップショット |
 | decision-log.jsonl | 監査, 振返り | 判断履歴（append-only） |
 
