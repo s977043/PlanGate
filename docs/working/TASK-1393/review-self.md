@@ -152,3 +152,5 @@ Human 裁定（2026-09-25）: Rev2-R5 の R-047 を R-037 と同型とみなし�
 | C1-PLAN-07 | 動作検証自動化 | PASS | RT-01 は既存の `test_ratchet.py` / `ta-92` をそのまま使う |
 
 判定: **PASS（Unknowns WARN）**。Revision 2.5 の c3.json の `plan_hash` は改訂後 plan と一致しないため、Human の c3.json 再発行待ち。
+
+C-3 結果（2026-10-21 18:15 JST）: Human が Revision 2.6 を **APPROVED**（`plan_hash` `sha256:ec2a0db8…`）。承認後の R-083 / R-084 は plan 本体を変えず exec 時要件として扱う。
