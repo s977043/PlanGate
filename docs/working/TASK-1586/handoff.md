@@ -101,7 +101,7 @@ v1_release: ""
 ### 参照リンク
 
 - 親 PBI: https://github.com/s977043/plangate/issues/1586
-- レポート: `docs/working/TASK-1586/report.md`
+- レポート: `docs/working/TASK-1586/report.md`（PR #1588 の実測値は §8 に取り込み済み。#1586 の正本は本 PR）
 - レビュー記録: `docs/working/TASK-1586/review-external.md`
 
 ## 6. テスト結果サマリ

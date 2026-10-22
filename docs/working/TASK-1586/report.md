@@ -140,3 +140,42 @@ HO 判定は `scripts/hooks/check-plan-hash.sh` の `_override=0` 直後の case
 ## 7. ユーザー判断の記録
 
 - 2026-10-19: AGENTS.md / CLAUDE.md の Codex 節にある「EH-1/2/3/6/9 物理発火」は、hook-enforcement.md の #1078（Codex hook の登録は 0 件）と矛盾している疑いがある（W2 の指摘で、まだ照合していない）。判断は **a**。HO 適用スクリプトでは文面をそのまま移し、事実の照合は別 issue で行う
+
+## 8. 追補: PR #1588 の実測値（2026-10-18 測定、基準 main `1d624d95e597c711ec7f659868d4e1bf49d87d7a`）
+
+Human の判断で本 PR を #1586 の正本とし、PR #1588（head `6ece24c4`）にあって本書に無かった実測値を、測定時点と一緒に元の値のまま取り込んだ。§0 の基準 SHA `5fcdb2e3` とは別の時点の値である。†印は 2026-10-23 に一次ソースで再確認した値。
+
+### 8.1 skills の写し（`1d624d95` 時点の Git blob）
+
+| Skill | `.agents` / `.codex` / `plugin/plangate` | `.claude` |
+|-------|------------------------------------------|-----------|
+| intent-classifier | `3b87c86bffda710331159b659d5372b3afce83db`（3 経路一致）† | `84d23ea62c980db7ac0cca008e84ca2093fdd60c` † |
+| plangate-setup | `ff20aa82530465aec5c477752270554442c38fb6`（3 経路一致） | `c4cfc8748c53a115f869d196a8abae886b9932af` |
+
+- 配布の正本は `scripts/sync-plugin-plangate.sh` の `SKILLS_DIR="$REPO_ROOT/.agents/skills"`（#1588 の照合）
+- #1588 の行単位比較: intent-classifier は `.agents` 版 78〜84 行（CLI・enforcement は配布対象外、CLI が無ければ明示停止・silent skip 禁止）が Claude 版に無い。plangate-setup は `.agents` 版 41〜67 行（#1497 で検証済みの downstream 操作の範囲、CLI 未配布の注意）が Claude 版では 41〜48 行に短縮されている。Claude 版にも停止・`doctor --fix` の rc=2 / no-write の記述は残っている
+- blob の不一致は危険な動作の証明ではない（判断: DIFF_CONFIRMED / BEHAVIOR_UNKNOWN / NEEDS_APPROVAL）
+
+### 8.2 Test workflow
+
+- run [39028937133](https://github.com/s977043/PlanGate/actions/runs/39028937133): `Test`、headSha `1d624d95`、2026-10-17T11:30:11Z〜11:37:12Z、421 秒、success †
+- 比較: main `5fcdb2e3` の run [38872144619](https://github.com/s977043/PlanGate/actions/runs/38872144619) は 429 秒、success
+- `.github/workflows/test.yml`（`1d624d95` の blob `e33f57940d07da745a110e0c9df0b609a305cb15`）12〜14 行目に `concurrency.group: test-${{ github.workflow }}-${{ github.ref }}` / `cancel-in-progress: true` †
+
+### 8.3 Actions 1,000 run の再集計（`GET /actions/runs?per_page=100&page=1..10`、全 branch・全 workflow）
+
+| スナップショット | 窓（created_at） | Test 一意 run | success / cancelled / failure | elapsed 合計（`updated_at - run_started_at`） |
+|------------------|------------------|---------------|-------------------------------|----------------------------------------------|
+| 1 回目（2026-10-18 閲覧） | 2026-10-08T03:02:28Z〜10-17T17:46:14Z | 210 | 138 / 66 / 6 | 71,853 秒 = 1,197.55 分（success のみ 約 1,016.88 分） |
+| 2 回目（後続取得） | 2026-10-08T03:03:25Z〜10-17T19:13:16Z | 209 | 139 / 64 / 6 | 約 1,203.87 分（success 約 1,024.20 / cancelled 約 136.63 / failure 約 43.03） |
+
+- 2 回目の cancelled 64 件の内訳: pull_request 59 件（約 100.58 分）/ push 5 件（約 36.05 分）
+- 件数 210 は §2 #16 の値と一致する。一方、合計 2,155 分は同じ run 集合・elapsed の定義では再現しない（差 957.45 分）。billable の Runner 時間とは別物であり、2,155 分の分母は Unknown
+- 2 つのスナップショットは母集団の境界が違うため、片方の値でもう片方を上書きしない
+- main の cancelled の 2 例は、次の run が開始した後に終わっており、concurrency による置き換えと整合する: [38226105171](https://github.com/s977043/PlanGate/actions/runs/38226105171)（08:50:51〜08:58:17）→ [38226863850](https://github.com/s977043/PlanGate/actions/runs/38226863850)（08:58:13 開始、success）、[38870521020](https://github.com/s977043/PlanGate/actions/runs/38870521020)（07:57:39〜08:04:48）→ [38871258689](https://github.com/s977043/PlanGate/actions/runs/38871258689)（08:04:26 開始、success）（2026-10-12 / 10-16、UTC）。64 件すべての原因は実証していない。cancel をそのまま flaky や削減できる費用とみなさず、`cancel-in-progress` は変更しない
+
+### 8.4 後続 issue
+
+- #1592: Codex 節の事実照合（§7 の判断 a）
+- #1593: apply-* 41 本の棚卸し（§2 #15）
+- #1594: Test workflow の分割（§2 #16。§8.2 / §8.3 の値を入力にする）
