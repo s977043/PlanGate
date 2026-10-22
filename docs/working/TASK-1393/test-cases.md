@@ -180,6 +180,15 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DC-12 | DC-09 positive controls: plant one forbidden import per category in a copy of the module — `subprocess`, `socket`, `time`, `pathlib` / `open`, `os`, the #1392 storage module, a GitHub / merge client (7 cases) | the module import allowlist test fails for each |
 | DC-13 | for inputs at every I-11 bound, `decision_to_event_draft(decide(input))` | canonical encoded size `<= MAX_DECISION_EVENT_BYTES` |
 
+## RT — Ratchet / TA-92 caller migration (PF-1, R-081; Revision 2.6)
+
+| ID | Case | Expected |
+|---|---|---|
+| RT-01 | after the switch, `python3 scripts/ai-loop-v2/test_ratchet.py` and `tests/extras/ta-92-ai-loop-v2-ratchet.sh` | PASS; every expected outcome in TA-92 unchanged from before the switch |
+| RT-02 | `ratchet.py` imports | no import of `decision_core` / `DecisionError`; `decide` is called with exactly one `DecisionInput` built by `make_decision_input(lifecycle_state="PR_CONVERGING", ...)` (DC-08 holds for the caller) |
+| RT-03 | an input that `make_decision_input` rejects (for example an empty `required_verifiers`) reaches ratchet | outcome `ERROR` with the `DecisionInputError` message; never MERGE_READY |
+| RT-04 | `changed_paths` that disagree with the allowed scope | not a #1393 input; the stop comes from `pr_convergence.scope = fail` (observer verdict), not from a `decide` keyword |
+
 ## Mutation targets
 
 Each mutant must be killed by at least one case above.
@@ -241,3 +250,5 @@ Each mutant must be killed by at least one case above.
 | IT-14 | #1422 B-9 | a decision_made whose result refs omit a verification_recorded on the current artifact up to input_last_event_seq | reject |
 | IT-15 | #1422 B-10 | previous_decision_ref is not the latest base-point decision_made | reject |
 | IT-12 | #1422 B-3 | one transaction with two decision_made | reject |
+| IT-16 | #1422 B-4 / B-5 (R-082) | audit a historical decision_made whose snapshot state cannot be reconstructed from the stored stream | INCONCLUSIVE, never PASS |
+| IT-17 | #1422 B-13 (R-082) | audit a Run whose blocker sets were passed empty because no observer event exists | B-13 not reported as PASS |

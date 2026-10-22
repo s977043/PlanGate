@@ -458,3 +458,25 @@ Residual threat model (for C-3):
 - **Not protected**: split-brain across different roots; moving or replacing the root during a call (checked once after the lock); anyone who can write the root deleting markers or tampering with snapshots (`snapshot_ref` is unkeyed); devices that ignore flush, and power loss beyond what flush guarantees; cross-Run consumption of a directory flush error on platforms without per-descriptor error reporting (macOS, Linux < 4.13); external side effects not recorded in the stream; loss of a stop if `halt_run` fails and #1395 restarts; #1395 counters reset by crashes
 - **Availability costs accepted**: a writer crash between the pending write and a successful step 14 always halts the Run for a Human; one I/O error on the shared directory can halt every concurrently active Run; 5 flushes per commit (performance fixture decides)
 - **Other guarantors**: #1395 (re-derivation from the stream, retry limits, durable run_id and intent records, persisting stops via `halt_run`); Human (root operation, unhalt procedure, restore); #1391 (event validation, binding segments, payload bounds — Preflight); C-4 review; implementation-time fault injection (not yet run — this is a plan-level review)
+
+## C-3 preparation revision (2026-10-22 / base `origin/main` `29dbafa9`)
+
+Source: Human-approved revision items (2026-10-21) for the C-3 hand-over, each checked against its primary source before recording. Not a C-2 round; no new failure class is claimed.
+
+| ID | source | severity | finding | disposition |
+|---|---|---|---|---|
+| R-099 | #1422 Human ruling (2026-10-21, issuecomment-6308427967, by s977043) | major | the plan did not reference the owner freeze: B-3 seq adjacency = #1392 commit/load check (#1391 semantic audit); B-4 decided state and B-5 transition = #1392 commit + historical replay, "unreconstructable history is INCONCLUSIVE, never PASS" | reflected: plan "Decision-bound transitions" cites the ruling and maps checks 1 / 2 / 3 to B-4 / B-3 / B-5 |
+| R-100 | #1422 ruling (B-4 / B-5 wording) | major | the plan did not say how a #1392 strict-load failure relates to INCONCLUSIVE | reflected: plan "Strict loading" — `SnapshotInvalid` on load is stricter than INCONCLUSIVE (no Snapshot returned, stop class, never PASS); ST-51 |
+| R-101 | `docs/working/TASK-1393/plan.md` I-11 (size bounds incl. `MAX_DECISION_EVENT_BYTES`) and PF-5 (limits agreed with #1391 / #1392 before exec) | minor | "Size and cost bound" said "#1391 / #1393 must bound the `decision_made` payload" without pointing at the place #1393 now does so | reflected: dependency rewritten to reference I-11 / PF-5 |
+| R-102 | #1422 ruling | minor | the source line of "Decision-bound transitions" cited only PR #1407 comments | reflected: the #1422 ruling is added as an owner source (same edit as R-099) |
+| R-103 | Human C-3 pre-decisions P1〜P4 (2026-10-21, all recommended option a) | — | P1: no WAL, single snapshot — approved. P2: CAS limited to one `runtime_root` — approved; a Git common-dir resolver precedes the first production adapter. P3: `MAX_*` fixed by fixtures; `TERMINAL_RESERVE` fixed at the #1393 PF-5 agreement. P4: acceptance of the residual threat model is stated in the handoff | reflected: plan "Current verdict", "CAS guarantee scope", "Size and cost bound"; todo (C-3 item, handoff) |
+| R-104 | `gh issue view 1391` (OPEN) and `docs/working/TASK-1391/` on `origin/main` | minor | plan said "TASK-1391 has not frozen them yet" without a dated status | reflected: re-checked 2026-10-22 — #1391 OPEN; TASK-1391 plan present on main (PR #1397) with no `approvals/` (C-3 not done) and no `decision_made` key names |
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-099 | reflected | (C-3 preparation commit) | #1422 |
+| R-100 | reflected | (C-3 preparation commit) | ST-51 |
+| R-101 | reflected | (C-3 preparation commit) | #1393 |
+| R-102 | reflected | (C-3 preparation commit) | |
+| R-103 | reflected | (C-3 preparation commit) | Human decision; c3.json is Human-issued |
+| R-104 | reflected | (C-3 preparation commit) | |
