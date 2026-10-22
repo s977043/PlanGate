@@ -90,3 +90,10 @@ Implement a storage-agnostic V2 event/evidence core that can be consumed by:
 ## Success condition
 
 The same accepted event list always yields the same validated RunEvidence projection, while malformed, privacy-unsafe, stale-binding, non-terminally-consistent, or reference-invalid streams fail closed.
+
+## Supersession notes（追記専用 / 2026-10-22 / R-029）
+
+既存行は Human 記述のため書き換えない。次の記述は後続の決定で失効している。
+
+- L7「PRODUCTION IMPLEMENTATION BLOCKED」: 失効。初期実装は #1402（`3331e5c4`）で merge 済み（Human D-1）。現在の exec 停止理由は別で、#1393 PF-5 の定数合意待ち（D-6）。plan §Current verdict を正とする
+- L60 の exact replay の記述: 失効。#1392 は idempotency を持たず、再送は revision + `position` の CAS で拒否される（TASK-1392 R-046 / R-049、本 TASK R-002 / R-030）。accepted stream に同一内容が現れたら invalid
