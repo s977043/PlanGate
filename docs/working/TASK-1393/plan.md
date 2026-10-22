@@ -13,6 +13,8 @@
 > Revision 2.5 (2026-09-28). C-2 R2 (R-070〜R-080), all fix-omissions of R1 classes: stop-reason composition (R-070), byte bound of `decision_made` (R-072), convergence vocabulary unified with #1402 (R-074), artifact-ref encoding and `head_sha` (R-075), module import allowlist (R-076), blocker sets (R-077), migration targets in PF-1 (R-079). R-071 (pbi-input Required 3 wording) needs a Human y/n.
 >
 > Revision 2.6 (2026-10-21). Two Human decisions after C-3. R-081: PF-1 adds `scripts/ai-loop-v2/ratchet.py` and TA-92 (`scripts/ai-loop-v2/test_ratchet.py`, `tests/extras/ta-92-ai-loop-v2-ratchet.sh`) to the migration targets, including its keyword-argument call shape. R-082: the #1422 ruling of 2026-10-21 (issuecomment-6308427967) freezes B-1〜B-7 and B-9〜B-12 with owners, retires B-7 into B-9, makes #1393 the sole semantic owner of the B-11 audit, requires INCONCLUSIVE (never PASS) for B-4 / B-5 history that cannot be replayed, and leaves B-8 / B-13 as unfrozen gaps (the empty blocker set is not a B-13 PASS). Changed: this heading, PF-1, Trust boundary (Audit, B table), Known limitations. The decision rules (I-*, P-*, steps 1-8) are unchanged. The C-3 `plan_hash` of Revision 2.5 no longer matches; a Human re-issues c3.json.
+>
+> Revision 2.7 (2026-10-22). Human decision PF-5 (R-085〜R-088): `MAX_DECISION_EVENT_BYTES` bounds the whole `decision_made` event (envelope and binding keys included) and I-11 checks it on the safe side; the limits live in a new leaf module `scripts/ai-loop-v2/limits.py` owned by #1393; provisional values are fixed by fixture; `decision_made` key names follow #1391 (`artifact_ref` / `failure_fingerprints` / `verdicts`). Changed: this heading, I-11, Payload size, the `decision_made` key mapping, PF-5 (agreed). The decision rules other than I-11 are unchanged. The C-3 `plan_hash` of Revision 2.6 (`ec2a0db8…`) no longer matches; a Human re-issues c3.json.
 
 ## Architecture
 
@@ -169,7 +171,7 @@ Common rules (all states):
 | I-7 | every FailureRecord's `verification_ref` points to the latest FAIL of a required FAIL verifier (no orphan FR, and no FR for a stale, older, or non-required FAIL); its `observed_seq` is greater than that FAIL's `observed_seq` and than `contract_bound_seq` (a diagnosis is recorded after the failure, under the current contract). Several FRs for one FAIL are accepted; the effective FR is the one with the highest `observed_seq` |
 | I-9 | `input_last_event_seq` is at least every `observed_seq` in the input (results, FailureRecords, policy verdicts, `pr_convergence`), and every `event_ref` is unique (see Trust boundary) |
 | I-10 | `contract_bound_seq` is an integer `>= 1` (#1391 assigns `event_seq` from 1 and the #1392 create envelope binds the contract before any verification, so 0 would mean "no boundary") and less than `input_last_event_seq`. Results with `observed_seq < contract_bound_seq` are accepted; only their FAILs can be bound |
-| I-11 | size bounds (R-062 / R-072): results + FailureRecords + policy verdicts `<= MAX_INPUT_REFS`; `required_verifiers` `<= MAX_REQUIRED_VERIFIERS`; every identifier, fingerprint and ref string `<= MAX_REF_CHARS`; and the canonical encoded size of the input-derived part of the `decision_made` payload plus `DECISION_FIXED_OVERHEAD` (the largest action / outcome / stop_reasons part) `<= MAX_DECISION_EVENT_BYTES`. Free-text fields (`observation`, `cause_hypothesis`) are not copied into the payload; only refs are |
+| I-11 | size bounds (R-062 / R-072): results + FailureRecords + policy verdicts `<= MAX_INPUT_REFS`; `required_verifiers` `<= MAX_REQUIRED_VERIFIERS`; every identifier, fingerprint and ref string `<= MAX_REF_CHARS`; and the canonical encoded size of the input-derived part of the `decision_made` payload plus `DECISION_FIXED_OVERHEAD` (the largest action / outcome / stop_reasons part) plus `ENVELOPE_OVERHEAD` (the largest envelope and binding keys of the event) `<= MAX_DECISION_EVENT_BYTES`, where `MAX_DECISION_EVENT_BYTES` bounds the whole event (R-085). The constants come from `limits.py` (R-086). Free-text fields (`observation`, `cause_hypothesis`) are not copied into the payload; only refs are |
 
 Per-state rules:
 
@@ -330,7 +332,17 @@ decision_to_event_draft(decision)
 
 `decision_to_event_draft` creates a #1391 EventDraft with `decided_in_state`, `action`, `outcome`, `stop_reasons`, `policy_verdicts`, `input_last_event_seq`, `loop_contract_ref`, `contract_bound_seq`, `required_verifiers`, `artifact_verdicts`, the `event_ref` of every bound result used, the `event_ref`, `observed_seq` and `repairability` of every FailureRecord and the effective one per FAIL, the `event_ref` of every policy verdict, the `event_ref` and `observed_artifact_ref` of `pr_convergence` (PR_CONVERGING), `current_artifact_ref`, the current fingerprint set (the next base point), the progress kind (`first_iteration` / `assessed`) with `previous_decision_ref`, and `input_refs` (everything the Trust boundary checks need). It does not persist it. [Dependency] The #1391 implementation in PR #1402 fixes the `decision` object to the keys `{action, inputs, outcome, stop_reasons}` and checks that every ref in `inputs` exists earlier in the stream. Where each key above goes (for example the refs into `inputs`, the rest into an agreed extension) is agreed with #1391 before exec (Preflight).
 
-**Payload size (R-062 / R-072).** #1392 derives its terminal reserve from `MAX_DECISION_EVENT_BYTES`, the maximum canonical encoded size of a `decision_made` event (#1406 `e4aaeb91`). I-11 enforces that maximum at input construction, so every `Decision` built from a valid input has a payload within it (DC-13). The limits are agreed with #1392 before exec, and `MAX_INPUT_REFS` must be at least the largest count a Run can reach within the #1395 budget; otherwise a legitimate Run would get `DecisionInputError` before its budget stops it, and could not even record a stop.
+**Payload size (R-062 / R-072 / R-085〜R-087, PF-5 agreed 2026-10-22).** #1392 derives its terminal reserve from `MAX_DECISION_EVENT_BYTES`, the maximum canonical encoded size of the **whole** `decision_made` event, envelope and binding keys included (#1406 `e4aaeb91`; one definition, R-085). I-11 enforces that maximum at input construction on the safe side (input-derived part + `DECISION_FIXED_OVERHEAD` + `ENVELOPE_OVERHEAD`), so every `Decision` built from a valid input yields an event within it (DC-13). #1392 adds no envelope overhead of its own (0). `MAX_INPUT_REFS` must be at least the largest count a Run can reach within the #1395 budget; otherwise a legitimate Run would get `DecisionInputError` before its budget stops it, and could not even record a stop. This is checked when the #1395 budget is fixed.
+
+**Limits module (R-086 / R-087).** `MAX_INPUT_REFS`, `MAX_REQUIRED_VERIFIERS`, `MAX_REF_CHARS`, `MAX_DECISION_EVENT_BYTES`, `DECISION_FIXED_OVERHEAD` and `ENVELOPE_OVERHEAD` are defined in a new leaf module `scripts/ai-loop-v2/limits.py` (no imports from other ai-loop-v2 modules; owner #1393), read by #1393 and #1392. Provisional values, fixed by fixture: `MAX_INPUT_REFS = 256`, `MAX_REQUIRED_VERIFIERS = 16`, `MAX_REF_CHARS = 256`; `MAX_DECISION_EVENT_BYTES` is computed from the worst-case event at these limits and rounded up (for example 64 KiB). The file is created at exec, not in this plan revision.
+
+**`decision_made` key mapping (R-088).** Key names follow #1391:
+
+| #1393 value | `decision_made` key |
+|---|---|
+| `current_artifact_ref` | `artifact_ref` |
+| `artifact_verdicts` (the verdict map) | `verdicts` |
+| current fingerprint set | `failure_fingerprints` |
 
 ## Static boundaries
 
@@ -350,7 +362,7 @@ The existing checks do not enforce these boundaries: ta-70 guards against runnin
 | PF-2 | #1391 `failure_recorded` carries `verification_ref` (#1422 B-12) | R-059 |
 | PF-3 | #1391 `pr_convergence_recorded` carries `observed_artifact_ref` (#1422 B-8) | R-060 |
 | PF-4 | the artifact ref encoding of #1422 B-1 is adopted by #1391 / #1395 | R-061 |
-| PF-5 | the `decision_made` key mapping and the I-11 limits (`MAX_INPUT_REFS` >= the budget-derived maximum, `MAX_DECISION_EVENT_BYTES`) are agreed with #1391 / #1392 | R-062 / R-072 |
+| PF-5 | ~~the `decision_made` key mapping and the I-11 limits are agreed with #1391 / #1392~~ Agreed 2026-10-22 (Human decision): whole-event `MAX_DECISION_EVENT_BYTES`, `limits.py`, provisional values, #1391 key names (see Payload size). Remaining: `MAX_INPUT_REFS` >= the budget-derived maximum is checked when the #1395 budget is fixed | R-062 / R-072 / R-085〜R-088 |
 | PF-6 | the module import allowlist test exists with a positive control per forbidden category | R-076 |
 | PF-7 | #1391 validates the value domains of `pr_convergence_recorded` (today only the key set), in the vocabulary of plan "pr_convergence" | R-074 |
 | PF-8 | #1391 `plan_contract_bound` carries `loop_contract_ref` and the required set (#1422 B-6); until then RED fixtures fix the expected shape | R-080 |

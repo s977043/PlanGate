@@ -18,6 +18,7 @@
 | 2026-10-21 14:50 | C-3 待ち | Human 決定 R-081 / R-082 を Revision 2.6 として確定反映、簡易 C-1 PASS（Unknowns WARN）。**既存 c3.json の `plan_hash` は改訂後 plan（`ec2a0db8358c53f089f652f4671e36c5366dbffa4df5dbf9d6a15129d237ec60`）と一致しない＝Human の再発行待ち** |
 | 2026-10-21 18:15 | C-3 | C-3 Gate: APPROVED（Revision 2.6, plan_hash ec2a0db8…） |
 | 2026-10-21 18:40 | BLOCKED | exec 前依存（#1391/#1392/#1422 owner, PF-2〜PF-8）未解消 |
+| 2026-10-22 10:03 | C-3 待ち | Human 決定 PF-5（R-085〜R-088）を Revision 2.7 として確定反映、簡易 C-1 PASS（Unknowns WARN）。**既存 c3.json の `plan_hash`（`ec2a0db8…`）は改訂後 plan（`404c432a60157932cda967b4c3d90c77979c6d00df874a295828bfd8b0af35b3`）と一致しない＝Human の再発行待ち** |
 
 ## C-3 Gate: APPROVED
 
@@ -45,6 +46,7 @@
 ## 計画からの変更点
 
 - Revision 2.6: PF-1 の移行対象に `scripts/ai-loop-v2/ratchet.py` と TA-92 を追加（R-081）。#1422 B 表に凍結列、B-7 retired、B-4/B-5 の INCONCLUSIVE、B-13 の空集合は PASS でない（R-082）。判定規則は不変
+- Revision 2.7（PF-5 Human 決定 2026-10-22）: `MAX_DECISION_EVENT_BYTES` を event 全体に一本化し I-11 に `ENVELOPE_OVERHEAD` を追加（R-085）、定数は新設 `scripts/ai-loop-v2/limits.py`（R-086、exec で作成）、仮値 256/16/256・バイト上限は算出切上げ（R-087）、キー名は #1391 の `artifact_ref` / `verdicts` / `failure_fingerprints`（R-088）。PF-5 は合意済み（残: #1395 budget 確定時の `MAX_INPUT_REFS` 検証）
 
 ## V 系ステップ進捗
 
