@@ -297,3 +297,23 @@ reflected_in の commit は本 PR の反映 commit（`Refs: R-062..R-063`）。
 | 検出力の無い GREEN（検査対象コードが存在しない） | `ratchet.py` が `evidence_status` を読まないため PJ-23 は値に関係なく PASS、mutation 28 の変異先が無い | R3 後（R-057） | D-14 受理検査 + PJ-23a RED / mutation 29 | **新クラス**。R3 は値の**消費者**（ratchet fixture / test）を照合したが、値を受理・拒否する**コードが存在するか**を照合しなかった（テストが注入して PASS を見るだけで、判定する側を grep していない） |
 | 閉集合検査の層の取りこぼし（同型） | `observed_artifact_ref` をトップレベルに置くが `EVENT_PAYLOAD_KEYS["pr_convergence_recorded"]`（`run_event.py` L49）が余剰キーとして reject | R3 後スコープ検証 2（R-062） | §P1B-5 / §Files に L49 追加 / EV-18b | **新クラスではない**（R-049 / R-056 と同型。閉集合検査を 1 層＝内側 `convergence` だけで照合し、外側の payload キー閉集合を数えなかった） |
 | digest 波及（既知の型） | fixture L133 を変えると事前計算 digest（L36 / L43 / L50 / L73）が不一致になり base fixture 評価テストが落ちる | R3 後スコープ検証 2（R-063） | §Files / todo に digest 再計算 / PJ-23b | **新クラスではない**（改番・内容変更が digest に波及する既知の型）。R-059 は値の矛盾だけを見て、その fixture が digest で自己束縛されていることを照合しなかった |
+
+## #1393 PF-5 合意の記録（2026-10-22、Human 決定）
+
+#1393 の PF-5 が Human 決定で合意された（TASK-1393 review-external R-085〜R-088、plan Revision 2.7）。本 plan は変更しない。
+
+- PF-5-1: `MAX_DECISION_EVENT_BYTES` は envelope + binding キーを含む event 全体の canonical size に一本化。I-11 は「入力部 + `DECISION_FIXED_OVERHEAD` + `ENVELOPE_OVERHEAD`」で安全側検査。#1392 の envelope overhead は 0
+- PF-5-2: 定数は新設 `scripts/ai-loop-v2/limits.py`（葉 module、所有者 #1393）
+- PF-5-3: 仮値 `MAX_INPUT_REFS=256` / `MAX_REQUIRED_VERIFIERS=16` / `MAX_REF_CHARS=256`、`MAX_DECISION_EVENT_BYTES` は算出して切上げ（例 64KiB）。#1395 budget 確定時に `MAX_INPUT_REFS >= budget 最大件数` を検証
+- PF-5-4: キー名は本 plan の `artifact_ref` / `failure_fingerprints` / `verdicts` を採用
+
+### R-034 前提の照合
+
+| R-034 / D-6 の前提 | PF-5 後 | 照合結果 |
+|---|---|---|
+| `MAX_*` の値が未合意 | PF-5-3 で仮値を fixture 固定 | 解消（仮値。`MAX_INPUT_REFS` の budget 照合は #1395 確定時） |
+| 定数の module 位置が未確定 | PF-5-2 で `limits.py`（#1393 所有） | 解消。plan L24 / L180「#1393 が所有し #1391 は import」と一致（import 元は `limits.py`） |
+| バイト上限の適用範囲が TASK-1393 L172 / TASK-1392 L293 / 旧 EV-22 で不一致 | PF-5-1 で event 全体に一本化。TASK-1393 は Revision 2.7 で反映 | #1393 側は解消。TASK-1392 plan L293 は「payload」表記のまま（#1392 側の追従が別途必要） |
+| decision の後ろ 3 キー名（plan L172-173）は PF-5 で確定 | PF-5-4 で本 plan の名前を採用 | 名前の変更なし → plan L285 の再 C-3 条件には該当しない |
+
+D-6 の exec BLOCKED 条件のうち「PF-5 合意」と「module 位置」は満たされた。#1391 の exec 可否は他の前提（#1392 / #1422 等）と併せて Human が判断する。

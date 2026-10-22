@@ -1,6 +1,6 @@
 # TASK-1393 INDEX
 
-> 最終更新: 2026-10-21 18:40（C-3 APPROVED（Revision 2.6）→ exec 前依存未解消で BLOCKED）
+> 最終更新: 2026-10-22 10:03（PF-5 Human 決定を Revision 2.7 として確定反映 → C-3 待ち）
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従い、
 > plan 完了時に生成し、**以降はフェーズ遷移のたびに更新する**
 > （C-3 承認 / plan 確定反映・再編集 / exec 完了 / V-1 判定確定 / WF-05 発行 / BLOCKED 化・解除）。
@@ -11,9 +11,10 @@ V2 の immutable VerificationResult / FailureRecord と、観測済みの事実�
 
 ## 現在のフェーズ
 
-BLOCKED
+C-3 待ち
 
-> C-3 Gate: APPROVED（Human、2026-10-21T09:15:23Z = JST 18:15、Revision 2.6、`plan_hash` `sha256:ec2a0db8…`）。Mode = high-risk。
+> Revision 2.7（PF-5 Human 決定 R-085〜R-088、2026-10-22）を確定反映。改訂後 plan の sha256 は `404c432a60157932cda967b4c3d90c77979c6d00df874a295828bfd8b0af35b3` で、既存 c3.json（Revision 2.6、`ec2a0db8…`）とは一致しない＝Human の c3.json 再発行待ち。再承認後も下記 exec 前依存が残る。
+> 前回 C-3 Gate: APPROVED（Human、2026-10-21T09:15:23Z = JST 18:15、Revision 2.6、`plan_hash` `sha256:ec2a0db8…`）。Mode = high-risk。
 > - blocker: exec 前依存（#1391 / #1392 / #1422 の owner 実装、PF-2〜PF-8）が未解消（[dependency-reconciliation.md](dependency-reconciliation.md)）
 > - owner: #1391 / #1392 / #1422 の各 owner（担当割り当ては Human）
 > - unblock_condition: 上記 owner 実装の完了と PF-2〜PF-8 の解消
@@ -30,7 +31,7 @@ BLOCKED
 | ファイル | フェーズ依存 | 説明 |
 |---------|------------|------|
 | pbi-input.md | plan, review | 要件・受入基準 |
-| plan.md | exec, review | 実行計画 Revision 2.6（2026-10-21 C-3 APPROVED、`plan_hash` `ec2a0db8…`） |
+| plan.md | exec, review | 実行計画 Revision 2.7（2026-10-22 PF-5 反映、sha256 `404c432a…`、C-3 再承認待ち。前回 Revision 2.6 は `ec2a0db8…` で APPROVED） |
 | status.md | status | フェーズ履歴（2026-10-21 新規） |
 | todo.md | exec | タスク一覧・進捗 |
 | test-cases.md | exec, review | テストケース定義（DI / DV / DD / DP / PR / AV / DC / IT） |
