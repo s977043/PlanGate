@@ -1,12 +1,13 @@
 # TASK-1392 Current State
 
-> 更新: 2026-10-22
+> 更新: 2026-10-23
 
 ## フェーズ: C-3 待ち
-## 進捗: C-2 は R12 で収束 / C-3 準備の改訂（R-099〜R-104）反映済み・簡易 C-1 PASS with WARN / Human P1〜P4 決定済み（2026-10-21）/ c3.json 未発行
+## 進捗: C-2 は R12 で収束 / C-3 準備の改訂（R-099〜R-104）と #1393 PF-5 への追従（R-105〜R-108）反映済み・簡易 C-1 PASS with WARN / Human P1〜P4 決定済み（2026-10-21）/ plan が変わったので plan_hash が変わり、c3.json の発行（再承認）が必要
 
 ## 直近の完了タスク
 
+- #1393 PF-5 への追従: terminal reserve を event 全体基準・envelope overhead 0・`limits.py` 出典に変更（2026-10-23、R-105〜R-108）
 - C-3 準備の改訂: #1422 owner 凍結・SnapshotInvalid の扱い・#1393 I-11 / PF-5 参照・#1391 現状・P1〜P4 を反映（2026-10-22）
 
 - C-2 R12: 両レーン収束。是正漏れ R-095〜R-098 を記述で閉じ、残存脅威モデルを記録（2026-09-28）
@@ -18,12 +19,12 @@
 
 ## ブロッカー
 
-- C-3（Human）
-- exec は #1391 consumable（todo Preflight の条件: API、binding キーの位置、再束縛の区切り、decision_made の payload、plan:81 の文言など）と #1329 preflight 待ち
+- C-3（Human。plan_hash が変わったため再承認）
+- exec は #1391 consumable（todo Preflight の条件: API、binding キーの位置、再束縛の区切り、decision_made の payload、plan:81 の文言、`limits.py` が main にあることなど）と #1329 preflight 待ち
 
 ## 次のアクション
 
-- Human C-3: `approvals/c3.json` の発行（判断事項 P1〜P4 は決定済み、R-103）
+- Human C-3: 変更後の plan に対する `approvals/c3.json` の発行（判断事項 P1〜P4 は決定済み、R-103）
 
 ## 計画からの乖離（C-2 の Human 決定による設計変更）
 

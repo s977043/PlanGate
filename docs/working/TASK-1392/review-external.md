@@ -480,3 +480,23 @@ Source: Human-approved revision items (2026-10-21) for the C-3 hand-over, each c
 | R-102 | reflected | (C-3 preparation commit) | |
 | R-103 | reflected | (C-3 preparation commit) | Human decision; c3.json is Human-issued |
 | R-104 | reflected | (C-3 preparation commit) | |
+
+## #1393 PF-5 follow-up (2026-10-23 / base `origin/main` `742f63f6`)
+
+Source: #1393 PF-5 Human decision (2026-10-22), recorded in `docs/working/TASK-1393/review-external.md` R-085〜R-088 and TASK-1393 plan Revision 2.7 (I-11, "Payload size", PF-5 row). Also flagged by `docs/working/TASK-1391/review-external.md` "R-034 前提の照合" (TASK-1392 still said "payload"). Not a C-2 round; no new failure class is claimed.
+
+| ID | source | severity | finding | disposition |
+|---|---|---|---|---|
+| R-105 | TASK-1393 R-085 (PF-5-1) | major | "Size and cost bound" sized the reserve as `MAX_DECISION_EVENT_BYTES + envelope overhead` and described I-11 as bounding the `decision_made` **payload**; PF-5-1 defines `MAX_DECISION_EVENT_BYTES` as the whole event (envelope and binding keys included) and fixes #1392's envelope overhead at 0 | reflected: `TERMINAL_RESERVE >= 1 event and >= MAX_DECISION_EVENT_BYTES`, bound target = whole event, "agreed at PF-5"; ST-30e names the whole-event maximum; todo Preflight records the agreement |
+| R-106 | TASK-1393 R-086 (PF-5-2) | minor | the plan did not say where the constants live | reflected: imported from `scripts/ai-loop-v2/limits.py` (leaf, owner #1393); todo Preflight requires it on main |
+| R-107 | TASK-1393 R-087 (PF-5-3) | minor | "until then … not claimed" was conditioned on the PF-5 agreement, which has now happened, while the values are still provisional and the module does not exist yet | reflected: the guarantee is claimed only once `limits.py` exists on main with fixture-fixed values and #1392's reserve fixture derives from it |
+| R-108 | TASK-1393 R-088 (PF-5-4) | info | key names `artifact_ref` / `failure_fingerprints` / `verdicts` adopted from #1391 | no change: #1392 reads only `decided_in_state` / `action` / `outcome` / `input_last_event_seq`, none of which is renamed |
+
+Unchanged on purpose: `MAX_EVENTS_PER_RUN` / `MAX_SNAPSHOT_BYTES`, ST-30c (rejection by #1391, not by the capacity check), and the R-033 scope of the guarantee. The plan text changed, so the C-3 `plan_hash` must be re-issued by a Human.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-105 | reflected | (PF-5 follow-up commit) | plan / test-cases / todo |
+| R-106 | reflected | (PF-5 follow-up commit) | |
+| R-107 | reflected | (PF-5 follow-up commit) | |
+| R-108 | no change | — | |

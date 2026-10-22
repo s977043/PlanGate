@@ -272,3 +272,18 @@ Verdict: **PASS with WARN** — ready for Human C-3.
 | open items | WARN — exec still blocked by #1391 consumable / #1393 PF-5 / #1329 preflight (unchanged); `approvals/c3.json` is Human-issued |
 
 Verdict: **PASS with WARN** — ready for Human C-3 (c3.json issuance).
+
+## C-1 simple re-run after the #1393 PF-5 follow-up (2026-10-23)
+
+| item | result |
+|---|---|
+| reserve matches PF-5-1: whole-event `MAX_DECISION_EVENT_BYTES`, envelope overhead 0 (TASK-1393 R-085, plan "Payload size") | PASS (R-105) |
+| constants sourced from `limits.py` owned by #1393 (PF-5-2) and fixture-fixed values (PF-5-3) | PASS (R-106 / R-107) |
+| "not claimed" condition consistent with the agreed but not yet implemented state | PASS (R-107; todo Preflight requires `limits.py` on main) |
+| no other plan section still sizes the Decision by payload: grep of `envelope overhead` / `payload <= MAX` / `TERMINAL_RESERVE` — "Current verdict" (PF-5 agreement) and conflict reserve (R-032) agree | PASS |
+| `MAX_EVENTS_PER_RUN` / `MAX_SNAPSHOT_BYTES`, ST-30c rejection owner, R-033 scope unchanged | PASS |
+| AC / TC linkage: ST-30a / ST-30c / ST-30e still cover the reserve; ST-30e names the whole-event maximum | PASS |
+| key names (PF-5-4) | PASS — no impact; #1392 reads only `decided_in_state` / `action` / `outcome` / `input_last_event_seq` (R-108) |
+| open items | WARN — ST-30c and the plan sentence keep the wording "#1391 payload validation" (owner kept as instructed; with the whole-event bound the check is #1391 event validation — wording left for C-3); plan_hash changed, so `approvals/c3.json` must be re-issued by a Human; exec still blocked by #1391 consumable / `limits.py` on main / #1329 preflight |
+
+Verdict: **PASS with WARN** — ready for Human C-3 re-approval (c3.json issuance).
