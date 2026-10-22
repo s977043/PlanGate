@@ -231,6 +231,17 @@ C-3 承認（Revision 2.6、`plan_hash` `ec2a0db8…`）後に出た指摘。承
 
 **不採用**: Codex の「main に `make_decision_input` が無いので移行は実行不能」という指摘は採らない。`make_decision_input` は plan.md:141 で #1393 exec 自身が新設する API として定義されている。
 
+## PF-5 Human 決定（2026-10-22）
+
+PF-5（`decision_made` のキー対応と I-11 上限の #1391 / #1392 との合意）に対する Human 決定。plan は Revision 2.7 で 1 回確定反映し、再 C-3 を要する（旧 `plan_hash` `ec2a0db8…` は失効）。
+
+| ID | 出典 | 内容（Human 決定のまま） | 是正 / 状態 |
+|---|---|---|---|
+| R-085 | Human 決定 PF-5-1 | `MAX_DECISION_EVENT_BYTES` は envelope + binding キーを含む event 全体の canonical size に一本化。I-11 は「入力部 + `DECISION_FIXED_OVERHEAD` + `ENVELOPE_OVERHEAD`」で安全側検査。#1392 の envelope overhead は 0 | Revision 2.7 で I-11 と Payload size 段落に反映 |
+| R-086 | Human 決定 PF-5-2 | 定数は新設 `scripts/ai-loop-v2/limits.py`（葉 module、所有者 #1393）に置く | Revision 2.7 で plan に記載（実装ファイルは exec で作成。今回は作らない） |
+| R-087 | Human 決定 PF-5-3 | 仮値を fixture 固定: `MAX_INPUT_REFS=256`, `MAX_REQUIRED_VERIFIERS=16`, `MAX_REF_CHARS=256`, `MAX_DECISION_EVENT_BYTES` は算出して切上げ（例 64KiB）。#1395 budget 確定時に `MAX_INPUT_REFS >= budget 最大件数` を検証 | Revision 2.7 で plan / test-cases に反映 |
+| R-088 | Human 決定 PF-5-4 | キー名は #1391 の `artifact_ref` / `failure_fingerprints` / `verdicts` を採用。#1393 に対応表（`current_artifact_ref`→`artifact_ref`, `artifact_verdicts`→`verdicts`, fingerprint set→`failure_fingerprints`） | Revision 2.7 で plan に対応表を追加 |
+
 ## 監査表（追記専用）
 
 | R-ID | status | reflected_in(commit) | notes |
@@ -285,3 +296,4 @@ C-3 承認（Revision 2.6、`plan_hash` `ec2a0db8…`）後に出た指摘。承
 | R-083 | open（exec で対応） | — | exec 時要件（C-3 後のため plan 本体は不変）。ratchet.py で `pr_convergence.scope` を `changed_paths` × `allowed_scope` から導出、`test_negative_control_failing_on_baseline_is_inconclusive` を RT-04 の名指し回帰に |
 | R-084 | open（exec で対応） | — | exec 時要件（plan 本体は不変）。RT-03 の注入方法（fixture フィールド）と `DecisionInputError` → `ERROR` の明示 assert |
 | Codex「make_decision_input が main に無い」 | rejected | — | plan.md:141 で #1393 exec が新設する API と定義済み |
+| R-085〜R-088 | reflected（Revision 2.7、PF-5 Human 決定 2026-10-22） | 本 PR（docs/1393-pf5-limits） | I-11 / Payload size / limits.py / キー対応表 / PF-5 合意済み。再 C-3 待ち |
