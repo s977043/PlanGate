@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 SEED_HEADING = re.compile(r"^## (\d{4}-\d{2}-\d{2} — .+)$", re.MULTILINE)
+SEED_HEADING_LIKE = re.compile(r"^#{2,6}[ \t]*\d{4}-\d{2}-\d{2}", re.MULTILINE)
 DIGEST_SECTION = re.compile(r"^## 対象エントリ\s*\n(.*?)(?=^## |\Z)", re.MULTILINE | re.DOTALL)
 
 
@@ -25,10 +26,12 @@ def read_declared_seeds(path: Path) -> list[str]:
     matches = list(SEED_HEADING.finditer(source))
     if not matches:
         raise ValueError("no seed entries found")
+    if len(SEED_HEADING_LIKE.findall(source)) != len(matches):
+        raise ValueError("seed heading does not match the canonical '## YYYY-MM-DD — <task_id>' format")
     entries: list[str] = []
     for index, match in enumerate(matches):
         body = source[match.end():matches[index + 1].start() if index + 1 < len(matches) else len(source)]
-        confirmations = re.findall(r"^- confirmed_by:\s*(.+)$", body, flags=re.MULTILINE)
+        confirmations = re.findall(r"^- confirmed_by:[ \t]*(.+)$", body, flags=re.MULTILINE)
         if len(confirmations) != 1 or not confirmations[0].strip() or confirmations[0].strip().lower() in {"<human>", "pending", "tbd", "none", "未確認"}:
             raise ValueError(f"seed has missing or ambiguous confirmation marker: {match.group(1)}")
         entries.append(match.group(1))
@@ -39,9 +42,12 @@ def read_declared_seeds(path: Path) -> list[str]:
 
 def read_digest_index(path: Path) -> list[str]:
     digest = path.read_text(encoding="utf-8")
-    section = DIGEST_SECTION.search(digest)
-    if section is None:
+    sections = list(DIGEST_SECTION.finditer(digest))
+    if not sections:
         raise ValueError("digest is missing the target entry section")
+    if len(sections) != 1:
+        raise ValueError("digest has more than one target entry section")
+    section = sections[0]
     indexed = []
     for line in section.group(1).splitlines():
         line = line.strip()

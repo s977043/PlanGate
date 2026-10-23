@@ -83,6 +83,32 @@ class SeedInventoryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "threshold"):
             MODULE.inventory(self.seeds, self.digest, 0)
 
+    def test_empty_confirmation_does_not_take_next_line(self):
+        self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: human\n\n## {SEED_B}\n- confirmed_by:\n- reason: x\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "confirmation marker"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_noncanonical_seed_heading_is_rejected(self):
+        for heading in ("## 2026-06-09 - task-C", "### 2026-06-09 — task-C"):
+            with self.subTest(heading=heading):
+                self.seeds.write_text(
+                    f"## {SEED_A}\n- confirmed_by: human\n\n{heading}\n- reason: drafted\n", encoding="utf-8"
+                )
+                with self.assertRaisesRegex(ValueError, "canonical"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_duplicated_digest_section_is_rejected(self):
+        self.digest.write_text(
+            f"## 対象エントリ\n\n- {SEED_A}\n\n## 対象エントリ\n\n- 2026-06-09 — ghost\n", encoding="utf-8"
+        )
+        with self.assertRaisesRegex(ValueError, "more than one"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_placeholder_confirmation_is_rejected(self):
+        self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: <Human>\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "confirmation marker"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
 
 if __name__ == "__main__":
     unittest.main()
