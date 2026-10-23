@@ -7,8 +7,10 @@
 echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
 echo "       Use: python3 $0 [args...]" >&2
 exit 2
+":"""
+from __future__ import annotations
 
-残存脅威モデル（本検査は多層防御の 1 層にすぎず、最終保証は C-4 の Human レビュー）
+__doc__ = """残存脅威モデル（本検査は多層防御の 1 層にすぎず、最終保証は C-4 の Human レビュー）
 守るもの: 正規形でない見出し / 閉じていない fence / 確認マーカーの欠落・否定値・プレースホルダ
 （先頭の BOM は utf-8-sig で除去する）。
 守らないもの:
@@ -16,8 +18,7 @@ exit 2
 - BOM 以外の不可視文字（ZWSP 等）
 - 先頭語が no / na の正当な人名を拒否する（安全側の誤り）
 - Markdown を正規表現で検査しているという設計上の限界（パーサー化は follow-up）
-":"""
-from __future__ import annotations
+"""
 
 import argparse
 import json
