@@ -1,6 +1,6 @@
 # TASK-1392 INDEX
 
-> 最終更新: 2026-09-28
+> 最終更新: 2026-10-23
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従い、
 > plan 完了時に生成し、**以降はフェーズ遷移のたびに更新する**
 > （C-3 承認 / plan 確定反映・再編集 / exec 完了 / V-1 判定確定 / WF-05 発行 / BLOCKED 化・解除）。
@@ -11,7 +11,13 @@ V2 RunState の revision CAS と accepted RunEvent の durable commit を、1 �
 
 ## 現在のフェーズ
 
-C-3 待ち
+BLOCKED
+
+> **2026-10-23 追記（C-3 APPROVED）**: Human が `bin/plangate approve` で C-3 を承認した（`approvals/c3.json`、2026-10-23T00:19:01Z、`plan_hash` = `sha256:f02d69cf…`。照合済みで、plan Rev は PR #1606 の merge 後の版）。c3.json は承認に使った worktree に untracked で保管されている。exec は blocker 待ち（`blocker`: #1391 が consumable でない・`scripts/ai-loop-v2/limits.py` が main に無い・#1329 preflight が未通過 / `owner`: #1391・#1393 の担当と Human / `unblock_condition`: todo Preflight の条件をすべて満たす）
+
+> **2026-10-23 追記（#1393 PF-5 への追従、R-105〜R-108）**: PF-5 の Human 決定（2026-10-22、TASK-1393 R-085〜R-088）に合わせ、plan「Size and cost bound」の terminal reserve を event 全体基準・`TERMINAL_RESERVE >= 1 event かつ >= MAX_DECISION_EVENT_BYTES`（envelope overhead 0）・定数の出典 `limits.py` に改めた。**plan が変わったので plan_hash が変わり、C-3 の再承認（Human による `approvals/c3.json` の発行）が必要**。簡易 C-1 は **PASS with WARN**
+
+> **2026-10-22 追記（C-3 準備の改訂、R-099〜R-104）**: Human 決定 P1〜P4（2026-10-21、すべて推奨案 a）を記録し、#1422 の owner 凍結（B-3 / B-4 / B-5 = #1392）、load 時の `SnapshotInvalid` は INCONCLUSIVE より厳しい（PASS 不可）、#1393 I-11 / PF-5 への参照、#1391 の現状（OPEN・TASK-1391 は C-3 未実施）を plan / todo / test-cases に 1 回で反映。簡易 C-1 は **PASS with WARN**。残るのは Human による `approvals/c3.json` の発行。issue #1392 は 2026-10-22 時点で OPEN
 
 > **2026-09-29 追記（範囲レビュー）: main の事実との食い違い（Human 判断待ち）**
 > - PR #1406（この plan）は 2026-09-29 00:04:39Z に main へ merge された。C-3 の承認記録（`approvals/c3.json`）は無い
@@ -38,7 +44,7 @@ C-3 待ち
 
 ## 次のアクション
 
-1. **Human C-3**。判断事項:
+1. ~~**Human C-3**（`approvals/c3.json` の発行）~~ → 2026-10-23 APPROVED（上記の追記）。下記の判断事項は 2026-10-21 に P1〜P4 として決定済み（R-103）:
    - [P1] WAL なしの単一 snapshot（モデル B）と、容量上限・durability の定義・flush 回数（commit あたり 5 回）
    - [P2] CAS の保証を同じ `runtime_root` の中に限る扱い
    - 暫定値（`MAX_EVENTS_PER_RUN` / `MAX_SNAPSHOT_BYTES` / `TERMINAL_RESERVE` / `MAX_CONFLICTS_PER_POSITION` / `LOCK_WAIT_TIMEOUT` / `MAX_REDERIVE_PER_POSITION` / `MAX_BUSY_RETRIES` / `MAX_HALT_BUSY_RETRIES`）を fixture で確定する進め方
@@ -50,11 +56,11 @@ C-3 待ち
 | ファイル | フェーズ依存 | 説明 |
 |---------|------------|------|
 | pbi-input.md | plan, review | 要件・責務境界（R-017 の改訂注記あり） |
-| plan.md | exec, review | 実行計画（未承認） |
+| plan.md | exec, review | 実行計画（C-3 APPROVED 2026-10-23、plan_hash `f02d69cf…`） |
 | todo.md | exec | タスク一覧・進捗（Preflight に #1391 consumable の条件） |
 | test-cases.md | exec, review | テストケース定義（ST-01〜ST-46。取り下げた ST は冒頭の注記を参照） |
 | review-self.md | C-3, review | C-1 結果（最新の節が有効） |
-| review-external.md | C-3, review | R-001〜R-098、Human 決定、残存脅威モデル（追記専用） |
+| review-external.md | C-3, review | R-001〜R-108、Human 決定、残存脅威モデル（追記専用） |
 | current-state.md | status, 復旧 | 現在状態スナップショット |
 | decision-log.jsonl | 監査, 振返り | 判断履歴（append-only） |
 
