@@ -656,6 +656,28 @@ else
   else
     t26_fail "TC-47 失敗 (dry rc=$_t26_rc47d / real rc=$_t26_rc47 expected=$_t26_expected47): $_t26_out47d || $_t26_out47"
   fi
+
+  # TC-48 (#1609): a TAB or newline in a canonical basename would split the
+  # TSV ref map and make the expected file look stale. Writing such a name
+  # must stop non-zero with a reason, before anything is deleted.
+  for _t26_case48 in 'tab	x.md' 'nl
+x.md'; do
+    _t26_t48=$(mktemp -d); register_cleanup "$_t26_t48"
+    _t26_mk_ai_loop_guard_sandbox "$_t26_t48" 0 0
+    printf 'wf expected\n' > "$_t26_t48/docs/workflows/ai-loop/$_t26_case48"
+    printf 'old expected\n' > "$_t26_t48/$_T26_AI_LOOP_REFS_REL/$_t26_case48"
+    _t26_rc48=0
+    _t26_out48=$(sh "$_t26_t48/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc48=$?
+    _t26_expected48=0
+    [ -f "$_t26_t48/$_T26_AI_LOOP_REFS_REL/$_t26_case48" ] && _t26_expected48=1
+    rm -rf "$_t26_t48"
+    if [ "$_t26_rc48" -ne 0 ] && [ "$_t26_expected48" = "1" ] \
+      && printf '%s' "$_t26_out48" | grep -Fq 'ref map に TAB / 改行を含む名前は書けません'; then
+      t26_pass "TC-48 TAB / 改行を含む正本名は ref map 書き込み前に非 0 で停止し理由を出す"
+    else
+      t26_fail "TC-48 失敗 (rc=$_t26_rc48 期待非0 / expected=$_t26_expected48 期待1): $_t26_out48"
+    fi
+  done
 fi
 
 # 経路1（汎用 references）用 sandbox。_t26_mk_guard_sandbox と同型。
