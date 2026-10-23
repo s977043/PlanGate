@@ -1,27 +1,30 @@
 # TASK-1392 Current State
 
-> 更新: 2026-09-28
+> 更新: 2026-10-23
 
-## フェーズ: C-3 待ち
-## 進捗: C-2 は R12 で収束（両レーンとも新しい失敗クラスなし）/ C-1 再実行済み（PASS with WARN）/ C-3 未実施
+## フェーズ: BLOCKED
+## 進捗: C-3 APPROVED（2026-10-23T00:19:01Z、plan_hash `sha256:f02d69cf…`）/ exec は前提待ち
 
 ## 直近の完了タスク
+
+- C-3 承認: Human が `bin/plangate approve` で発行（2026-10-23。c3.json は承認に使った worktree に untracked で保管）
+- #1393 PF-5 への追従: terminal reserve を event 全体基準・envelope overhead 0・`limits.py` 出典に変更（2026-10-23、R-105〜R-108）
+- C-3 準備の改訂: #1422 owner 凍結・SnapshotInvalid の扱い・#1393 I-11 / PF-5 参照・#1391 現状・P1〜P4 を反映（2026-10-22）
 
 - C-2 R12: 両レーン収束。是正漏れ R-095〜R-098 を記述で閉じ、残存脅威モデルを記録（2026-09-28）
 - C-2 R1〜R11（R-017〜R-094）と Human 決定の反映（2026-09-25〜28。経緯は INDEX と review-external）
 
 ## 現在のタスク
 
-- なし（Human C-3 待ち）
+- なし（exec の前提待ち）
 
 ## ブロッカー
 
-- C-3（Human）
-- exec は #1391 consumable（todo Preflight の条件: API、binding キーの位置、再束縛の区切り、decision_made の payload、plan:81 の文言など）と #1329 preflight 待ち
+- exec は #1391 consumable（todo Preflight の条件: API、binding キーの位置、再束縛の区切り、decision_made の payload、plan:81 の文言、`limits.py` が main にあることなど）と #1329 preflight 待ち
 
 ## 次のアクション
 
-- Human C-3（判断事項は INDEX の「次のアクション」）
+- #1391 が consumable になり、`limits.py` が main に入り、#1329 preflight を通ったら exec に着手する（todo Preflight）
 
 ## 計画からの乖離（C-2 の Human 決定による設計変更）
 

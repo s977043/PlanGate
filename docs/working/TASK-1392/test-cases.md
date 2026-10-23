@@ -77,7 +77,7 @@
 | ST-30a | snapshot within `TERMINAL_RESERVE` of a bound, Run in `VERIFYING` | non-terminal commit rejected; terminal `decision_made` still commits |
 | ST-30b | ENOSPC during temp write | `RuntimeUnwritable`; old snapshot authoritative, stale temp handled as ST-20 |
 | ST-30c | terminal `decision_made` larger than `MAX_DECISION_EVENT_BYTES` | rejected by #1391 payload validation (not by the capacity check) |
-| ST-30e | file just outside the reserve; a small non-terminal commit would end inside it, then a maximum-size terminal Decision | the non-terminal commit is rejected (judged after appending); the terminal Decision commits (R-057) |
+| ST-30e | file just outside the reserve; a small non-terminal commit would end inside it, then a maximum-size terminal Decision (whole event, envelope and binding keys included, = `MAX_DECISION_EVENT_BYTES` from `limits.py`; R-105) | the non-terminal commit is rejected (judged after appending); the terminal Decision commits (R-057) |
 | ST-30d | stale conflicts arriving near the bound | conflict recorded only outside the reserve, otherwise `suppressed`; the terminal Decision still commits afterwards (R-032) |
 | ST-31 | temp-file flush fails or the primitive is unavailable (macOS `F_FULLFSYNC` / unsupported platform) before replace | fail closed (`runtime_unwritable`), no fallback to plain `fsync`, old snapshot intact |
 | ST-31a | directory flush fails after replace (step 14) | `DurabilityUnknown`; the result is in the stop class, not re-derived (R-067) |
@@ -89,6 +89,7 @@
 | ST-48a | directory flush fails after replace (commit or create) | the `DURABILITY_UNKNOWN` marker is written before `DurabilityUnknown` is returned; every later call, including `load_run`, returns `RunHalted` (R-075) |
 | ST-48l | `halt_run` keeps getting `RuntimeBusy` (lock holder hung) | after `MAX_HALT_BUSY_RETRIES`, #1395 raises to a Human and does not resume the Run (R-092) |
 | ST-50 | structural: every open / read / write / replace / unlink / flush in `create_run`, `commit` (incl. conflict recording), pending resolution, `load_run` and `halt_run` goes through the one descriptor opened at the start of the call (spy on the file-system layer) | no path-based access; one descriptor per call (R-090) |
+| ST-51 | stored stream fails a strict-load check, incl. a B-3 / B-4 / B-5 re-check (input freshness, decided state, derived transition) | `load_run` returns `SnapshotInvalid`, no Snapshot / RunState is returned, #1395 maps it to the stop class; never reported as PASS or INCONCLUSIVE (R-100) |
 | ST-50a | optional, Linux ≥ 4.13 with an error-injecting device: Run B's flush consumes an error caused by Run A's replace, then A runs step 14 | A observes the error → `DurabilityUnknown` (OS behaviour; not part of the default suite, per Durability definition) |
 | ST-48b | `halt_run(RUN_MISSING)` for a `run_id` with no snapshot, then `create_run` | `RunHalted`; the Run cannot be silently recreated (R-073) |
 | ST-48c | writing the halt marker itself fails after a step-14 failure | `DurabilityUnknown` is still returned; the pending marker keeps the Run halted on the next call (ST-19b) |

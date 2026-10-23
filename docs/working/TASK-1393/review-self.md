@@ -138,3 +138,33 @@ Human 裁定（2026-09-25）: Rev2-R5 の R-047 を R-037 と同型とみなし�
 判定: **PASS（受入基準の文言 1 件 WARN）**。C-2 は収束。次は Human の C-3（同期）。
 
 追記（2026-09-28 / R-071 反映後）: Human の y を受けて pbi-input Required 3 に DENIED 時の BLOCKED を追記し、DD-05 / DD-17 と一致した。受入基準網羅は **PASS**。簡易 C-1 は **PASS**（WARN なし）。#1422 に B-1 表記と B-13 を追加し、plan の B 表の「提案」表記を外した。
+
+### 追記（2026-10-21 14:50 / 簡易 C-1 — R-081 / R-082 の確定反映（Revision 2.6）後）
+
+| ID | 観点 | 判定 | 根拠 |
+|---|---|---|---|
+| C1-PLAN-01 | 受入基準網羅性 | PASS | pbi-input の Required 5 件は不変。判定規則（I-1〜I-11 / P-1〜P-3 / step 1-8）は変更なし |
+| C1-PLAN-02 | Unknowns 処理 | WARN | #1422 B-8 / B-13 は未凍結 gap（#1391 plan の C-3 待ち）。plan では fail-closed の扱いと「PASS と報告しない」を明記済み |
+| C1-PLAN-03 | スコープ制御 | PASS | 追加は PF-1 の移行対象（ratchet.py / TA-92）のみ。`changed_paths` を #1393 の入力にしないことを明記 |
+| C1-PLAN-04 | テスト戦略 | PASS | RT-01〜RT-04（TA-92 回帰・import・ERROR 写像・scope の出所）と IT-16 / IT-17（INCONCLUSIVE / B-13 非 PASS）を追加 |
+| C1-PLAN-05 | Work Breakdown Output | PASS | todo の RED/GREEN に caller migration（rollback 付き）と TA-92 回帰を追加 |
+| C1-PLAN-06 | 依存関係 | PASS | B 表に owner / 凍結状態を列で記録。#1422 AC は未チェックのまま |
+| C1-PLAN-07 | 動作検証自動化 | PASS | RT-01 は既存の `test_ratchet.py` / `ta-92` をそのまま使う |
+
+判定: **PASS（Unknowns WARN）**。Revision 2.5 の c3.json の `plan_hash` は改訂後 plan と一致しないため、Human の c3.json 再発行待ち。
+
+C-3 結果（2026-10-21 18:15 JST）: Human が Revision 2.6 を **APPROVED**（`plan_hash` `sha256:ec2a0db8…`）。承認後の R-083 / R-084 は plan 本体を変えず exec 時要件として扱う。
+
+### 追記（2026-10-22 10:03 / 簡易 C-1 — PF-5 Human 決定 R-085〜R-088 の確定反映（Revision 2.7）後）
+
+| ID | 観点 | 判定 | 根拠 |
+|---|---|---|---|
+| C1-PLAN-01 | 受入基準網羅性 | PASS | pbi-input の Required は不変。変更は I-11 の上限の範囲（event 全体）と定数の置き場所・キー名のみ |
+| C1-PLAN-02 | Unknowns 処理 | WARN | `MAX_DECISION_EVENT_BYTES` の確定値は exec で算出（例 64KiB）、`MAX_INPUT_REFS >= budget 最大件数` は #1395 budget 確定時に検証。#1422 B-8 / B-13 は従来どおり未凍結 gap |
+| C1-PLAN-03 | スコープ制御 | PASS | 新設は `scripts/ai-loop-v2/limits.py`（葉 module）のみで exec 時に作成。本改訂で実装ファイルは作らない |
+| C1-PLAN-04 | テスト戦略 | PASS | DI-45 / DC-13 を event 全体に改め、DI-46（limits.py の値・葉 module）/ DI-47（キー名）を追加 |
+| C1-PLAN-05 | Work Breakdown Output | PASS | todo に limits.py 作成と #1395 budget 照合、c3.json 再発行（Human）を追加 |
+| C1-PLAN-06 | 依存関係 | WARN | TASK-1392 plan L293 は I-11 を「`decision_made` payload の canonical size」と記述しており、PF-5-1（event 全体）と表記が不一致。#1392 側の追従（再 C-3）が必要 |
+| C1-PLAN-07 | 動作検証自動化 | PASS | DI-46 / DI-47 は fixture で機械検査できる |
+
+判定: **PASS（Unknowns / 依存 WARN）**。Revision 2.6 の c3.json の `plan_hash`（`ec2a0db8…`）は改訂後 plan（`404c432a…`）と一致しないため、Human の c3.json 再発行待ち。
