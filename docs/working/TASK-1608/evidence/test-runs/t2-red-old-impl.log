@@ -1,0 +1,234 @@
+...............F.....FFFF.F..F.FEEFFFFFFFFF..F.F....
+======================================================================
+ERROR: test_tc_html_04_div_block_ends_at_blank_line (__main__.SeedInventoryTests.test_tc_html_04_div_block_ends_at_blank_line)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 240, in test_tc_html_04_div_block_ends_at_blank_line
+    self.assertEqual(self.count(), 2)
+                     ~~~~~~~~~~^^
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 211, in count
+    return MODULE.inventory(self.seeds, self.digest, 1)["entries_with_confirmation_marker"]
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/improvement_seed_delta.py", line 115, in inventory
+    seeds = read_declared_seeds(seeds_path)
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/improvement_seed_delta.py", line 81, in read_declared_seeds
+    raise ValueError(f"seed has missing or ambiguous confirmation marker: {match.group(1)}")
+ValueError: seed has missing or ambiguous confirmation marker: 2026-06-09 — hidden
+
+======================================================================
+ERROR: test_tc_html_05_fence_and_comment_nesting (__main__.SeedInventoryTests.test_tc_html_05_fence_and_comment_nesting)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 246, in test_tc_html_05_fence_and_comment_nesting
+    self.assertEqual(self.count(), 2)
+                     ~~~~~~~~~~^^
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 211, in count
+    return MODULE.inventory(self.seeds, self.digest, 1)["entries_with_confirmation_marker"]
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/improvement_seed_delta.py", line 115, in inventory
+    seeds = read_declared_seeds(seeds_path)
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/improvement_seed_delta.py", line 70, in read_declared_seeds
+    source = mask_code_blocks(path.read_text(encoding="utf-8-sig"))
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/improvement_seed_delta.py", line 59, in mask_code_blocks
+    raise ValueError(f"unclosed code fence '{fence}'")
+ValueError: unclosed code fence '```'
+
+======================================================================
+FAIL: test_nested_confirmation_does_not_hide_a_second_marker (__main__.SeedInventoryTests.test_nested_confirmation_does_not_hide_a_second_marker)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 319, in test_nested_confirmation_does_not_hide_a_second_marker
+    with self.assertRaisesRegex(ValueError, "confirmation marker"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected (__main__.SeedInventoryTests.test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected) (tail='> ## 2026-06-08 — task-B\n- confirmed_by: human\n')
+----------------------------------------------------------------------
+ValueError: seed has missing or ambiguous confirmation marker: 2026-06-07 — task-A
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 257, in test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected
+    with self.assertRaisesRegex(ValueError, "canonical"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "canonical" does not match "seed has missing or ambiguous confirmation marker: 2026-06-07 — task-A"
+
+======================================================================
+FAIL: test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected (__main__.SeedInventoryTests.test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected) (tail='- ## 2026-06-08 — task-B\n  - confirmed_by: human\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 257, in test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected
+    with self.assertRaisesRegex(ValueError, "canonical"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected (__main__.SeedInventoryTests.test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected) (tail='2026-06-08 — task-B\n---\n- confirmed_by: human\n')
+----------------------------------------------------------------------
+ValueError: seed has missing or ambiguous confirmation marker: 2026-06-07 — task-A
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 257, in test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected
+    with self.assertRaisesRegex(ValueError, "canonical"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "canonical" does not match "seed has missing or ambiguous confirmation marker: 2026-06-07 — task-A"
+
+======================================================================
+FAIL: test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected (__main__.SeedInventoryTests.test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected) (tail='2026-06-08 — task-B\n===\n- confirmed_by: human\n')
+----------------------------------------------------------------------
+ValueError: seed has missing or ambiguous confirmation marker: 2026-06-07 — task-A
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 257, in test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected
+    with self.assertRaisesRegex(ValueError, "canonical"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "canonical" does not match "seed has missing or ambiguous confirmation marker: 2026-06-07 — task-A"
+
+======================================================================
+FAIL: test_tc_blk_04b_indented_heading_in_list_item_is_rejected (__main__.SeedInventoryTests.test_tc_blk_04b_indented_heading_in_list_item_is_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 266, in test_tc_blk_04b_indented_heading_in_list_item_is_rejected
+    with self.assertRaisesRegex(ValueError, "canonical"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_html_01_unclosed_html_comment_is_rejected (__main__.SeedInventoryTests.test_tc_html_01_unclosed_html_comment_is_rejected)
+----------------------------------------------------------------------
+ValueError: seed has missing or ambiguous confirmation marker: 2026-06-08 — task-B
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 226, in test_tc_html_01_unclosed_html_comment_is_rejected
+    with self.assertRaisesRegex(ValueError, "unclosed HTML"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "unclosed HTML" does not match "seed has missing or ambiguous confirmation marker: 2026-06-08 — task-B"
+
+======================================================================
+FAIL: test_tc_html_03_confirmation_inside_comment_is_not_accepted (__main__.SeedInventoryTests.test_tc_html_03_confirmation_inside_comment_is_not_accepted)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 235, in test_tc_html_03_confirmation_inside_comment_is_not_accepted
+    with self.assertRaisesRegex(ValueError, "confirmation marker"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_inv_01_02_invisible_characters_in_heading_are_rejected (__main__.SeedInventoryTests.test_tc_inv_01_02_invisible_characters_in_heading_are_rejected) (heading='## 2026-06-09 — task\u200bC')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 289, in test_tc_inv_01_02_invisible_characters_in_heading_are_rejected
+    with self.assertRaisesRegex(ValueError, "canonical"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_inv_01_02_invisible_characters_in_heading_are_rejected (__main__.SeedInventoryTests.test_tc_inv_01_02_invisible_characters_in_heading_are_rejected) (heading='## 2026-06-09 — task\ufeffC')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 289, in test_tc_inv_01_02_invisible_characters_in_heading_are_rejected
+    with self.assertRaisesRegex(ValueError, "canonical"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_inv_01_02_invisible_characters_in_heading_are_rejected (__main__.SeedInventoryTests.test_tc_inv_01_02_invisible_characters_in_heading_are_rejected) (heading='## 2026-06-09 — task\u2060C')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 289, in test_tc_inv_01_02_invisible_characters_in_heading_are_rejected
+    with self.assertRaisesRegex(ValueError, "canonical"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_inv_01_02_invisible_characters_in_heading_are_rejected (__main__.SeedInventoryTests.test_tc_inv_01_02_invisible_characters_in_heading_are_rejected) (heading='\u200b## 2026-06-09 — task-C')
+----------------------------------------------------------------------
+ValueError: seed has missing or ambiguous confirmation marker: 2026-06-07 — task-A
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 289, in test_tc_inv_01_02_invisible_characters_in_heading_are_rejected
+    with self.assertRaisesRegex(ValueError, "canonical"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "canonical" does not match "seed has missing or ambiguous confirmation marker: 2026-06-07 — task-A"
+
+======================================================================
+FAIL: test_tc_inv_01_02_invisible_characters_in_heading_are_rejected (__main__.SeedInventoryTests.test_tc_inv_01_02_invisible_characters_in_heading_are_rejected) (heading='## ２０２６-06-09 — task-C')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 289, in test_tc_inv_01_02_invisible_characters_in_heading_are_rejected
+    with self.assertRaisesRegex(ValueError, "canonical"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_inv_03_invisible_character_in_confirmation_is_rejected (__main__.SeedInventoryTests.test_tc_inv_03_invisible_character_in_confirmation_is_rejected) (value='\u200bno')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 296, in test_tc_inv_03_invisible_character_in_confirmation_is_rejected
+    with self.assertRaisesRegex(ValueError, "confirmation marker"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_inv_03_invisible_character_in_confirmation_is_rejected (__main__.SeedInventoryTests.test_tc_inv_03_invisible_character_in_confirmation_is_rejected) (value='hu\u200bman')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 296, in test_tc_inv_03_invisible_character_in_confirmation_is_rejected
+    with self.assertRaisesRegex(ValueError, "confirmation marker"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_inv_03_invisible_character_in_confirmation_is_rejected (__main__.SeedInventoryTests.test_tc_inv_03_invisible_character_in_confirmation_is_rejected) (value='human\xa0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 296, in test_tc_inv_03_invisible_character_in_confirmation_is_rejected
+    with self.assertRaisesRegex(ValueError, "confirmation marker"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_inv_04_invisible_character_in_digest_index_is_rejected (__main__.SeedInventoryTests.test_tc_inv_04_invisible_character_in_digest_index_is_rejected)
+----------------------------------------------------------------------
+ValueError: digest refers to seeds that are absent or lack a confirmation marker
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 301, in test_tc_inv_04_invisible_character_in_digest_index_is_rejected
+    with self.assertRaisesRegex(ValueError, "seed identity format"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "seed identity format" does not match "digest refers to seeds that are absent or lack a confirmation marker"
+
+======================================================================
+FAIL: test_tc_r4_02_seed_inside_html_comment_is_not_counted (__main__.SeedInventoryTests.test_tc_r4_02_seed_inside_html_comment_is_not_counted)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 215, in test_tc_r4_02_seed_inside_html_comment_is_not_counted
+    self.assertEqual(self.count(), 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+AssertionError: 2 != 1
+
+======================================================================
+FAIL: test_tc_struct_01_no_whole_document_regex (__main__.SeedInventoryTests.test_tc_struct_01_no_whole_document_regex)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 331, in test_tc_struct_01_no_whole_document_regex
+    self.assertNotIn(forbidden, source)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+AssertionError: 're.MULTILINE' unexpectedly found in '#!/usr/bin/env python3\n""":"\n# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---\n# sh はこのファイルの module docstring を二重引用符文字列として読むため、\n# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える\n# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。\necho "ERROR: $0 is a Python script; do not run it with sh/bash." >&2\necho "       Use: python3 $0 [args...]" >&2\nexit 2\n":"""\nfrom __future__ import annotations\n\n__doc__ = """残存脅威モデル（本検査は多層防御の 1 層にすぎず、最終保証は C-4 の Human レビュー）\n守るもの: 正規形でない見出し / 閉じていない fence / 確認マーカーの欠落・否定値・プレースホルダ\n（先頭の BOM は utf-8-sig で除去する）。\n守らないもの:\n- HTML コメント内の seed も数える（過大計上の向きで fail-open ではない）\n- BOM 以外の不可視文字（ZWSP 等）\n- 先頭語が no / na の正当な人名を拒否する（安全側の誤り）\n- Markdown を正規表現で検査しているという設計上の限界（パーサー化は follow-up）\n"""\n\nimport argparse\nimport json\nimport re\nimport sys\nfrom pathlib import Path\n\nSEED_HEADING = re.compile(r"^## (\\d{4}-\\d{2}-\\d{2} — .+)$", re.MULTILINE)\nSEED_HEADING_LIKE = re.compile(r"^[^\\S\\n]{0,3}#{1,6}(?!#)[^\\n]*\\d{4}-\\d{2}-\\d{2}", re.MULTILINE)\nFENCE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")\nDIGEST_SECTION = re.compile(r"^## 対象エントリ\\s*\\n(.*?)(?=^## |\\Z)", re.MULTILINE | re.DOTALL)\nUNCONFIRMED = {\n    "<human>", "pending", "tbd", "none", "未確認",\n    "no", "n", "false", "-", "n/a", "na", "null", "unconfirmed", "rejected", "なし", "未", "否", "保留",\n}\n\n\ndef mask_code_blocks(source: str) -> str:\n    lines = source.splitlines(keepends=True)\n    fence = None\n    for i, line in enumerate(lines):\n        opening = FENCE.match(line)\n        if fence is None and opening:\n            fence = opening.group(1)\n        elif (\n            fence is not None\n            and opening\n            and opening.group(1)[0] == fence[0]\n            and len(opening.group(1)) >= len(fence)\n            and not line[opening.end():].strip()\n        ):\n            fence = None\n        else:\n            if fence is None:\n                continue\n        lines[i] = re.sub(r"[^\\n]", " ", line)\n    if fence is not None:\n        raise ValueError(f"unclosed code fence \'{fence}\'")\n    return "".join(lines)\n\n\ndef is_unconfirmed(value: str) -> bool:\n    normalized = value.strip().lower()\n    first = re.split(r"[\\s（(:：,、]", normalized, maxsplit=1)[0]\n    return not normalized or normalized in UNCONFIRMED or first in UNCONFIRMED\n\n\ndef read_declared_seeds(path: Path) -> list[str]:\n    source = mask_code_blocks(path.read_text(encoding="utf-8-sig"))\n    matches = list(SEED_HEADING.finditer(source))\n    if not matches:\n        raise ValueError("no seed entries found")\n    if len(SEED_HEADING_LIKE.findall(source)) != len(matches):\n        raise ValueError("seed heading does not match the canonical \'## YYYY-MM-DD — <task_id>\' format")\n    entries: list[str] = []\n    for index, match in enumerate(matches):\n        body = source[match.end():matches[index + 1].start() if index + 1 < len(matches) else len(source)]\n        confirmations = re.findall(r"^- confirmed_by:[ \\t]*(.+)$", body, flags=re.MULTILINE)\n        if len(confirmations) != 1 or is_unconfirmed(confirmations[0]):\n            raise ValueError(f"seed has missing or ambiguous confirmation marker: {match.group(1)}")\n        entries.append(match.group(1))\n    if len(entries) != len(set(entries)):\n        raise ValueError("duplicate seed heading")\n    return entries\n\n\ndef read_digest_index(path: Path) -> list[str]:\n    digest = path.read_text(encoding="utf-8-sig")\n    sections = list(DIGEST_SECTION.finditer(digest))\n    if not sections:\n        raise ValueError("digest is missing the target entry section")\n    if len(sections) != 1:\n        raise ValueError("digest has more than one target entry section")\n    section = sections[0]\n    indexed = []\n    for line in section.group(1).splitlines():\n        line = line.strip()\n        if not line:\n            continue\n        if not line.startswith("- "):\n            raise ValueError("digest entry section contains an unrecognized record")\n        title = line[2:].strip()\n        if not SEED_HEADING.fullmatch("## " + title):\n            raise ValueError("digest entry does not match the seed identity format")\n        indexed.append(title)\n    if not indexed or len(indexed) != len(set(indexed)):\n        raise ValueError("digest index empty or contains duplicates")\n    return indexed\n\n\ndef inventory(seeds_path: Path, digest_path: Path, threshold: int) -> dict:\n    if threshold < 1:\n        raise ValueError("threshold must be positive")\n    seeds = read_declared_seeds(seeds_path)\n    indexed = read_digest_index(digest_path)\n    missing = set(indexed) - set(seeds)\n    if missing:\n        raise ValueError("digest refers to seeds that are absent or lack a confirmation marker")\n    indexed_set = set(indexed)\n    new = [entry for entry in seeds if entry not in indexed_set]\n    return {\n        "status": "REVIEW_CANDIDATE" if len(new) >= threshold else "BELOW_THRESHOLD",\n        "entries_with_confirmation_marker": len(seeds),\n        "already_indexed": len(indexed),\n        "unindexed_count": len(new),\n        "threshold": threshold,\n        "unindexed_entries": new,\n        "authority": "READ_ONLY_UNVERIFIED_MARKER_NO_PROMOTION",\n    }\n\n\ndef main() -> int:\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument("--seeds", type=Path, required=True)\n    parser.add_argument("--digest", type=Path, required=True)\n    parser.add_argument("--threshold", type=int, default=5)\n    args = parser.parse_args()\n    try:\n        result = inventory(args.seeds, args.digest, args.threshold)\n    except (OSError, ValueError, UnicodeError) as exc:\n        print(f"improvement-seed inventory error: {exc}", file=sys.stderr)\n        return 2\n    print(json.dumps(result, ensure_ascii=False, indent=2))\n    return 0\n\n\nif __name__ == "__main__":\n    raise SystemExit(main())\n'
+
+----------------------------------------------------------------------
+Ran 43 tests in 0.098s
+
+FAILED (failures=19, errors=2)
