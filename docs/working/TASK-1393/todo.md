@@ -23,12 +23,17 @@
 > 2026-10-08: owner 状況と gate は [dependency-reconciliation.md](dependency-reconciliation.md) に記録。#1391/#1392/#1393/#1395/#1422 は OPEN。C-3 APPROVED は BLOCKED 解消を意味しない。
 
 - [x] #1516 scope-observer の導入と Ratchet の private `_canonical_path` 依存解消
-- [ ] Ratchet/TA-92 の provisional `DecisionError/decide` からの移行範囲を Human 裁定し必要時 C-3 再発行
-- [ ] #1422 B-1〜B-13 の owner / validation timing を Human 決定
+- [x] Ratchet/TA-92 の provisional `DecisionError/decide` からの移行範囲を Human 裁定（2026-10-21、R-081: PF-1 に追加。Revision 2.6）
+- [ ] Revision 2.6 に対する c3.json を Human が再発行（AI は発行しない）
+- [x] #1422 B-1〜B-13 の owner / validation timing を Human 決定（2026-10-21 部分凍結、R-082。B-8 / B-13 は未凍結 gap）
+- [ ] #1422 B-8 / B-13 の語彙・event 形状が #1391 plan（C-3）で決まる
 - [ ] #1391 event contract consumable
 - [ ] #1392 RunState input shape frozen
 - [ ] #1392 derives the transition from (state, action) (request on PR #1406) or this plan's Transition ownership is revisited
-- [ ] #1391 decision_made payload keys agreed (plan PF-5)
+- [x] #1391 decision_made payload keys and I-11 limits agreed (plan PF-5, Human decision 2026-10-22, R-085〜R-088, Revision 2.7)
+- [ ] Revision 2.7 に対する c3.json を Human が再発行（AI は発行しない）
+- [ ] exec: `scripts/ai-loop-v2/limits.py`（葉 module）を作成し仮値を fixture 固定（R-086 / R-087）
+- [ ] #1395 budget 確定時に `MAX_INPUT_REFS >= budget 最大件数` を検証（R-087）
 - [ ] plan "Preflight before exec" PF-1〜PF-8（plan.md の PF-7 / PF-8 を含む。INDEX.md / current-state.md / dependency-reconciliation.md と同じ範囲）
 - [ ] #1395 budget requirement recorded (release condition)
 - [ ] exact base SHA
@@ -39,6 +44,8 @@
 - [ ] progress assessment
 - [ ] decision
 - [ ] event draft adapter
+- [ ] caller migration (PF-1 / R-079 / R-081): `delivery_runtime.py`, `test_delivery_v2.py`, ta-87 / ta-93 fixtures, and `ratchet.py` (:16 import, :193 keyword call → `make_decision_input(lifecycle_state="PR_CONVERGING", ...)` + `decide(decision_input)`, `changed_paths` dropped, `DecisionInputError` → `ERROR` at :208). rollback: revert the migration commit (ratchet.py returns to the provisional `decision_core`)
+- [ ] TA-92 regression after the Ratchet switch: `python3 scripts/ai-loop-v2/test_ratchet.py` and `tests/extras/ta-92-ai-loop-v2-ratchet.sh` PASS with unchanged expected outcomes (RT-01〜RT-04)
 - [ ] mutation tests
 - [ ] static boundary
 - [ ] repository CI
