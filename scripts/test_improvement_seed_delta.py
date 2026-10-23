@@ -191,6 +191,19 @@ class SeedInventoryTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "confirmation marker"):
                     MODULE.inventory(self.seeds, self.digest, 1)
 
+    def test_bom_prefixed_first_seed_is_counted(self):
+        self.seeds.write_text(f"﻿## {SEED_A}\n- confirmed_by: pending\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "confirmation marker"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+        self.seeds.write_text(
+            f"﻿## {SEED_B}\n- confirmed_by: human\n\n## {SEED_A}\n- confirmed_by: human\n",
+            encoding="utf-8",
+        )
+        self.digest.write_text(f"﻿## 対象エントリ\n\n- {SEED_A}\n", encoding="utf-8")
+        result = MODULE.inventory(self.seeds, self.digest, 1)
+        self.assertEqual(result["unindexed_entries"], [SEED_B])
+
 
 if __name__ == "__main__":
     unittest.main()
