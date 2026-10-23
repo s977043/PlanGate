@@ -17,12 +17,39 @@ import sys
 from pathlib import Path
 
 SEED_HEADING = re.compile(r"^## (\d{4}-\d{2}-\d{2} — .+)$", re.MULTILINE)
-SEED_HEADING_LIKE = re.compile(r"^#{2,6}[ \t]*\d{4}-\d{2}-\d{2}", re.MULTILINE)
+SEED_HEADING_LIKE = re.compile(r"^[^\S\n]{0,3}#{1,6}(?!#)[^\n]*\d{4}-\d{2}-\d{2}", re.MULTILINE)
+FENCE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")
 DIGEST_SECTION = re.compile(r"^## 対象エントリ\s*\n(.*?)(?=^## |\Z)", re.MULTILINE | re.DOTALL)
+UNCONFIRMED = {
+    "<human>", "pending", "tbd", "none", "未確認",
+    "no", "n", "false", "-", "n/a", "na", "null", "unconfirmed", "rejected", "なし", "未", "否", "保留",
+}
+
+
+def mask_code_blocks(source: str) -> str:
+    lines = source.splitlines(keepends=True)
+    fence = None
+    for i, line in enumerate(lines):
+        opening = FENCE.match(line)
+        if fence is None and opening:
+            fence = opening.group(1)[0]
+        elif fence is not None and opening and opening.group(1)[0] == fence:
+            fence = None
+        else:
+            if fence is None:
+                continue
+        lines[i] = re.sub(r"[^\n]", " ", line)
+    return "".join(lines)
+
+
+def is_unconfirmed(value: str) -> bool:
+    normalized = value.strip().lower()
+    first = re.split(r"[\s（(:：,、]", normalized, maxsplit=1)[0]
+    return not normalized or normalized in UNCONFIRMED or first in UNCONFIRMED
 
 
 def read_declared_seeds(path: Path) -> list[str]:
-    source = path.read_text(encoding="utf-8")
+    source = mask_code_blocks(path.read_text(encoding="utf-8"))
     matches = list(SEED_HEADING.finditer(source))
     if not matches:
         raise ValueError("no seed entries found")
@@ -32,7 +59,7 @@ def read_declared_seeds(path: Path) -> list[str]:
     for index, match in enumerate(matches):
         body = source[match.end():matches[index + 1].start() if index + 1 < len(matches) else len(source)]
         confirmations = re.findall(r"^- confirmed_by:[ \t]*(.+)$", body, flags=re.MULTILINE)
-        if len(confirmations) != 1 or not confirmations[0].strip() or confirmations[0].strip().lower() in {"<human>", "pending", "tbd", "none", "未確認"}:
+        if len(confirmations) != 1 or is_unconfirmed(confirmations[0]):
             raise ValueError(f"seed has missing or ambiguous confirmation marker: {match.group(1)}")
         entries.append(match.group(1))
     if len(entries) != len(set(entries)):

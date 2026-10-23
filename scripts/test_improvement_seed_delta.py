@@ -109,6 +109,60 @@ class SeedInventoryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "confirmation marker"):
             MODULE.inventory(self.seeds, self.digest, 1)
 
+    def test_lookalike_seed_headings_are_rejected(self):
+        headings = (
+            "##　2026-06-09 — task-C",
+            "## 2026-06-09 — task-C",
+            "# 2026-06-09 — task-C",
+            " ## 2026-06-09 — task-C",
+            "## task-C 2026-06-09",
+            "##2026-06-09 — task-C",
+            "##\t2026-06-09 — task-C",
+        )
+        for heading in headings:
+            with self.subTest(heading=heading):
+                self.seeds.write_text(
+                    f"## {SEED_A}\n- confirmed_by: human\n\n{heading}\n- reason: drafted\n", encoding="utf-8"
+                )
+                with self.assertRaisesRegex(ValueError, "canonical"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_non_seed_heading_without_date_is_accepted(self):
+        self.seeds.write_text(
+            f"# Seeds\n\n## 概要\n\n## {SEED_A}\n- confirmed_by: human\n### 補足\n", encoding="utf-8"
+        )
+        result = MODULE.inventory(self.seeds, self.digest, 1)
+        self.assertEqual(result["entries_with_confirmation_marker"], 1)
+
+    def test_code_block_heading_is_not_rejected(self):
+        self.seeds.write_text(
+            f"## {SEED_A}\n- confirmed_by: human\n\n```markdown\n## 2026-06-09 - template\n- confirmed_by: <human>\n```\n",
+            encoding="utf-8",
+        )
+        result = MODULE.inventory(self.seeds, self.digest, 1)
+        self.assertEqual(result["entries_with_confirmation_marker"], 1)
+
+    def test_confirmation_inside_code_block_is_not_accepted(self):
+        self.seeds.write_text(
+            f"## {SEED_A}\n- confirmed_by: human\n\n## {SEED_B}\n```\n- confirmed_by: human\n```\n", encoding="utf-8"
+        )
+        with self.assertRaisesRegex(ValueError, "confirmation marker"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_seed_heading_inside_code_block_is_not_counted(self):
+        self.seeds.write_text(
+            f"## {SEED_A}\n- confirmed_by: human\n\n~~~\n## {SEED_B}\n- confirmed_by: human\n~~~\n", encoding="utf-8"
+        )
+        result = MODULE.inventory(self.seeds, self.digest, 1)
+        self.assertEqual(result["entries_with_confirmation_marker"], 1)
+
+    def test_negative_confirmation_is_rejected(self):
+        for value in ("no", "No", "false", "-", "n/a", "なし", "no（後で確認）"):
+            with self.subTest(value=value):
+                self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: {value}\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "confirmation marker"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
 
 if __name__ == "__main__":
     unittest.main()
