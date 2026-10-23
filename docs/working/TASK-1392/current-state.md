@@ -2,11 +2,12 @@
 
 > 更新: 2026-10-23
 
-## フェーズ: C-3 待ち
-## 進捗: C-2 は R12 で収束 / C-3 準備の改訂（R-099〜R-104）と #1393 PF-5 への追従（R-105〜R-108）反映済み・簡易 C-1 PASS with WARN / Human P1〜P4 決定済み（2026-10-21）/ plan が変わったので plan_hash が変わり、c3.json の発行（再承認）が必要
+## フェーズ: BLOCKED
+## 進捗: C-3 APPROVED（2026-10-23T00:19:01Z、plan_hash `sha256:f02d69cf…`）/ exec は前提待ち
 
 ## 直近の完了タスク
 
+- C-3 承認: Human が `bin/plangate approve` で発行（2026-10-23。c3.json は承認に使った worktree に untracked で保管）
 - #1393 PF-5 への追従: terminal reserve を event 全体基準・envelope overhead 0・`limits.py` 出典に変更（2026-10-23、R-105〜R-108）
 - C-3 準備の改訂: #1422 owner 凍結・SnapshotInvalid の扱い・#1393 I-11 / PF-5 参照・#1391 現状・P1〜P4 を反映（2026-10-22）
 
@@ -15,16 +16,15 @@
 
 ## 現在のタスク
 
-- なし（Human C-3 待ち）
+- なし（exec の前提待ち）
 
 ## ブロッカー
 
-- C-3（Human。plan_hash が変わったため再承認）
 - exec は #1391 consumable（todo Preflight の条件: API、binding キーの位置、再束縛の区切り、decision_made の payload、plan:81 の文言、`limits.py` が main にあることなど）と #1329 preflight 待ち
 
 ## 次のアクション
 
-- Human C-3: 変更後の plan に対する `approvals/c3.json` の発行（判断事項 P1〜P4 は決定済み、R-103）
+- #1391 が consumable になり、`limits.py` が main に入り、#1329 preflight を通ったら exec に着手する（todo Preflight）
 
 ## 計画からの乖離（C-2 の Human 決定による設計変更）
 
