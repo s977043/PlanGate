@@ -11,7 +11,9 @@ V2 RunState の revision CAS と accepted RunEvent の durable commit を、1 �
 
 ## 現在のフェーズ
 
-C-3 待ち
+BLOCKED
+
+> **2026-10-23 追記（C-3 APPROVED）**: Human が `bin/plangate approve` で C-3 を承認した（`approvals/c3.json`、2026-10-23T00:19:01Z、`plan_hash` = `sha256:f02d69cf…`。照合済みで、plan Rev は PR #1606 の merge 後の版）。c3.json は承認に使った worktree に untracked で保管されている。exec は blocker 待ち（`blocker`: #1391 が consumable でない・`scripts/ai-loop-v2/limits.py` が main に無い・#1329 preflight が未通過 / `owner`: #1391・#1393 の担当と Human / `unblock_condition`: todo Preflight の条件をすべて満たす）
 
 > **2026-10-23 追記（#1393 PF-5 への追従、R-105〜R-108）**: PF-5 の Human 決定（2026-10-22、TASK-1393 R-085〜R-088）に合わせ、plan「Size and cost bound」の terminal reserve を event 全体基準・`TERMINAL_RESERVE >= 1 event かつ >= MAX_DECISION_EVENT_BYTES`（envelope overhead 0）・定数の出典 `limits.py` に改めた。**plan が変わったので plan_hash が変わり、C-3 の再承認（Human による `approvals/c3.json` の発行）が必要**。簡易 C-1 は **PASS with WARN**
 
@@ -42,7 +44,7 @@ C-3 待ち
 
 ## 次のアクション
 
-1. **Human C-3**（`approvals/c3.json` の発行）。下記の判断事項は 2026-10-21 に P1〜P4 として決定済み（R-103）:
+1. ~~**Human C-3**（`approvals/c3.json` の発行）~~ → 2026-10-23 APPROVED（上記の追記）。下記の判断事項は 2026-10-21 に P1〜P4 として決定済み（R-103）:
    - [P1] WAL なしの単一 snapshot（モデル B）と、容量上限・durability の定義・flush 回数（commit あたり 5 回）
    - [P2] CAS の保証を同じ `runtime_root` の中に限る扱い
    - 暫定値（`MAX_EVENTS_PER_RUN` / `MAX_SNAPSHOT_BYTES` / `TERMINAL_RESERVE` / `MAX_CONFLICTS_PER_POSITION` / `LOCK_WAIT_TIMEOUT` / `MAX_REDERIVE_PER_POSITION` / `MAX_BUSY_RETRIES` / `MAX_HALT_BUSY_RETRIES`）を fixture で確定する進め方
@@ -54,7 +56,7 @@ C-3 待ち
 | ファイル | フェーズ依存 | 説明 |
 |---------|------------|------|
 | pbi-input.md | plan, review | 要件・責務境界（R-017 の改訂注記あり） |
-| plan.md | exec, review | 実行計画（未承認） |
+| plan.md | exec, review | 実行計画（C-3 APPROVED 2026-10-23、plan_hash `f02d69cf…`） |
 | todo.md | exec | タスク一覧・進捗（Preflight に #1391 consumable の条件） |
 | test-cases.md | exec, review | テストケース定義（ST-01〜ST-46。取り下げた ST は冒頭の注記を参照） |
 | review-self.md | C-3, review | C-1 結果（最新の節が有効） |
