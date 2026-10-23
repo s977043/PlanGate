@@ -10,6 +10,10 @@ Persistence model: single atomic snapshot, model B (Human decision R-017, 2026-0
   RunState, generation and per-transaction results are derived on load, never stored
 Idempotency: not in the first slice (Human decision R-046, 2026-09-25)
 CAS token: expected_revision + expected_position (Human decision R-049), both derived
+C-3 decisions P1〜P4 (Human, 2026-10-21, R-103): no WAL, single snapshot / CAS limited to
+  one runtime_root, Git common-dir resolver before the first production adapter /
+  MAX_* fixed by fixtures, TERMINAL_RESERVE fixed at the #1393 PF-5 agreement /
+  residual threat model accepted and stated in the handoff
 ```
 
 ## Storage layout
@@ -69,7 +73,7 @@ The lock domain is the `runtime_root` the caller passes. **CAS and the conflict 
 
 Consequences:
 - API docs and the handoff state this limit; no document may describe this slice alone as "durable CAS for a Run" without the qualifier
-- **before the first production adapter** (the first caller outside tests) consumes this API, a follow-up must add a Git common-dir resolver (as TASK-1025 plan did) and a test that the primary checkout and a linked worktree resolve to the same lock domain. That follow-up is a precondition of the adapter, not of this slice
+- **before the first production adapter** (the first caller outside tests) consumes this API, a follow-up must add a Git common-dir resolver (as TASK-1025 plan did) and a test that the primary checkout and a linked worktree resolve to the same lock domain. That follow-up is a precondition of the adapter, not of this slice (Human decision P2, 2026-10-21, R-103)
 
 ## Snapshot
 
@@ -284,9 +288,9 @@ What a successful response guarantees: the new snapshot survives process crash a
 
 Every commit rewrites the whole snapshot, so write volume and latency grow with the Run's history. First-slice bounds (values provisional, fixed by RED / performance fixtures):
 
-- `MAX_EVENTS_PER_RUN` (provisional 2048) and `MAX_SNAPSHOT_BYTES` (provisional 8 MiB)
+- `MAX_EVENTS_PER_RUN` (provisional 2048) and `MAX_SNAPSHOT_BYTES` (provisional 8 MiB). The `MAX_*` constants of this plan are fixed by the RED / performance fixtures (Human decision P3, R-103)
 - a commit whose resulting snapshot would exceed either bound is rejected with `SnapshotCapacityExceeded` **before the temp file is written**, with zero mutation
-- **terminal reserve**: a non-terminal commit is accepted only if the file **after appending it** stays outside `TERMINAL_RESERVE` of both bounds (event count and canonical bytes), so no commit can straddle into the reserve (R-057; ST-30e). A fixed reserve alone does not prove that a terminal Decision fits, so the reserve is **derived, not guessed**: `TERMINAL_RESERVE >= 1 event and >= MAX_DECISION_EVENT_BYTES + envelope overhead`, where `MAX_DECISION_EVENT_BYTES` is the maximum canonical encoded size of a `decision_made` event. [Dependency] #1391 / #1393 must bound the `decision_made` payload (e.g. the number of `event_ref` it lists) so that the maximum exists; until then the reserve is provisional and the guarantee "a full Run can always commit its terminal outcome" is **not claimed**. A terminal Decision larger than the reserve is rejected by #1391 payload validation, not by the capacity check (ST-30c). Scope of the guarantee (R-033): a terminal `decision_made` is accepted only in the Decision states (`VERIFYING` / `DIAGNOSING` / `PR_CONVERGING`, #1393 I-1). A Run that reaches the reserve in another state (e.g. `EXECUTING`) cannot make the mechanical transition that would lead to a Decision state, so it cannot terminate through a Decision; #1395's budget must stop such a Run before the bound, and this residual is stated in the handoff
+- **terminal reserve**: a non-terminal commit is accepted only if the file **after appending it** stays outside `TERMINAL_RESERVE` of both bounds (event count and canonical bytes), so no commit can straddle into the reserve (R-057; ST-30e). A fixed reserve alone does not prove that a terminal Decision fits, so the reserve is **derived, not guessed**: `TERMINAL_RESERVE >= 1 event and >= MAX_DECISION_EVENT_BYTES`, where `MAX_DECISION_EVENT_BYTES` is the maximum canonical encoded size of the **whole** `decision_made` event, envelope and binding keys included; #1392 adds no envelope overhead of its own (0), as agreed at #1393 PF-5 (R-105). [Dependency, R-101 / R-105] the bound comes from #1393 I-11 (TASK-1393 plan Revision 2.7: `MAX_INPUT_REFS` / `MAX_REQUIRED_VERIFIERS` / `MAX_REF_CHARS`, and the canonical encoded size of the whole `decision_made` event `<= MAX_DECISION_EVENT_BYTES`, checked on the safe side at input construction). The constants are imported from `scripts/ai-loop-v2/limits.py` (leaf module owned by #1393, PF-5-2, R-106), with provisional values fixed by fixture and `MAX_DECISION_EVENT_BYTES` computed and rounded up (PF-5-3, R-107). `TERMINAL_RESERVE` is fixed by that PF-5 agreement (Human decision P3, R-103; PF-5 agreed 2026-10-22, R-105). The guarantee "a full Run can always commit its terminal outcome" is claimed only once `limits.py` exists on main with the fixture-fixed values and #1392's reserve fixture derives from it; until then it is **not claimed**. A terminal Decision larger than the reserve is rejected by #1391 payload validation, not by the capacity check (ST-30c). Scope of the guarantee (R-033): a terminal `decision_made` is accepted only in the Decision states (`VERIFYING` / `DIAGNOSING` / `PR_CONVERGING`, #1393 I-1). A Run that reaches the reserve in another state (e.g. `EXECUTING`) cannot make the mechanical transition that would lead to a Decision state, so it cannot terminate through a Decision; #1395's budget must stop such a Run before the bound, and this residual is stated in the handoff
 - temp space: the store needs free space for one extra snapshot; ENOSPC during temp write is a pre-replace failure (old snapshot stays authoritative)
 - performance fixture: commit latency at the bound on the CI runner; the threshold is fixed with the fixture (provisional p95 ≤ 200 ms). Missing the threshold is a **Replan trigger** (compaction or WAL slice), not a reason to relax the bound
 - the same fixture measures `load_run` at the bound, alone and with concurrent readers (every read takes the exclusive lock, so reads are serialised; R-068); a miss is also a Replan trigger (e.g. a shared read lock)
@@ -305,6 +309,7 @@ Every commit rewrites the whole snapshot, so write volume and latency grow with 
 - **conflict consistency** (R-030 / R-049): `actual_revision == folded revision`, `actual_position == folded position`, the recorded token is stale (`expected_revision <= actual_revision` and `expected_position <= actual_position`, at least one strictly lower)
 - **fold** (the only source of RunState): start from the create rule (`PLAN_VERIFYING`, revision 0, bindings from the first `plan_contract_bound`); every non-transition event and `state_conflict` must carry `revision == running`; `state_transitioned` must carry `running+1`, have `from_state == running state`, and be an edge of the First-slice transition allowlist (re-checked on every load, not only at commit time); bound context changes only as allowed by Replan re-binding (below), otherwise it must not change
 - **Decision-bound re-check**: every `decision_made` in the stored stream passes the Decision-bound checks against the folded state at its position, so a stream that was valid only because a check was skipped at commit time is rejected on load
+- **`SnapshotInvalid` is stricter than INCONCLUSIVE** (R-100): #1422 (Human ruling 2026-10-21) lets an audit whose history cannot be reconstructed report INCONCLUSIVE, never PASS. A #1392 strict-load failure (including a failed B-3 / B-4 / B-5 re-check) is not an INCONCLUSIVE: `load_run` returns `SnapshotInvalid`, no Snapshot or RunState is returned, #1395 stops (stop class), and nothing derived from that snapshot may be reported as PASS
 
 Payload ownership: TASK-1391 plan lists "state/conflict evidence consumed from #1392", so the `state_transitioned` / `state_conflict` payloads (`from_state`, `to_state`, `revision`; expected/actual revision) are **owned by #1392**. The event type names are frozen together with #1391 (#1402's draft uses `state_conflict_recorded` and has no `state_transitioned`; R-022) and frozen by #1392's RED fixtures. #1391 validates them as stream members (binding, sequence, terminality); #1392 does not re-own any other event type (ST-25 static boundary still applies). The TASK-1391 RunEvidence projection does not carry Lifecycle State, so this state fold is #1392's.
 
@@ -409,7 +414,7 @@ WAITING_HUMAN / WAITING_EXTERNAL remain canonical Lifecycle State values, but th
 
 ### Decision-bound transitions
 
-Requested by #1393 (PR #1407 comments, 2026-09-25; adversarial reviews R3 / Rev2-R1〜R3). The allowlist alone accepts any listed edge, so a Decision of `DIAGNOSING` could be followed by a commit of `VERIFYING -> PR_CONVERGING`. By Human decision #1393 does not carry `next_state`; **#1392 derives the transition from `(lifecycle_state, action)` and checks it.** #1392 reads four `decision_made` payload keys — `decided_in_state`, `action`, `outcome`, `input_last_event_seq` — and contains no Decision logic.
+Requested by #1393 (PR #1407 comments, 2026-09-25; adversarial reviews R3 / Rev2-R1〜R3). Owner frozen by the Human ruling on #1422 (2026-10-21, issuecomment-6308427967; R-099/R-102): B-3 seq adjacency = #1392 commit/load check (#1391 semantic audit), B-4 decided state and B-5 transition = #1392 commit + historical replay; unreconstructable history is INCONCLUSIVE, never PASS (for #1392's own load see R-100 in Strict loading). Checks 1 / 2 / 3 below are #1392's implementation of B-4 / B-3 / B-5. The allowlist alone accepts any listed edge, so a Decision of `DIAGNOSING` could be followed by a commit of `VERIFYING -> PR_CONVERGING`. By Human decision #1393 does not carry `next_state`; **#1392 derives the transition from `(lifecycle_state, action)` and checks it.** #1392 reads four `decision_made` payload keys — `decided_in_state`, `action`, `outcome`, `input_last_event_seq` — and contains no Decision logic.
 
 Decision-bound edges (action values per `artifact-responsibilities.md`: continue / repair / replan / stop; `stop` is terminal and follows the Terminal transaction rule):
 
@@ -434,7 +439,7 @@ All six are re-checked on load (Strict loading).
 
 Residual (R-042): a stale writer's `state_conflict` recorded between building a Decision input and committing the Decision breaks check 2, so the legitimate Decision is rejected and #1395 must rebuild the input. This is the intended strictness of input freshness (no event of any kind in between); it is bounded by `MAX_CONFLICTS_PER_POSITION` and stated in the handoff.
 
-[Dependency] The `decision_made` payload keys are frozen by #1391 (TASK-1391 has not frozen them yet; #1393 lists them in its `decision_to_event_draft`). #1392's RED fixtures use those keys only after that agreement.
+[Dependency] The `decision_made` payload keys are frozen by #1391. Status re-checked 2026-10-22 (R-104): issue #1391 is OPEN; `docs/working/TASK-1391/` exists on main (plan PR #1397) but has no `approvals/` (C-3 not done) and does not name these keys; #1393 lists them in its `decision_to_event_draft`. #1392's RED fixtures use those keys only after that agreement.
 
 ### Replan re-binding
 

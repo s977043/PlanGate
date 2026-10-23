@@ -492,7 +492,10 @@ class RatchetVerticalSliceTests(unittest.TestCase):
 
     def _git(self, root, *args):
         completed = subprocess.run(
-            ["git", "-C", str(root), *args],
+            [
+                "git", "-c", "gc.auto=0", "-c", "maintenance.auto=false",
+                "-C", str(root), *args,
+            ],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

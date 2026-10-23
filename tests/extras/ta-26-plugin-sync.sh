@@ -577,6 +577,85 @@ else
   else
     t26_fail "TC-25 失敗 (dry: fired=$_t26_fired25a rc=$_t26_rc25a left=$_t26_left25a 期待 yes/0/7 / run: fired=$_t26_fired25b rc=$_t26_rc25b left=$_t26_left25b 期待 yes/3/7)"
   fi
+
+  # TC-45: 経路2 base は正本ファイル名の文字（スペース / glob）と CWD に依存しない（#1009）
+  # 正本 1 件 + stale 2 件 → base=1 / stale=2 で guard 発火が正。base を未 quote の
+  # ワード分割で数えると、スペース名は語数（5）、glob 名は CWD の *.md 件数（5）へ
+  # 過大化し、guard が発火せず stale 2 件を削除する。
+  # 対照（通常名）は同じ構成で発火すること（fixture 自体が発火条件を満たす証明）。
+  _t26_cwd45=$(mktemp -d); register_cleanup "$_t26_cwd45"
+  for _t26_n45 in 1 2 3 4 5; do printf 'x\n' > "$_t26_cwd45/cwd-$_t26_n45.md"; done
+  for _t26_case45 in 'a b c d e.md' '*.md' 'plain.md'; do
+    _t26_t45=$(mktemp -d); register_cleanup "$_t26_t45"
+    _t26_mk_ai_loop_guard_sandbox "$_t26_t45" 0 2
+    printf 'wf\n' > "$_t26_t45/docs/workflows/ai-loop/$_t26_case45"
+    printf 'wf\n' > "$_t26_t45/$_T26_AI_LOOP_REFS_REL/$_t26_case45"
+    _t26_rc45=0
+    _t26_out45=$(cd "$_t26_cwd45" && sh "$_t26_t45/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc45=$?
+    _t26_stale45=0
+    for _t26_n45 in 1 2; do
+      [ -f "$_t26_t45/$_T26_AI_LOOP_REFS_REL/stale-$_t26_n45.md" ] && _t26_stale45=$((_t26_stale45 + 1))
+    done
+    rm -rf "$_t26_t45"
+    if [ "$_t26_rc45" -eq 3 ] && [ "$_t26_stale45" = "2" ] \
+      && printf '%s' "$_t26_out45" | grep -q 'base=1 / stale=2'; then
+      t26_pass "TC-45 経路2 base が正本名 '$_t26_case45' で過大化しない（base=1/stale=2 で発火・stale 保持）"
+    else
+      t26_fail "TC-45 失敗 '$_t26_case45' (rc=$_t26_rc45 期待3 / stale残=$_t26_stale45 期待2): $_t26_out45"
+    fi
+  done
+  rm -rf "$_t26_cwd45"
+
+  # TC-46 (#1583): a filename with spaces must not make a DIFFERENT stale
+  # basename look expected. The old `case " $refs "` token-matches y.md
+  # against the expected "x y.md" and silently leaves y.md behind.
+  # Run dry-run and real sync so stale-count and deletion share one predicate.
+  _t26_t46=$(mktemp -d); register_cleanup "$_t26_t46"
+  _t26_mk_ai_loop_guard_sandbox "$_t26_t46" 0 0
+  printf 'wf expected\n' > "$_t26_t46/docs/workflows/ai-loop/x y.md"
+  printf 'old expected\n' > "$_t26_t46/$_T26_AI_LOOP_REFS_REL/x y.md"
+  printf 'stale\n' > "$_t26_t46/$_T26_AI_LOOP_REFS_REL/y.md"
+  _t26_rc46d=0
+  _t26_out46d=$(sh "$_t26_t46/scripts/sync-plugin-plangate.sh" --dry-run 2>&1) || _t26_rc46d=$?
+  _t26_dry_kept46=0
+  [ -f "$_t26_t46/$_T26_AI_LOOP_REFS_REL/y.md" ] && _t26_dry_kept46=1
+  _t26_rc46=0
+  _t26_out46=$(sh "$_t26_t46/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc46=$?
+  _t26_expected46=0; _t26_stale46=0
+  [ -f "$_t26_t46/$_T26_AI_LOOP_REFS_REL/x y.md" ] && _t26_expected46=1
+  [ -f "$_t26_t46/$_T26_AI_LOOP_REFS_REL/y.md" ] && _t26_stale46=1
+  rm -rf "$_t26_t46"
+  if [ "$_t26_rc46d" -eq 0 ] && [ "$_t26_rc46" -eq 0 ] \
+    && [ "$_t26_dry_kept46" = "1" ] \
+    && [ "$_t26_expected46" = "1" ] && [ "$_t26_stale46" = "0" ] \
+    && printf '%s' "$_t26_out46d" | grep -Fq 'WOULD DELETE: skills/ai-loop-cycle/references/y.md' \
+    && printf '%s' "$_t26_out46" | grep -Fq 'DELETE: skills/ai-loop-cycle/references/y.md' \
+    && ! printf '%s' "$_t26_out46" | grep -q 'mass-delete safety guard'; then
+    t26_pass "TC-46 basename 'x y.md' は独立した stale 'y.md' を期待扱いしない (dry-run/real)"
+  else
+    t26_fail "TC-46 失敗 (dry rc=$_t26_rc46d dry kept=$_t26_dry_kept46 / real rc=$_t26_rc46 expected=$_t26_expected46 stale=$_t26_stale46): $_t26_out46d || $_t26_out46"
+  fi
+
+  # TC-47 (#1584): a backslash in an expected basename must be compared
+  # literally; awk -v would turn 'a\nb.md' into a newline and delete it.
+  _t26_t47=$(mktemp -d); register_cleanup "$_t26_t47"
+  _t26_mk_ai_loop_guard_sandbox "$_t26_t47" 0 0
+  printf 'wf expected\n' > "$_t26_t47/docs/workflows/ai-loop/a\\nb.md"
+  _t26_rc47d=0
+  _t26_out47d=$(sh "$_t26_t47/scripts/sync-plugin-plangate.sh" --dry-run 2>&1) || _t26_rc47d=$?
+  _t26_rc47=0
+  _t26_out47=$(sh "$_t26_t47/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc47=$?
+  _t26_expected47=0
+  [ -f "$_t26_t47/$_T26_AI_LOOP_REFS_REL/a\\nb.md" ] && _t26_expected47=1
+  rm -rf "$_t26_t47"
+  if [ "$_t26_rc47d" -eq 0 ] && [ "$_t26_rc47" -eq 0 ] \
+    && [ "$_t26_expected47" = "1" ] \
+    && ! printf '%s' "$_t26_out47d" | grep -Fq 'WOULD DELETE: skills/ai-loop-cycle/references/a' \
+    && ! printf '%s' "$_t26_out47" | grep -Fq 'DELETE: skills/ai-loop-cycle/references/a'; then
+    t26_pass "TC-47 basename 'a\\nb.md' のバックスラッシュをリテラル照合し期待ファイルを保持する (dry-run/real)"
+  else
+    t26_fail "TC-47 失敗 (dry rc=$_t26_rc47d / real rc=$_t26_rc47 expected=$_t26_expected47): $_t26_out47d || $_t26_out47"
+  fi
 fi
 
 # 経路1（汎用 references）用 sandbox。_t26_mk_guard_sandbox と同型。

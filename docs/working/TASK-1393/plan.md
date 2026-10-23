@@ -11,6 +11,10 @@
 > Revision 2.4 (2026-09-28). Human decisions on the C-2 R1 open items: R-055 — a `DENIED` verdict always stops the Run as BLOCKED, also when a required FAIL exists (the FAIL stays in the evidence); R-058 — #1393 is rebuilt from this plan and replaces the `decision_core` of PR #1402, which now refers to #1393 instead of closing it (PF-1 done).
 >
 > Revision 2.5 (2026-09-28). C-2 R2 (R-070〜R-080), all fix-omissions of R1 classes: stop-reason composition (R-070), byte bound of `decision_made` (R-072), convergence vocabulary unified with #1402 (R-074), artifact-ref encoding and `head_sha` (R-075), module import allowlist (R-076), blocker sets (R-077), migration targets in PF-1 (R-079). R-071 (pbi-input Required 3 wording) needs a Human y/n.
+>
+> Revision 2.6 (2026-10-21). Two Human decisions after C-3. R-081: PF-1 adds `scripts/ai-loop-v2/ratchet.py` and TA-92 (`scripts/ai-loop-v2/test_ratchet.py`, `tests/extras/ta-92-ai-loop-v2-ratchet.sh`) to the migration targets, including its keyword-argument call shape. R-082: the #1422 ruling of 2026-10-21 (issuecomment-6308427967) freezes B-1〜B-7 and B-9〜B-12 with owners, retires B-7 into B-9, makes #1393 the sole semantic owner of the B-11 audit, requires INCONCLUSIVE (never PASS) for B-4 / B-5 history that cannot be replayed, and leaves B-8 / B-13 as unfrozen gaps (the empty blocker set is not a B-13 PASS). Changed: this heading, PF-1, Trust boundary (Audit, B table), Known limitations. The decision rules (I-*, P-*, steps 1-8) are unchanged. The C-3 `plan_hash` of Revision 2.5 no longer matches; a Human re-issues c3.json.
+>
+> Revision 2.7 (2026-10-22). Human decision PF-5 (R-085〜R-088): `MAX_DECISION_EVENT_BYTES` bounds the whole `decision_made` event (envelope and binding keys included) and I-11 checks it on the safe side; the limits live in a new leaf module `scripts/ai-loop-v2/limits.py` owned by #1393; provisional values are fixed by fixture; `decision_made` key names follow #1391 (`artifact_ref` / `failure_fingerprints` / `verdicts`). Changed: this heading, I-11, Payload size, the `decision_made` key mapping, PF-5 (agreed). The decision rules other than I-11 are unchanged. The C-3 `plan_hash` of Revision 2.6 (`ec2a0db8…`) no longer matches; a Human re-issues c3.json.
 
 ## Architecture
 
@@ -167,7 +171,7 @@ Common rules (all states):
 | I-7 | every FailureRecord's `verification_ref` points to the latest FAIL of a required FAIL verifier (no orphan FR, and no FR for a stale, older, or non-required FAIL); its `observed_seq` is greater than that FAIL's `observed_seq` and than `contract_bound_seq` (a diagnosis is recorded after the failure, under the current contract). Several FRs for one FAIL are accepted; the effective FR is the one with the highest `observed_seq` |
 | I-9 | `input_last_event_seq` is at least every `observed_seq` in the input (results, FailureRecords, policy verdicts, `pr_convergence`), and every `event_ref` is unique (see Trust boundary) |
 | I-10 | `contract_bound_seq` is an integer `>= 1` (#1391 assigns `event_seq` from 1 and the #1392 create envelope binds the contract before any verification, so 0 would mean "no boundary") and less than `input_last_event_seq`. Results with `observed_seq < contract_bound_seq` are accepted; only their FAILs can be bound |
-| I-11 | size bounds (R-062 / R-072): results + FailureRecords + policy verdicts `<= MAX_INPUT_REFS`; `required_verifiers` `<= MAX_REQUIRED_VERIFIERS`; every identifier, fingerprint and ref string `<= MAX_REF_CHARS`; and the canonical encoded size of the input-derived part of the `decision_made` payload plus `DECISION_FIXED_OVERHEAD` (the largest action / outcome / stop_reasons part) `<= MAX_DECISION_EVENT_BYTES`. Free-text fields (`observation`, `cause_hypothesis`) are not copied into the payload; only refs are |
+| I-11 | size bounds (R-062 / R-072): results + FailureRecords + policy verdicts `<= MAX_INPUT_REFS`; `required_verifiers` `<= MAX_REQUIRED_VERIFIERS`; every identifier, fingerprint and ref string `<= MAX_REF_CHARS`; and the canonical encoded size of the input-derived part of the `decision_made` payload plus `DECISION_FIXED_OVERHEAD` (the largest action / outcome / stop_reasons part) plus `ENVELOPE_OVERHEAD` (the largest envelope and binding keys of the event) `<= MAX_DECISION_EVENT_BYTES`, where `MAX_DECISION_EVENT_BYTES` bounds the whole event (R-085). The constants come from `limits.py` (R-086). Free-text fields (`observation`, `cause_hypothesis`) are not copied into the payload; only refs are |
 
 Per-state rules:
 
@@ -258,25 +262,27 @@ Consequence: an empty commit, an amend with the same content, or a rebase that y
 | `pr_convergence` | convergence of another head, an older observation, or a value not recorded | #1393 (P-2) and #1422 B-8 | built from an accepted `pr_convergence_recorded` event; `observed_artifact_ref == current_artifact_ref`; B-8 checks it is the latest for that head |
 | `policy_verdicts` | omitting a `DENIED` (MERGE_READY instead of BLOCKED) or a verdict not recorded | #1422 B-8 (#1391 vocabulary) | built from accepted events; every `DENIED` of the Run is passed |
 
-Audit (#1422 B-11, release condition): recompute each `decision_made` from the stream prefix up to its `input_last_event_seq` and compare.
+Audit (#1422 B-11, release condition): recompute each `decision_made` from the stream prefix up to its `input_last_event_seq` and compare. #1395 runs the audit and #1391 owns the events; #1393 is the sole owner of the semantics, so the audit recomputes with this module's `make_decision_input` / `decide` and defines no second decision rule (R-082). A historical `decision_made` whose B-4 / B-5 check cannot be replayed from the stored stream is reported INCONCLUSIVE, never PASS.
 
-#1422 items this plan relies on (B-1〜B-13, including the B-1 encoding, are in the issue body as of 2026-09-28):
+#1422 items this plan relies on (B-1〜B-13, including the B-1 encoding, are in the issue body as of 2026-09-28). Freeze status from the Human ruling of 2026-10-21 (https://github.com/s977043/PlanGate/issues/1422#issuecomment-6308427967, R-082):
 
-| # | Invariant |
-|---|---|
-| B-1 | artifact identity = tree hash, encoded in the #1391 `sha256:<64 hex>` form as `sha256:` + lowercase hex SHA-256 of the raw UTF-8 bytes of `git-tree:<tree object id>` (not the JSON-canonical `digest()`, which would hash the quotes too; R-061 / R-075) |
-| B-2 | `contract_bound_seq` in the payload equals the `event_seq` of the latest `plan_contract_bound` before the `decision_made` (IT-10); #1391 accepts a re-binding after Replan as a boundary instead of rejecting it as binding drift (R-065) |
-| B-3 | `decision_made.event_seq == input_last_event_seq + 1`; one `decision_made` per transaction |
-| B-4 | `decided_in_state` equals the snapshot `lifecycle_state` |
-| B-5 | transition derived from `(state, action)` |
-| B-6 | `plan_contract_bound` carries `loop_contract_ref` and the required set; a changed verifier definition gets a new `verifier_id` |
-| B-7 | superseded by I-7 (effective FR = highest `observed_seq`) + B-9 |
-| B-8 | policy verdicts and `pr_convergence` are built from accepted events; every `DENIED` of the Run and the latest `pr_convergence_recorded` for the head are passed; `pr_convergence_recorded` carries `observed_artifact_ref` (R-060) |
-| B-9 | completeness: the result `event_ref` set in the payload equals the stream's `verification_recorded` on the current artifact up to `input_last_event_seq`; likewise every `failure_recorded` for each latest FAIL |
-| B-10 | `previous_decision` is the latest base-point `decision_made`; `FIRST_ITERATION` only when none exists |
-| B-11 | audit recompute (IT-06) |
-| B-12 | `failure_recorded` carries the `verification_ref` of the FAIL it diagnoses (R-059) |
-| B-13 | blocker sets come from a deterministic observer event, not from `repair_attempted` / `progress_assessed` (R-077) |
+| # | Invariant | Freeze (2026-10-21) |
+|---|---|---|
+| B-1 | artifact identity = tree hash, encoded in the #1391 `sha256:<64 hex>` form as `sha256:` + lowercase hex SHA-256 of the raw UTF-8 bytes of `git-tree:<tree object id>` (not the JSON-canonical `digest()`, which would hash the quotes too; R-061 / R-075) | frozen: #1395 (construction + audit) |
+| B-2 | `contract_bound_seq` in the payload equals the `event_seq` of the latest `plan_contract_bound` before the `decision_made` (IT-10); #1391 accepts a re-binding after Replan as a boundary instead of rejecting it as binding drift (R-065) | frozen: #1391 (load/audit + append); the Replan re-binding gap stays a #1391 implementation item |
+| B-3 | `decision_made.event_seq == input_last_event_seq + 1`; one `decision_made` per transaction | frozen: #1392 commit/load, #1391 semantic audit |
+| B-4 | `decided_in_state` equals the snapshot `lifecycle_state` | frozen: #1392 commit + historical replay; unreconstructable history is INCONCLUSIVE, never PASS |
+| B-5 | transition derived from `(state, action)` | frozen: as B-4 |
+| B-6 | `plan_contract_bound` carries `loop_contract_ref` and the required set; a changed verifier definition gets a new `verifier_id` | frozen: #1391 vocabulary + append/load; the payload gap stays a #1391 implementation item |
+| B-7 | superseded by I-7 (effective FR = highest `observed_seq`) + B-9 | **retired**, folded into B-9 |
+| B-8 | policy verdicts and `pr_convergence` are built from accepted events; every `DENIED` of the Run and the latest `pr_convergence_recorded` for the head are passed; `pr_convergence_recorded` carries `observed_artifact_ref` (R-060) | **not frozen** (gap): no accepted policy-verdict event exists; vocabulary and latest-head binding are decided in the #1391 plan (C-3) |
+| B-9 | completeness: the result `event_ref` set in the payload equals the stream's `verification_recorded` on the current artifact up to `input_last_event_seq`; likewise every `failure_recorded` for each latest FAIL | frozen: #1391 load/audit |
+| B-10 | `previous_decision` is the latest base-point `decision_made`; `FIRST_ITERATION` only when none exists | frozen: #1391 verifies, #1395 selects |
+| B-11 | audit recompute (IT-06) | frozen: #1395 runs, #1391 owns events, #1393 sole semantic owner |
+| B-12 | `failure_recorded` carries the `verification_ref` of the FAIL it diagnoses (R-059) | frozen: #1391 append/load/audit |
+| B-13 | blocker sets come from a deterministic observer event, not from `repair_attempted` / `progress_assessed` (R-077) | **not frozen** (gap): no accepted observer event exists; name/shape decided in the #1391 plan (C-3) |
+
+The ruling does not check any #1422 AC; they stay open until the owner implementations land.
 
 The first release is not complete until #1422 (B-1〜B-13, including the audit) and the #1395 budget are in place.
 
@@ -288,7 +294,8 @@ The first release is not complete until #1422 (B-1〜B-13, including the audit) 
 | `HUMAN_REQUIRED` -> `WAITING_HUMAN` | `DecisionInputError` (step 5) | #1392 waiting/resume slice |
 | `PR_CONVERGING` + `replan_required` | `DecisionInputError` (step 3; with `DENIED` it is BLOCKED at step 2) | #1392 allowlist (no edge yet) |
 | `BUDGET_EXHAUSTED` / `REPEATED_FAILURE` / `OSCILLATION` | not produced by `decide()` | later #1393 slice; budget enforced by #1395 (below) |
-| blocker sets have no deterministic source yet | #1395 passes empty sets until #1422 B-13; `evidence_delta` is derived and `previous_verdicts` comes from the base-point payload (#1422 B-10) | #1422 B-13 |
+| blocker sets have no deterministic source yet | #1395 passes empty sets until #1422 B-13; `evidence_delta` is derived and `previous_verdicts` comes from the base-point payload (#1422 B-10). B-13 is an unfrozen gap (R-082): the empty set is a fail-closed placeholder and is **not** a B-13 PASS; no audit or release check may report B-13 as satisfied while it is used | #1422 B-13 (#1391 plan) |
+| no accepted policy-verdict event (B-8 unfrozen) | unchanged from above: no policy verdicts in the first slice; B-8 is not reported as satisfied | #1422 B-8 (#1391 plan) |
 | `required_verifiers` / `contract_bound_seq` are not yet bound to the Run by any event | release condition | #1422 B-2 / B-6 |
 | no policy event exists in the #1391 first-slice vocabulary | the first slice passes no policy verdicts until B-8 adds one | #1422 B-8 / #1391 |
 | a Replan with an unchanged tree keeps its FAILs (R-047) | intended fail-closed: the Run must change content (repair) or stop | — |
@@ -325,7 +332,17 @@ decision_to_event_draft(decision)
 
 `decision_to_event_draft` creates a #1391 EventDraft with `decided_in_state`, `action`, `outcome`, `stop_reasons`, `policy_verdicts`, `input_last_event_seq`, `loop_contract_ref`, `contract_bound_seq`, `required_verifiers`, `artifact_verdicts`, the `event_ref` of every bound result used, the `event_ref`, `observed_seq` and `repairability` of every FailureRecord and the effective one per FAIL, the `event_ref` of every policy verdict, the `event_ref` and `observed_artifact_ref` of `pr_convergence` (PR_CONVERGING), `current_artifact_ref`, the current fingerprint set (the next base point), the progress kind (`first_iteration` / `assessed`) with `previous_decision_ref`, and `input_refs` (everything the Trust boundary checks need). It does not persist it. [Dependency] The #1391 implementation in PR #1402 fixes the `decision` object to the keys `{action, inputs, outcome, stop_reasons}` and checks that every ref in `inputs` exists earlier in the stream. Where each key above goes (for example the refs into `inputs`, the rest into an agreed extension) is agreed with #1391 before exec (Preflight).
 
-**Payload size (R-062 / R-072).** #1392 derives its terminal reserve from `MAX_DECISION_EVENT_BYTES`, the maximum canonical encoded size of a `decision_made` event (#1406 `e4aaeb91`). I-11 enforces that maximum at input construction, so every `Decision` built from a valid input has a payload within it (DC-13). The limits are agreed with #1392 before exec, and `MAX_INPUT_REFS` must be at least the largest count a Run can reach within the #1395 budget; otherwise a legitimate Run would get `DecisionInputError` before its budget stops it, and could not even record a stop.
+**Payload size (R-062 / R-072 / R-085〜R-087, PF-5 agreed 2026-10-22).** #1392 derives its terminal reserve from `MAX_DECISION_EVENT_BYTES`, the maximum canonical encoded size of the **whole** `decision_made` event, envelope and binding keys included (#1406 `e4aaeb91`; one definition, R-085). I-11 enforces that maximum at input construction on the safe side (input-derived part + `DECISION_FIXED_OVERHEAD` + `ENVELOPE_OVERHEAD`), so every `Decision` built from a valid input yields an event within it (DC-13). #1392 adds no envelope overhead of its own (0). `MAX_INPUT_REFS` must be at least the largest count a Run can reach within the #1395 budget; otherwise a legitimate Run would get `DecisionInputError` before its budget stops it, and could not even record a stop. This is checked when the #1395 budget is fixed.
+
+**Limits module (R-086 / R-087).** `MAX_INPUT_REFS`, `MAX_REQUIRED_VERIFIERS`, `MAX_REF_CHARS`, `MAX_DECISION_EVENT_BYTES`, `DECISION_FIXED_OVERHEAD` and `ENVELOPE_OVERHEAD` are defined in a new leaf module `scripts/ai-loop-v2/limits.py` (no imports from other ai-loop-v2 modules; owner #1393), read by #1393 and #1392. Provisional values, fixed by fixture: `MAX_INPUT_REFS = 256`, `MAX_REQUIRED_VERIFIERS = 16`, `MAX_REF_CHARS = 256`; `MAX_DECISION_EVENT_BYTES` is computed from the worst-case event at these limits and rounded up (for example 64 KiB). The file is created at exec, not in this plan revision.
+
+**`decision_made` key mapping (R-088).** Key names follow #1391:
+
+| #1393 value | `decision_made` key |
+|---|---|
+| `current_artifact_ref` | `artifact_ref` |
+| `artifact_verdicts` (the verdict map) | `verdicts` |
+| current fingerprint set | `failure_fingerprints` |
 
 ## Static boundaries
 
@@ -341,11 +358,11 @@ The existing checks do not enforce these boundaries: ta-70 guards against runnin
 
 | # | Condition | Source |
 |---|---|---|
-| PF-1 | ~~The relation to the `decision_core` in PR #1402 is decided~~ Done 2026-09-28: #1393 is rebuilt from this plan and replaces the #1402 `decision_core`; #1402 body changed `Closes #1393` to `Refs #1393`. Remaining at exec: the module path agreed with #1402's rework, and the migration of its callers — `scripts/ai-loop-v2/delivery_runtime.py`, `tests/.../test_delivery_v2.py`, and the ta-87 / ta-93 fixtures — whose `decide` / `assess_progress` signatures differ; `DecisionError` is replaced by `DecisionInputError(ValueError)` (R-079) | R-058 (Human) |
+| PF-1 | ~~The relation to the `decision_core` in PR #1402 is decided~~ Done 2026-09-28: #1393 is rebuilt from this plan and replaces the #1402 `decision_core`; #1402 body changed `Closes #1393` to `Refs #1393`. Remaining at exec: the module path agreed with #1402's rework, and the migration of its callers — `scripts/ai-loop-v2/delivery_runtime.py`, `tests/.../test_delivery_v2.py`, and the ta-87 / ta-93 fixtures — whose `decide` / `assess_progress` signatures differ; `DecisionError` is replaced by `DecisionInputError(ValueError)` (R-079). Also `scripts/ai-loop-v2/ratchet.py` and TA-92 (R-081): ratchet.py imports `DecisionError, decide` from `decision_core` (:16), calls `decide(loop_contract=..., run_state={"state": "PR_CONVERGING"}, verifications=..., failures=[], current_artifact_ref=..., pr_convergence=..., changed_paths=...)` (:193) and maps `DecisionError` to outcome `ERROR` (:208). The migration builds the input with `make_verification_result` / `make_decision_input(lifecycle_state="PR_CONVERGING", ...)` and calls `decide(decision_input)`; `changed_paths` is not a #1393 input (the `scope` field of `pr_convergence` is the #1395 observer verdict), and both `DecisionInputError` and the previous `DecisionError` cases keep mapping to `ERROR` (fail-closed, never MERGE_READY). TA-92 must pass unchanged in its expected outcomes after the switch | R-058 (Human), R-081 (Human 2026-10-21) |
 | PF-2 | #1391 `failure_recorded` carries `verification_ref` (#1422 B-12) | R-059 |
 | PF-3 | #1391 `pr_convergence_recorded` carries `observed_artifact_ref` (#1422 B-8) | R-060 |
 | PF-4 | the artifact ref encoding of #1422 B-1 is adopted by #1391 / #1395 | R-061 |
-| PF-5 | the `decision_made` key mapping and the I-11 limits (`MAX_INPUT_REFS` >= the budget-derived maximum, `MAX_DECISION_EVENT_BYTES`) are agreed with #1391 / #1392 | R-062 / R-072 |
+| PF-5 | ~~the `decision_made` key mapping and the I-11 limits are agreed with #1391 / #1392~~ Agreed 2026-10-22 (Human decision): whole-event `MAX_DECISION_EVENT_BYTES`, `limits.py`, provisional values, #1391 key names (see Payload size). Remaining: `MAX_INPUT_REFS` >= the budget-derived maximum is checked when the #1395 budget is fixed | R-062 / R-072 / R-085〜R-088 |
 | PF-6 | the module import allowlist test exists with a positive control per forbidden category | R-076 |
 | PF-7 | #1391 validates the value domains of `pr_convergence_recorded` (today only the key set), in the vocabulary of plan "pr_convergence" | R-074 |
 | PF-8 | #1391 `plan_contract_bound` carries `loop_contract_ref` and the required set (#1422 B-6); until then RED fixtures fix the expected shape | R-080 |

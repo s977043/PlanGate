@@ -1,5 +1,7 @@
 # TEST CASES — TASK-1393 / #1393
 
+> Revision 2.7 (2026-10-22), matching plan Revision 2.7: whole-event byte bound with `ENVELOPE_OVERHEAD` (R-085; DI-45 / DC-13 changed), `limits.py` values (R-086 / R-087; DI-46 added), #1391 key names (R-088; DI-47 added).
+
 > Revision 2 (2026-09-25), matching plan Revision 2. IDs are new; Revision 1 IDs are not reused.
 >
 > Revision 2.1 (2026-09-25), matching plan Revision 2.1: contract boundary (`contract_bound_seq`), derived `evidence_delta` (`artifact_verdicts`), FR order (I-7). Stream-side cases moved to #1422 are listed under Integration cases.
@@ -47,7 +49,9 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DI-36 | DIAGNOSING, ProgressAssessment whose current_verdicts = {D: pass} while the input gives D verdict fail | `DecisionInputError` (P-3) |
 | DI-43 | results + FailureRecords + policy verdicts = `MAX_INPUT_REFS` + 1 | `DecisionInputError` (I-11); exactly `MAX_INPUT_REFS` is accepted |
 | DI-44 | `required_verifiers` = `MAX_REQUIRED_VERIFIERS` + 1 / a verifier_id or fingerprint of `MAX_REF_CHARS` + 1 characters | `DecisionInputError` (I-11) |
-| DI-45 | counts within limits but the input-derived payload part + `DECISION_FIXED_OVERHEAD` = `MAX_DECISION_EVENT_BYTES` + 1 byte | `DecisionInputError` (I-11); exactly the maximum is accepted |
+| DI-45 | counts within limits but the input-derived payload part + `DECISION_FIXED_OVERHEAD` + `ENVELOPE_OVERHEAD` = `MAX_DECISION_EVENT_BYTES` + 1 byte | `DecisionInputError` (I-11); exactly the maximum is accepted |
+| DI-46 | `limits.py` fixture (R-086 / R-087) | `MAX_INPUT_REFS == 256`, `MAX_REQUIRED_VERIFIERS == 16`, `MAX_REF_CHARS == 256`; `MAX_DECISION_EVENT_BYTES` >= the computed worst-case whole event at these limits; `limits.py` imports no other ai-loop-v2 module |
+| DI-47 | `decision_to_event_draft` key names (R-088) | the event uses `artifact_ref`, `verdicts`, `failure_fingerprints`; `current_artifact_ref` / `artifact_verdicts` do not appear as event keys |
 | DI-12 | policy verdict `ALLOW` / unknown | `DecisionInputError` |
 | DI-13 | DIAGNOSING, FR whose verification_ref points to a stale D FAIL (plus a fresh D FAIL with its own FR) | `DecisionInputError` |
 | DI-14 | DIAGNOSING, FR pointing to a non-required verifier's FAIL | `DecisionInputError` |
@@ -178,7 +182,16 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DC-10 | full repository suite | PASS |
 | DC-11 | a `progress_assessed` event with `no_progress=true` and a `repair_attempted` event with empty `evidence_delta` and a non-empty `resolved_blockers` exist in the stream; the DecisionInput is built with `assess_progress` giving `no_progress=false` | decision follows `assess_progress` (no API reads the event values) |
 | DC-12 | DC-09 positive controls: plant one forbidden import per category in a copy of the module — `subprocess`, `socket`, `time`, `pathlib` / `open`, `os`, the #1392 storage module, a GitHub / merge client (7 cases) | the module import allowlist test fails for each |
-| DC-13 | for inputs at every I-11 bound, `decision_to_event_draft(decide(input))` | canonical encoded size `<= MAX_DECISION_EVENT_BYTES` |
+| DC-13 | for inputs at every I-11 bound, `decision_to_event_draft(decide(input))` | canonical encoded size of the whole event (envelope and binding keys included, R-085) `<= MAX_DECISION_EVENT_BYTES` |
+
+## RT — Ratchet / TA-92 caller migration (PF-1, R-081; Revision 2.6)
+
+| ID | Case | Expected |
+|---|---|---|
+| RT-01 | after the switch, `python3 scripts/ai-loop-v2/test_ratchet.py` and `tests/extras/ta-92-ai-loop-v2-ratchet.sh` | PASS; every expected outcome in TA-92 unchanged from before the switch |
+| RT-02 | `ratchet.py` imports | no import of `decision_core` / `DecisionError`; `decide` is called with exactly one `DecisionInput` built by `make_decision_input(lifecycle_state="PR_CONVERGING", ...)` (DC-08 holds for the caller) |
+| RT-03 | an input that `make_decision_input` rejects (for example an empty `required_verifiers`) reaches ratchet | outcome `ERROR` with the `DecisionInputError` message; never MERGE_READY |
+| RT-04 | `changed_paths` that disagree with the allowed scope | not a #1393 input; the stop comes from `pr_convergence.scope = fail` (observer verdict), not from a `decide` keyword |
 
 ## Mutation targets
 
@@ -241,3 +254,5 @@ Each mutant must be killed by at least one case above.
 | IT-14 | #1422 B-9 | a decision_made whose result refs omit a verification_recorded on the current artifact up to input_last_event_seq | reject |
 | IT-15 | #1422 B-10 | previous_decision_ref is not the latest base-point decision_made | reject |
 | IT-12 | #1422 B-3 | one transaction with two decision_made | reject |
+| IT-16 | #1422 B-4 / B-5 (R-082) | audit a historical decision_made whose snapshot state cannot be reconstructed from the stored stream | INCONCLUSIVE, never PASS |
+| IT-17 | #1422 B-13 (R-082) | audit a Run whose blocker sets were passed empty because no observer event exists | B-13 not reported as PASS |

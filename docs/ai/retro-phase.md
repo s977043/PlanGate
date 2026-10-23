@@ -20,6 +20,22 @@
 env は不使用（自己付与リスク回避 / TASK-0071 教訓）。フラグが立たない限り
 WF-06 は発火しない＝既存 run 挙動は完全に不変（純追加・後方互換）。
 
+### 1-a. high-risk 以上の opt-in 推奨（#1544 / advisory）
+
+high-risk 以上の run では、計画レビュー時に `retro_enabled: true` を提案する。
+これは**推奨**であり、mode を根拠とした自動設定・既定 ON 化ではない。
+有効な opt-in は引き続き **C-3 承認済み pbi-input の値のみ**であり、AI が
+未承認 artifact にフラグを追記して WF-06 を起動してはならない。
+未指定または false、あるいは承認証跡が確認できない場合は WF-06 を起動しない。
+
+opt-in 済み run の振り返りでは、WF-05 `handoff.md` の既知課題を
+**ドラフトの候補**として参照できる。ただし、既知課題そのものを
+再発原因や改善策として確定せず、実際の失敗・手戻りと Evidence を確認する。
+#228 の 5 項目と `confirmed_by`（§2）以外に正本スキーマを増やさない。
+`confirmed_by` が空欄のドラフトは `improvement-seeds.md` に追記しない。
+人間が confirm した場合のみ append-only で追記し、skip なら変更しない。
+下書き手順の参照先は [WF-06](../workflows/06_retro.md)。
+
 ## 2. improvement-seeds.md スキーマ（append-only / C-3 D-2 最小）
 
 配置: `docs/working/improvement-seeds.md`（リポジトリ単位で累積、run またぎ）。
