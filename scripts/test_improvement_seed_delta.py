@@ -258,7 +258,7 @@ class SeedInventoryTests(unittest.TestCase):
                     MODULE.inventory(self.seeds, self.digest, 1)
 
     def test_tc_blk_04_indented_code_seed_is_not_counted(self):
-        self.write_seeds(f"    ## {SEED_B}\n    - confirmed_by: human\n")
+        self.write_seeds(f"## 概要\n\n    ## {SEED_B}\n    - confirmed_by: human\n")
         self.assertEqual(self.count(), 1)
 
     def test_tc_blk_04b_indented_heading_in_list_item_is_rejected(self):
@@ -267,8 +267,13 @@ class SeedInventoryTests(unittest.TestCase):
             MODULE.inventory(self.seeds, self.digest, 1)
 
     def test_tc_blk_05_four_space_fence_does_not_open(self):
-        self.write_seeds(f"    ```\n\n## {SEED_B}\n- confirmed_by: human\n")
+        self.write_seeds(f"## 概要\n\n    ```\n\n## {SEED_B}\n- confirmed_by: human\n")
         self.assertEqual(self.count(), 2)
+
+    def test_tc_blk_05b_fence_inside_list_item_hides_until_closed(self):
+        self.write_seeds(f"- item\n\n    ```\n\n## {SEED_B}\n- confirmed_by: human\n")
+        with self.assertRaisesRegex(ValueError, "unclosed code fence"):
+            MODULE.inventory(self.seeds, self.digest, 1)
 
     def test_tc_blk_06_crlf_matches_lf(self):
         self.seeds.write_bytes(f"## {SEED_A}\r\n- confirmed_by: human\r\n\r\n## {SEED_B}\r\n- confirmed_by: human\r\n".encode())

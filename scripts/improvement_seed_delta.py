@@ -10,54 +10,225 @@ exit 2
 ":"""
 from __future__ import annotations
 
-__doc__ = """残存脅威モデル（本検査は多層防御の 1 層にすぎず、最終保証は C-4 の Human レビュー）
-守るもの: 正規形でない見出し / 閉じていない fence / 確認マーカーの欠落・否定値・プレースホルダ
-（先頭の BOM は utf-8-sig で除去する）。
+__doc__ = """Growth Harness L2: improvement-seeds と digest の差分を読み取り専用で棚卸しする（#1545 / #1608）。
+
+構造判定は行単位のブロック状態機械で行う（CommonMark のブロック規則のうち、判定に使う
+fenced code / HTML block（type 1〜7）/ indented code / ATX 見出し / setext 見出し / 段落・リストだけを持つ）。
+正規表現は 1 行の字句判定にだけ使う。
+
+残存脅威モデル（本検査は多層防御の 1 層にすぎず、最終保証は C-4 の Human レビュー）
+守るもの:
+- 正規形でない日付見出し（表記ゆれ・lookalike・blockquote / リスト内 / setext / 不可視文字・全角数字を含むもの）は拒否
+- code / HTML ブロック内の seed と確認マーカーは数えない。閉じていない fence / HTML ブロックは拒否
+- 確認マーカーの欠落・重複（ネストしたものを含む）・否定値・プレースホルダ・不可視文字は拒否
 守らないもの:
-- HTML コメント内の seed も数える（過大計上の向きで fail-open ではない）
-- BOM 以外の不可視文字（ZWSP 等）
-- 先頭語が no / na の正当な人名を拒否する（安全側の誤り）
-- Markdown を正規表現で検査しているという設計上の限界（パーサー化は follow-up）
+- CommonMark の全規則ではない。リスト項目の内容オフセットは 2 桁固定の近似で、順序付きリスト
+  （"1. " など）の継続行・入れ子の深いリストでは renderer と判定がずれうる
+- 先頭語が否定値と同綴りの正当な人名（例: "Na Yeon"）は拒否する（安全側の誤り / #1608 Q-4）
+- 本文中の文としての confirmed_by の言及も確認マーカー候補として扱う（安全側の誤拒否）
+- confirmed_by の値が実在の Human による確認であることは検証しない（authority を参照）
 """
 
 import argparse
 import json
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
-SEED_HEADING = re.compile(r"^## (\d{4}-\d{2}-\d{2} — .+)$", re.MULTILINE)
-SEED_HEADING_LIKE = re.compile(r"^[^\S\n]{0,3}#{1,6}(?!#)[^\n]*\d{4}-\d{2}-\d{2}", re.MULTILINE)
-FENCE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")
-DIGEST_SECTION = re.compile(r"^## 対象エントリ\s*\n(.*?)(?=^## |\Z)", re.MULTILINE | re.DOTALL)
+CANONICAL_SEED = re.compile(r"## ([0-9]{4}-[0-9]{2}-[0-9]{2} — .+)")
+# \d は Unicode 数字にも一致する。全角数字などの lookalike を候補として拾うために意図して使う。
+DATE_LIKE = re.compile(r"\d{4}-\d{2}-\d{2}")
+ATX = re.compile(r"(#{1,6})(?:[ \t]|$)")
+FENCE_OPEN = re.compile(r"(`{3,}|~{3,})(.*)")
+SETEXT_UNDERLINE = re.compile(r"(?:=+|-+)[ \t]*")
+LIST_MARKER = re.compile(r"(?:[-*+]|[0-9]{1,9}[.)])(?:[ \t]+|$)")
+CONFIRMATION = re.compile(r"- confirmed_by:[ \t]*(.*)")
+HTML_TYPE1 = re.compile(r"<(?:script|pre|style|textarea)(?:[ \t>]|$)", re.IGNORECASE)
+HTML_TYPE1_END = re.compile(r"</(?:script|pre|style|textarea)>", re.IGNORECASE)
+HTML_TYPE6 = re.compile(
+    r"</?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|"
+    r"dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|"
+    r"html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|"
+    r"section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[ \t>]|/>|$)",
+    re.IGNORECASE,
+)
+HTML_TYPE7 = re.compile(
+    r"(?:<[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[A-Za-z_:][A-Za-z0-9_.:-]*"
+    r"(?:[ \t]*=[ \t]*(?:[^ \t\"'=<>`]+|'[^']*'|\"[^\"]*\"))?)*[ \t]*/?>"
+    r"|</[A-Za-z][A-Za-z0-9-]*[ \t]*>)[ \t]*"
+)
+HTML_SIMPLE_STARTS = (("<!--", "-->"), ("<?", "?>"), ("<![CDATA[", "]]>"))
 UNCONFIRMED = {
     "<human>", "pending", "tbd", "none", "未確認",
     "no", "n", "false", "-", "n/a", "na", "null", "unconfirmed", "rejected", "なし", "未", "否", "保留",
 }
+CANONICAL_ERROR = "seed heading does not match the canonical '## YYYY-MM-DD — <task_id>' format"
 
 
-def mask_code_blocks(source: str) -> str:
-    lines = source.splitlines(keepends=True)
-    fence = None
-    for i, line in enumerate(lines):
-        opening = FENCE.match(line)
-        if fence is None and opening:
-            fence = opening.group(1)
-        elif (
-            fence is not None
-            and opening
-            and opening.group(1)[0] == fence[0]
-            and len(opening.group(1)) >= len(fence)
-            and not line[opening.end():].strip()
-        ):
-            fence = None
+def has_invisible(text: str) -> bool:
+    for char in text:
+        category = unicodedata.category(char)
+        if category[0] == "C" or category in ("Zl", "Zp") or (category == "Zs" and char != " "):
+            return True
+    return False
+
+
+def skeleton(text: str) -> str:
+    """不可視の書式文字を落とし、Unicode 空白を ASCII 空白に寄せる（候補の検出専用。受理判定には使わない）。"""
+    chars = []
+    for char in text:
+        category = unicodedata.category(char)
+        if category == "Cf":
+            continue
+        chars.append(" " if category == "Zs" or char == "\t" else char)
+    return "".join(chars).strip(" ")
+
+
+def strip_containers(text: str) -> tuple[str, bool]:
+    """blockquote とリストマーカーの接頭辞を外す。外したかどうかも返す。"""
+    stripped = False
+    while True:
+        if text.startswith(">"):
+            text, stripped = text[1:].lstrip(" "), True
+            continue
+        marker = LIST_MARKER.match(text)
+        if marker and marker.end() > 0 and text[marker.end():]:
+            text, stripped = text[marker.end():], True
+            continue
+        return text, stripped
+
+
+def indent_of(line: str) -> tuple[int, str]:
+    column = 0
+    for index, char in enumerate(line):
+        if char == " ":
+            column += 1
+        elif char == "\t":
+            column += 4 - column % 4
         else:
-            if fence is None:
+            return column, line[index:]
+    return column, ""
+
+
+def html_block_start(rest: str, interrupts_paragraph: bool):
+    """HTML ブロックの開始なら終了条件を返す（None は空行で終わる type 6/7）。開始でなければ False。"""
+    if HTML_TYPE1.match(rest):
+        return HTML_TYPE1_END
+    for opener, closer in HTML_SIMPLE_STARTS:
+        if rest.startswith(opener):
+            return closer
+    if rest.startswith("<!") and rest[2:3].isalpha():
+        return ">"
+    if HTML_TYPE6.match(rest):
+        return None
+    if not interrupts_paragraph and HTML_TYPE7.fullmatch(rest):
+        return None
+    return False
+
+
+def html_block_ends(line: str, closer) -> bool:
+    if isinstance(closer, str):
+        return closer in line
+    return bool(closer.search(line))
+
+
+def classify(source: str) -> list[tuple[str, str]]:
+    """各行を (kind, line) に分類する。kind は blank / code / html / heading / text。"""
+    lines = source.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    result: list[tuple[str, str]] = []
+    fence = None
+    html = None
+    in_html = False
+    paragraph: list[str] = []
+    in_list = False
+    previous_blank = True
+    for line in lines:
+        if fence is not None:
+            result.append(("code", line))
+            column, rest = indent_of(line)
+            closing = FENCE_OPEN.fullmatch(rest)
+            if (
+                column <= 3 + (2 if in_list else 0)
+                and closing
+                and closing.group(1)[0] == fence[0]
+                and len(closing.group(1)) >= len(fence)
+                and not closing.group(2).strip(" \t")
+            ):
+                fence = None
+            continue
+        if in_html:
+            if html is None and not line.strip(" \t"):
+                in_html = False
+                result.append(("blank", line))
+                previous_blank = True
                 continue
-        lines[i] = re.sub(r"[^\n]", " ", line)
+            result.append(("html", line))
+            if html is not None and html_block_ends(line, html):
+                in_html = False
+            continue
+        if not line.strip(" \t"):
+            result.append(("blank", line))
+            paragraph = []
+            previous_blank = True
+            continue
+        column, rest = indent_of(line)
+        if in_list and column >= 2 and not paragraph:
+            column -= 2
+        elif in_list and column < 2 and previous_blank and not LIST_MARKER.match(skeleton(rest)):
+            in_list = False
+        previous_blank = False
+        if column >= 4 and not paragraph:
+            result.append(("code", line))
+            continue
+        if column <= 3:
+            opening = FENCE_OPEN.fullmatch(rest)
+            if opening and (opening.group(1)[0] == "~" or "`" not in opening.group(2)):
+                fence = opening.group(1)
+                paragraph = []
+                result.append(("code", line))
+                continue
+            closer = html_block_start(rest, bool(paragraph))
+            if closer is not False:
+                paragraph = []
+                result.append(("html", line))
+                start = rest.find("<") + 1
+                in_html = not (closer is not None and html_block_ends(rest[start:], closer))
+                html = closer
+                continue
+            if paragraph and SETEXT_UNDERLINE.fullmatch(rest):
+                if any(DATE_LIKE.search(skeleton(text)) for text in paragraph):
+                    raise ValueError(CANONICAL_ERROR)
+                paragraph = []
+                result.append(("text", line))
+                continue
+            if ATX.match(rest):
+                paragraph = []
+                in_list = in_list and column > 0
+                result.append(("heading", line))
+                continue
+        if LIST_MARKER.match(skeleton(rest)):
+            in_list = True
+        paragraph.append(rest)
+        result.append(("text", line))
     if fence is not None:
         raise ValueError(f"unclosed code fence '{fence}'")
-    return "".join(lines)
+    if in_html and html is not None:
+        raise ValueError("unclosed HTML block")
+    return result
+
+
+def seed_title(line: str) -> str | None:
+    """日付見出しの候補なら正規形のタイトルを返し、候補でなければ None。正規形でない候補は拒否する。"""
+    content, contained = strip_containers(skeleton(line))
+    if not content.startswith("#") or not DATE_LIKE.search(content):
+        return None
+    canonical = CANONICAL_SEED.fullmatch(line)
+    if contained or canonical is None or has_invisible(line):
+        raise ValueError(CANONICAL_ERROR)
+    return canonical.group(1)
 
 
 def is_unconfirmed(value: str) -> bool:
@@ -67,41 +238,47 @@ def is_unconfirmed(value: str) -> bool:
 
 
 def read_declared_seeds(path: Path) -> list[str]:
-    source = mask_code_blocks(path.read_text(encoding="utf-8-sig"))
-    matches = list(SEED_HEADING.finditer(source))
-    if not matches:
-        raise ValueError("no seed entries found")
-    if len(SEED_HEADING_LIKE.findall(source)) != len(matches):
-        raise ValueError("seed heading does not match the canonical '## YYYY-MM-DD — <task_id>' format")
     entries: list[str] = []
-    for index, match in enumerate(matches):
-        body = source[match.end():matches[index + 1].start() if index + 1 < len(matches) else len(source)]
-        confirmations = re.findall(r"^- confirmed_by:[ \t]*(.+)$", body, flags=re.MULTILINE)
-        if len(confirmations) != 1 or is_unconfirmed(confirmations[0]):
-            raise ValueError(f"seed has missing or ambiguous confirmation marker: {match.group(1)}")
-        entries.append(match.group(1))
+    confirmations: list[list[str]] = []
+    for kind, line in classify(path.read_text(encoding="utf-8-sig")):
+        if kind not in ("text", "heading"):
+            continue
+        title = seed_title(line)
+        if title is not None:
+            entries.append(title)
+            confirmations.append([])
+            continue
+        content, _ = strip_containers(skeleton(line))
+        if entries and content.lower().startswith("confirmed_by"):
+            confirmations[-1].append(line)
+    if not entries:
+        raise ValueError("no seed entries found")
+    for title, markers in zip(entries, confirmations):
+        marker = CONFIRMATION.fullmatch(markers[0]) if len(markers) == 1 else None
+        if marker is None or has_invisible(marker.group(1)) or is_unconfirmed(marker.group(1)):
+            raise ValueError(f"seed has missing or ambiguous confirmation marker: {title}")
     if len(entries) != len(set(entries)):
         raise ValueError("duplicate seed heading")
     return entries
 
 
 def read_digest_index(path: Path) -> list[str]:
-    digest = path.read_text(encoding="utf-8-sig")
-    sections = list(DIGEST_SECTION.finditer(digest))
-    if not sections:
+    lines = classify(path.read_text(encoding="utf-8-sig"))
+    starts = [i for i, (kind, line) in enumerate(lines) if kind == "heading" and line.rstrip(" \t") == "## 対象エントリ"]
+    if not starts:
         raise ValueError("digest is missing the target entry section")
-    if len(sections) != 1:
+    if len(starts) != 1:
         raise ValueError("digest has more than one target entry section")
-    section = sections[0]
     indexed = []
-    for line in section.group(1).splitlines():
-        line = line.strip()
-        if not line:
+    for kind, line in lines[starts[0] + 1:]:
+        if kind == "heading" and len(ATX.match(indent_of(line)[1]).group(1)) <= 2:
+            break
+        if kind == "blank":
             continue
-        if not line.startswith("- "):
+        if kind != "text" or not line.startswith("- "):
             raise ValueError("digest entry section contains an unrecognized record")
-        title = line[2:].strip()
-        if not SEED_HEADING.fullmatch("## " + title):
+        title = line[2:].strip(" ")
+        if has_invisible(title) or not CANONICAL_SEED.fullmatch("## " + title):
             raise ValueError("digest entry does not match the seed identity format")
         indexed.append(title)
     if not indexed or len(indexed) != len(set(indexed)):
