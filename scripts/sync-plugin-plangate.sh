@@ -427,8 +427,9 @@ _ai_loop_ref_is_expected() {
     _warn "WARN: expected-ref map unreadable; preserving plugin references (#1583)"
     return 0
   fi
-  if awk -F '\t' -v ref_name="$1" '
-    $1 == ref_name { found = 1; exit }
+  # ENVIRON, not -v: -v processes backslash escapes in the basename (#1584).
+  if _ai_loop_ref_name="$1" awk -F '\t' '
+    $1 == ENVIRON["_ai_loop_ref_name"] { found = 1; exit }
     END { exit(found ? 0 : 1) }
   ' "$_ai_loop_map_file"; then
     return 0

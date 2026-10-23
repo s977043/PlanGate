@@ -635,6 +635,27 @@ else
   else
     t26_fail "TC-46 失敗 (dry rc=$_t26_rc46d dry kept=$_t26_dry_kept46 / real rc=$_t26_rc46 expected=$_t26_expected46 stale=$_t26_stale46): $_t26_out46d || $_t26_out46"
   fi
+
+  # TC-47 (#1584): a backslash in an expected basename must be compared
+  # literally; awk -v would turn 'a\nb.md' into a newline and delete it.
+  _t26_t47=$(mktemp -d); register_cleanup "$_t26_t47"
+  _t26_mk_ai_loop_guard_sandbox "$_t26_t47" 0 0
+  printf 'wf expected\n' > "$_t26_t47/docs/workflows/ai-loop/a\\nb.md"
+  _t26_rc47d=0
+  _t26_out47d=$(sh "$_t26_t47/scripts/sync-plugin-plangate.sh" --dry-run 2>&1) || _t26_rc47d=$?
+  _t26_rc47=0
+  _t26_out47=$(sh "$_t26_t47/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc47=$?
+  _t26_expected47=0
+  [ -f "$_t26_t47/$_T26_AI_LOOP_REFS_REL/a\\nb.md" ] && _t26_expected47=1
+  rm -rf "$_t26_t47"
+  if [ "$_t26_rc47d" -eq 0 ] && [ "$_t26_rc47" -eq 0 ] \
+    && [ "$_t26_expected47" = "1" ] \
+    && ! printf '%s' "$_t26_out47d" | grep -Fq 'WOULD DELETE: skills/ai-loop-cycle/references/a' \
+    && ! printf '%s' "$_t26_out47" | grep -Fq 'DELETE: skills/ai-loop-cycle/references/a'; then
+    t26_pass "TC-47 basename 'a\\nb.md' のバックスラッシュをリテラル照合し期待ファイルを保持する (dry-run/real)"
+  else
+    t26_fail "TC-47 失敗 (dry rc=$_t26_rc47d / real rc=$_t26_rc47 expected=$_t26_expected47): $_t26_out47d || $_t26_out47"
+  fi
 fi
 
 # 経路1（汎用 references）用 sandbox。_t26_mk_guard_sandbox と同型。
