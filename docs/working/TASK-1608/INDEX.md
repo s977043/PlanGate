@@ -1,6 +1,6 @@
 # TASK-1608 INDEX
 
-> 最終更新: 2026-10-24 (plan 生成時)
+> 最終更新: 2026-10-24 04:35（Q-1〜Q-4 確定反映・簡易 C-1 PASS）
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従う。
 
 ## チケット概要（1-2文）
@@ -13,13 +13,13 @@ C-3 待ち
 
 ## 次のアクション
 
-Human が C-3 判断（Q-1〜Q-4 への回答を含む）→ APPROVED の `approvals/c3.json` を Human が発行 → exec（todo T-1 から）。
+Q-1〜Q-4 は決定済み（D-004〜D-007）。Human が C-3 判断 → 確定後 plan の plan_hash で APPROVED の `approvals/c3.json` を Human が発行 → exec（todo T-1 から）。
 
 ## ファイルマップ（読み込み優先度）
 
 | ファイル | フェーズ依存 | 説明 |
 |---------|------------|------|
-| pbi-input.md | plan, review | 要件・受入基準 AC-1〜9 |
+| pbi-input.md | plan, review | 要件・受入基準 AC-1〜10 |
 | plan.md | exec, review | 実行計画（Mode: high-risk / 敵対レビュー下限 2） |
 | todo.md | exec | タスク一覧 |
 | test-cases.md | exec, review | 回避クラス台帳の回帰ケース |

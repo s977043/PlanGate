@@ -28,7 +28,7 @@ R4 時点で HTML コメント内の seed の計上・BOM 以外の不可視文�
 - digest #002 の生成・superseded / 却下欄（#1545 の残り）
 - `confirmed_by` の真正性（Human 認証）。出力の `authority` は `READ_ONLY_UNVERIFIED_MARKER_NO_PROMOTION` のまま
 - 出力 JSON のスキーマ（キー・値域）の変更
-- `.github/workflows/` / `requirements/` への依存追加（HO パス。下記 Q-1 で Human 判断）
+- `.github/workflows/` / `requirements/` への依存追加（HO パス。Q-1 で Human が不採用と決定、2026-10-24）
 - `improvement-seeds.md` / `improvement-digest.md` の内容変更
 
 ## 受入基準
@@ -43,6 +43,7 @@ R4 時点で HTML コメント内の seed の計上・BOM 以外の不可視文�
 | AC-6 | `confirmed_by` の否定値（`no`, `n/a`, `no（後で確認）`, `no, later` 等）は従来どおり拒否する。先頭語が否定値と同綴りの正当な人名（例: `Na Yeon`, `No Kim`）の扱い（安全側の誤拒否を残すか）を plan で確定し、テストで固定する。`naoki` のような先頭語が否定値でない名前は受理する |
 | AC-7 | 構造判定に正規表現による Markdown 全体の構造推定（`re.MULTILINE` での見出し全文走査・行マスク置換）を使わない。正規表現の使用は 1 行内の字句判定（日付形式など）に限る |
 | AC-8 | ta-70 の PG-SH-GUARD 正典ブロックとのバイト一致を保つ（ta-70 PASS） |
+| AC-10 | （Q-3 決定、2026-10-24）issue の「CommonMark 準拠の Markdown パーサー（AST）」は「判定に使うブロック種別（fenced code / HTML block / indented code / ATX 見出し / 段落・リスト）は CommonMark の規則に従い、守備範囲外の構造（blockquote・ネストした見出し・setext 見出し）は日付を含めば fail-closed」と読み替える |
 | AC-9 | 新しい外部依存を追加しない（標準ライブラリのみ）。追加が必要と判断した場合は exec 前に停止し Human 判断を仰ぐ |
 
 ## Notes from Refinement

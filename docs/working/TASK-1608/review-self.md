@@ -2,7 +2,14 @@
 
 > 対象: plan.md / todo.md / test-cases.md（初版、2026-10-24）。実施者は plan 作成者本人（独立レビューではない）。
 
-## 判定: WARN
+## 簡易 C-1 再判定（2026-10-24、Q-1〜Q-4 確定反映後）: PASS
+
+- C1-PLAN-02 Unknowns 処理: WARN → **PASS**（Q-1〜Q-4 を Human 回答で決定済み。decision-log D-004〜D-007）
+- C1-PLAN-01 / C1-TEST-13: AC-10（Q-3 の読み替え）を追加し、test-cases の TC-BLK-01〜05 / TC-HTML-01〜04 に対応づけた → PASS
+- C1-PLAN-03 スコープ: 依存追加をしないことが確定し、変更範囲は 2 ファイルのまま → PASS
+- 他項目は plan の内容に変更がないため初回判定のまま
+
+## 初回判定（2026-10-24）: WARN
 
 FAIL 項目なし。Human 判断が必要な Unknowns（Q-1〜Q-4）が残るため WARN。
 

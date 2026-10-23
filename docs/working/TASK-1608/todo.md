@@ -4,7 +4,7 @@
 
 ## 👤 Human
 
-- [ ] H-1 C-3: plan / todo / test-cases の承認判断（Q-1〜Q-4 の回答を含む）。`approvals/c3.json` は Human が発行 — owner: human
+- [ ] H-1 C-3: plan / todo / test-cases の承認判断（Q-1〜Q-4 は 2026-10-24 に決定済み）。`approvals/c3.json` は Human が発行 — owner: human
 - [ ] H-2 C-4: PR レビュー・merge — owner: human / depends_on: T-12
 
 ## 🤖 Agent

@@ -16,6 +16,7 @@
 | AC-7 | TC-STRUCT-01 |
 | AC-8 | TC-INT-02 |
 | AC-9 | TC-STRUCT-02 |
+| AC-10 | TC-BLK-01〜05, TC-HTML-01〜04 |
 
 ## 回避クラス台帳 → 回帰ケース（AC-4）
 

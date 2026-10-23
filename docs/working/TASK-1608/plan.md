@@ -21,7 +21,7 @@ created_by: orchestrator
 - 背景: #1574 の敵対レビュー R1〜R4 で毎ラウンド新しい回避クラスが出た（`pbi-input.md` Context）
 - 関連 Issue: #1608（Refs #1545 / #1574）
 - 関連 artifact: `pbi-input.md` / `test-cases.md` / `todo.md`
-- Requirement refs: `pbi-input.md` AC-1〜AC-9
+- Requirement refs: `pbi-input.md` AC-1〜AC-10
 
 ## 設計を変える根拠（#1574 の 4 ラウンドの事実から）
 
@@ -76,10 +76,9 @@ created_by: orchestrator
 - 判定できない構造（例: blockquote 内の見出し `> ## 2026-...`、リスト内にネストした見出し）は
   **seed として数えず、日付を含むなら fail-closed で拒否**する。自作パーサーの守備範囲外を黙って通さない
 
-代替案（Human 判断 Q-1）: `markdown-it-py` を `requirements/` にハッシュ固定で追加し AST を使う。
-CommonMark 完全準拠という利点があるが、CI の依存導入（`.github/workflows/*.yml` = HO パス）と
-standalone 実行（ta-116 は依存無しで動く）の前提を変える。本 plan は推奨案で書き、Q-1 で代替案が選ばれた場合は
-plan を再生成する。
+不採用の代替案（Q-1 で Human 決定済み）: `markdown-it-py` をハッシュ固定で追加して AST を使う。
+CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実行の前提を変えるため採らない。
+敵対レビューで同層の新クラスが 2 ラウンド続いた場合に限り、再提示する。
 
 ### D-2: 不可視文字（AC-5）— 推奨: 拒否（fail-closed）
 
@@ -145,7 +144,7 @@ plan を再生成する。
 
 **判定根拠**:
 - 変更ファイル数: 2（+ working docs）→ light
-- 受入基準数: 9 → high-risk
+- 受入基準数: 10 → high-risk
 - タスク数（見込み）: 約 12 → high-risk
 - 変更種別: 既存検査器の判定モデルの作り直し（リファクタ＋挙動変更）→ high-risk
 - リスク: fail-closed 検査の判定境界を変える。誤ると seed の黙った欠落（fail-open）になる → 高
@@ -166,9 +165,11 @@ plan を再生成する。
 - 現行データの結果（7 / 5）が変わった → 停止し原因を報告
 - 敵対レビューで同層の新クラスが 2 ラウンド連続 → 停止し設計切り替えを提示
 
-## Questions / Unknowns（Human 判断）
+## Questions / Unknowns（決定済み）
 
-- **Q-1**: パーサー方式。推奨 = 標準ライブラリの限定ブロック状態機械 / 代替 = `markdown-it-py` 追加（HO パス変更を伴う）
-- **Q-2**: 不可視文字は拒否（推奨）か正規化受理か
-- **Q-4**: 先頭語が否定値と同綴りの人名の誤拒否を残す（推奨、D-3）か、受理側へ倒すか
-- **Q-3**: issue の AC 案「CommonMark 準拠の Markdown パーサー（AST）」を、本 plan の「対象ブロック種別に限った CommonMark 規則準拠＋守備範囲外は fail-closed」と読み替えてよいか
+根拠: Human 回答（2026-10-24、coordinator 経由で受領。いずれも推奨案を採用）。decision-log D-004〜D-007。
+
+- **Q-1（決定）**: 標準ライブラリの限定ブロック状態機械（D-1）。`markdown-it-py` 追加はしない
+- **Q-2（決定）**: 不可視文字は拒否（D-2）
+- **Q-3（決定）**: issue の AC 案「CommonMark 準拠の Markdown パーサー（AST）」を「判定に使うブロック種別は CommonMark の規則に従い、守備範囲外の構造は fail-closed」と読み替える（pbi-input AC-10）
+- **Q-4（決定）**: 先頭語が否定値と同綴りの人名の誤拒否は残存脅威として残す（D-3）
