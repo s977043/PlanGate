@@ -44,7 +44,7 @@ HO 判定は `scripts/hooks/check-plan-hash.sh` の `_override=0` 直後の case
 | 13 | 静的参照 0 件の scripts: add-codeql-workflow.sh / add-slsa-attestation.sh（確度 高）、acknowledge-skip-log.sh / fix-workflow-security.sh（確度 中） | 静的参照は 0 件。glob での参照は scripts/hooks/* と ai-loop 配下にしかない | 手動で使われているか、既に適用済みか | 低〜中 | 低〜中 | Human | 非該当 | C-3 + 削除対象を名指しした承認 | run-tests.sh と doctor の存在検査を確認 | repo内 | 削除候補として提示 |
 | 14 | 弱い参照しかないもの: add-auto-approve-workflow.sh / run-tests-safe.sh / fix-eh3-doc-light-maint-guard.sh / tests/fixtures/gate-events/sample-normalized.ndjson | CHANGELOG と docs/working からしか参照されていない | 手動のラッパとして使われているか | 低 | 中 | Human | 非該当 | C-3 + 削除対象を名指しした承認 | 同上 | repo内 | 削除候補として提示する。先に用途を確認する |
 | 15 | apply-* スクリプト 41 本 | 一覧を作っただけ | 個々に適用済みかどうか | 低〜中 | 中 | Human | 個別に判定 | Human の判断 | 各スクリプトの `--verify` | repo内 | 別 issue で棚卸しする |
-| 16 | Test workflow の実行時間（210 run・平均 10.26 分・合計 2155 分。job は 1 つで 425 秒、paths filter なし、cancelled 61） | test.yml 照合済み | job を分割した場合の効果 | 中 | 中 | Human | 該当 | C-3 + HO | — | repo内 | #3 と整合を取ったうえで別 issue にする |
+| 16 | Test workflow の実行時間（job は 1 つで 425 秒、paths filter なし。run 数・内訳・合計は §8.3 を正とする: 窓 2026-10-08T03:02:28Z〜10-17T17:46:14Z で 210 run、success / cancelled / failure = 138 / 66 / 6、elapsed（`updated_at - run_started_at`）合計 1,197.55 分。旧記載の「平均 10.26 分・合計 2155 分・cancelled 61」は 2026-10-23 の再取得で再現しないため撤回） | test.yml 照合済み | job を分割した場合の効果 | 中 | 中 | Human | 該当 | C-3 + HO | — | repo内 | #3 と整合を取ったうえで別 issue にする |
 
 注: ta-77 台帳（DECL / CHAIN）の tsv は AI が書き換えない。該当ファイルを変えると digest が変わるので、台帳の更新は Human が行う。
 
@@ -171,6 +171,7 @@ Human の判断で本 PR を #1586 の正本とし、PR #1588（head `6ece24c4`�
 
 - 2 回目の cancelled 64 件の内訳: pull_request 59 件（約 100.58 分）/ push 5 件（約 36.05 分）
 - 件数 210 は §2 #16 の値と一致する。一方、合計 2,155 分は同じ run 集合・elapsed の定義では再現しない（差 957.45 分）。billable の Runner 時間とは別物であり、2,155 分の分母は Unknown
+- 2026-10-23 再取得†（`gh api --paginate repos/s977043/PlanGate/actions/workflows/test.yml/runs?created=…` を両窓で集計）: 1 回目の窓は 210 run・138 / 66 / 6・1,197.55 分、2 回目の窓は 209 run・139 / 64 / 6・1,203.87 分で上表と一致。待ち時間を含む `updated_at - created_at` でも 2,140.15 分 / 2,146.47 分で 2,155 分にならず、cancelled 61 もどちらの窓でも再現しない。§2 #16 の旧値はこの結果に基づき撤回した
 - 2 つのスナップショットは母集団の境界が違うため、片方の値でもう片方を上書きしない
 - main の cancelled の 2 例は、次の run が開始した後に終わっており、concurrency による置き換えと整合する: [38226105171](https://github.com/s977043/PlanGate/actions/runs/38226105171)（08:50:51〜08:58:17）→ [38226863850](https://github.com/s977043/PlanGate/actions/runs/38226863850)（08:58:13 開始、success）、[38870521020](https://github.com/s977043/PlanGate/actions/runs/38870521020)（07:57:39〜08:04:48）→ [38871258689](https://github.com/s977043/PlanGate/actions/runs/38871258689)（08:04:26 開始、success）（2026-10-12 / 10-16、UTC）。64 件すべての原因は実証していない。cancel をそのまま flaky や削減できる費用とみなさず、`cancel-in-progress` は変更しない
 
