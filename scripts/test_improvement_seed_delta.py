@@ -156,6 +156,34 @@ class SeedInventoryTests(unittest.TestCase):
         result = MODULE.inventory(self.seeds, self.digest, 1)
         self.assertEqual(result["entries_with_confirmation_marker"], 1)
 
+    def test_unclosed_fence_is_rejected(self):
+        for fence in ("```", "~~~"):
+            with self.subTest(fence=fence):
+                self.seeds.write_text(
+                    f"## {SEED_A}\n- confirmed_by: human\n\n{fence}\nsample\n\n## 2026-06-09 — x\n- reason: d\n",
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(ValueError, "unclosed code fence"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_fence_closes_only_with_same_kind_and_sufficient_length(self):
+        for opening, inner in (("````", "```"), ("```", "~~~"), ("~~~~", "~~~"), ("```", "``` info")):
+            with self.subTest(opening=opening, inner=inner):
+                self.seeds.write_text(
+                    f"## {SEED_A}\n- confirmed_by: human\n\n{opening}\n{inner}\n## {SEED_B}\n- confirmed_by: human\n",
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(ValueError, "unclosed code fence"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_longer_closing_fence_closes(self):
+        self.seeds.write_text(
+            f"## {SEED_A}\n- confirmed_by: human\n\n````\n```\n## {SEED_B}\n- confirmed_by: human\n`````\n",
+            encoding="utf-8",
+        )
+        result = MODULE.inventory(self.seeds, self.digest, 1)
+        self.assertEqual(result["entries_with_confirmation_marker"], 1)
+
     def test_negative_confirmation_is_rejected(self):
         for value in ("no", "No", "false", "-", "n/a", "なし", "no（後で確認）"):
             with self.subTest(value=value):

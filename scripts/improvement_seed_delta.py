@@ -32,13 +32,21 @@ def mask_code_blocks(source: str) -> str:
     for i, line in enumerate(lines):
         opening = FENCE.match(line)
         if fence is None and opening:
-            fence = opening.group(1)[0]
-        elif fence is not None and opening and opening.group(1)[0] == fence:
+            fence = opening.group(1)
+        elif (
+            fence is not None
+            and opening
+            and opening.group(1)[0] == fence[0]
+            and len(opening.group(1)) >= len(fence)
+            and not line[opening.end():].strip()
+        ):
             fence = None
         else:
             if fence is None:
                 continue
         lines[i] = re.sub(r"[^\n]", " ", line)
+    if fence is not None:
+        raise ValueError(f"unclosed code fence '{fence}'")
     return "".join(lines)
 
 
