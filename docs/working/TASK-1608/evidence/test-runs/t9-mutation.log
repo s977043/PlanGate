@@ -1,0 +1,20 @@
+# T-9 変異注入（2026-10-24。一時ディレクトリのコピーに変異を入れ、repo のファイルは変更していない）
+# 初回は M10（contained フラグ無視）と M13（type 6 不一致）が生存した。
+# M10: contained フラグは CANONICAL_SEED.fullmatch と冗長な死にコードだったため削除し、変異を「リストマーカー除去の無効化」に差し替えた。
+# M13: type 7 が同じ入力を拾っていたため、段落を割り込む <div> のテスト（TC-HTML-06）を追加した。
+M01 fence close ignores length: KILLED rc=1 ['FAILED (failures=2, errors=1)']
+M02 unclosed fence accepted: KILLED rc=1 ['FAILED (failures=7)']
+M03 no HTML block recognition: KILLED rc=1 ['FAILED (failures=3, errors=3)']
+M04 unclosed HTML accepted: KILLED rc=1 ['FAILED (failures=1)']
+M05 no indented code: KILLED rc=1 ['FAILED (errors=1)']
+M06 setext accepted: KILLED rc=1 ['FAILED (failures=2)']
+M07 invisible chars allowed: KILLED rc=1 ['FAILED (failures=7)']
+M08 skeleton keeps Cf: KILLED rc=1 ['FAILED (failures=1)']
+M09 whole-value negative only: KILLED rc=1 ['FAILED (failures=4)']
+M10 container prefix not stripped: KILLED rc=1 ['FAILED (failures=7, errors=19)']
+M11 no list continuation offset: KILLED rc=1 ['FAILED (failures=2)']
+M12 only exact markers counted: KILLED rc=1 ['FAILED (failures=1)']
+M13 type 6 never matches: KILLED rc=1 ['FAILED (errors=1)']
+M14 ASCII-only date candidate: KILLED rc=1 ['FAILED (failures=1)']
+M15 type 2 comment end ignored: KILLED rc=1 ['FAILED (failures=2, errors=3)']
+survivors: []

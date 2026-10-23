@@ -85,18 +85,17 @@ def skeleton(text: str) -> str:
     return "".join(chars).strip(" ")
 
 
-def strip_containers(text: str) -> tuple[str, bool]:
-    """blockquote とリストマーカーの接頭辞を外す。外したかどうかも返す。"""
-    stripped = False
+def strip_containers(text: str) -> str:
+    """blockquote とリストマーカーの接頭辞を外す。"""
     while True:
         if text.startswith(">"):
-            text, stripped = text[1:].lstrip(" "), True
+            text = text[1:].lstrip(" ")
             continue
         marker = LIST_MARKER.match(text)
-        if marker and marker.end() > 0 and text[marker.end():]:
-            text, stripped = text[marker.end():], True
+        if marker and text[marker.end():]:
+            text = text[marker.end():]
             continue
-        return text, stripped
+        return text
 
 
 def indent_of(line: str) -> tuple[int, str]:
@@ -222,11 +221,11 @@ def classify(source: str) -> list[tuple[str, str]]:
 
 def seed_title(line: str) -> str | None:
     """日付見出しの候補なら正規形のタイトルを返し、候補でなければ None。正規形でない候補は拒否する。"""
-    content, contained = strip_containers(skeleton(line))
+    content = strip_containers(skeleton(line))
     if not content.startswith("#") or not DATE_LIKE.search(content):
         return None
     canonical = CANONICAL_SEED.fullmatch(line)
-    if contained or canonical is None or has_invisible(line):
+    if canonical is None or has_invisible(line):
         raise ValueError(CANONICAL_ERROR)
     return canonical.group(1)
 
@@ -248,7 +247,7 @@ def read_declared_seeds(path: Path) -> list[str]:
             entries.append(title)
             confirmations.append([])
             continue
-        content, _ = strip_containers(skeleton(line))
+        content = strip_containers(skeleton(line))
         if entries and content.lower().startswith("confirmed_by"):
             confirmations[-1].append(line)
     if not entries:

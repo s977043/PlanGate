@@ -239,6 +239,10 @@ class SeedInventoryTests(unittest.TestCase):
         self.write_seeds(f"<div>\n## 2026-06-09 — hidden\n</div>\n\n## {SEED_B}\n- confirmed_by: human\n")
         self.assertEqual(self.count(), 2)
 
+    def test_tc_html_06_div_block_interrupts_paragraph(self):
+        self.write_seeds("text\n<div class=\"note\">\n## 2026-06-09 — hidden\n</div>\n")
+        self.assertEqual(self.count(), 1)
+
     def test_tc_html_05_fence_and_comment_nesting(self):
         self.write_seeds(f"```\n<!--\n```\n\n## {SEED_B}\n- confirmed_by: human\n")
         self.assertEqual(self.count(), 2)
