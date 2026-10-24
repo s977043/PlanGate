@@ -17,6 +17,29 @@
 | AC-8 | TC-INT-02 |
 | AC-9 | TC-STRUCT-02 |
 | AC-10 | TC-BLK-01〜05, TC-HTML-01〜04 |
+| AC-11 | TC-CB-01〜07, TC-INT-03 |
+
+## コンテナ境界（改訂 2026-10-24 / plan D-1b）
+
+前提: 正規の seed `## 2026-01-01 — A` / `- confirmed_by: alice` の後に続ける。期待はすべて `ValueError`（container boundary）。
+
+| ID | 入力（空行を挟まない） | 期待 | 由来 |
+|----|---------------------|------|------|
+| TC-CB-01 | `- note` / `> q` / `  ```` / `## 2026-09-09 — HIDDEN` / `- confirmed_by: bob` | 拒否 | 敵対レビュー R4 の再現 |
+| TC-CB-02 | `- note` / ```` ``` ```` / `x` / ```` ``` ```` / `  ```` / `## 2026-09-09 — HIDDEN` | 拒否 | R4（列 0 の閉じた fence 経路） |
+| TC-CB-03 | `- note` / `***` / `  ```` / `## 2026-09-09 — HIDDEN` | 拒否 | R4（thematic break 経路） |
+| TC-CB-04 | `- note` / `<div>` | 拒否 | R4（HTML 経路、レビュアー未実走分） |
+| TC-CB-05 | `- note` / `## 2026-09-09 — B` | 拒否 | ATX 見出しでの切り替え |
+| TC-CB-06 | `> q` / `- item` | 拒否 | blockquote → リスト |
+| TC-CB-07 | `> q` / `***` | 拒否 | blockquote → thematic break |
+
+拒否しないことを固定する正常系:
+
+| ID | 入力 | 期待 |
+|----|------|------|
+| TC-CB-N1 | `> a` / `> b`（blockquote の継続）、`- a` / `- b`（リストの継続）、`- a` / `  b`（インデント継続） | 受理 |
+| TC-CB-N2 | `- a` / `lazy text`（段落の継続） | 受理 |
+| TC-CB-N3 | `- a` / 空行 / `## 2026-…`（空行で閉じる） | 受理 |
 
 ## 回避クラス台帳 → 回帰ケース（AC-4）
 
@@ -68,7 +91,7 @@
 | TC-STRUCT-02 | import が標準ライブラリのみ | `python3 -I` で import 成功、サードパーティ import 0 件 |
 | TC-INT-01 | `sh tests/extras/ta-116-improvement-seed-delta.sh` | 2 passed / 0 failed |
 | TC-INT-02 | `sh tests/extras/ta-70-py-sh-misinvocation-guard.sh` | failed 0 |
-| TC-INT-03 | 現行 seeds / digest で CLI 実行 | REVIEW_CANDIDATE / 7 / 2 / 5 |
+| TC-INT-03 | 現行 seeds / digest で CLI 実行 | REVIEW_CANDIDATE / 7 / 2 / 5（コンテナ境界規則による誤拒否なし = AC-11） |
 
 ## エッジケース
 

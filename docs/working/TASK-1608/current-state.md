@@ -1,7 +1,7 @@
 # TASK-1608 current-state
 
-- 更新: 2026-10-24 09:40
-- 現在フェーズ: BLOCKED
-- 完了: C-3 APPROVED 後の exec（T-1〜T-10）。単体 55 件 PASS / ta-116 / ta-70 PASS / 現行データ 7 / 5 不変 / 変異 25 種すべて KILLED / 敵対レビュー R1〜R3 是正
-- ブロッカー: 敵対レビュー R4 の critical（空行なしの非リストブロックでリストが終わっても in_list が残り、seed を誤採用）が未是正。同層で新クラス 2 連続のため plan の Stop Condition で停止（D-010）
-- 次: Human が設計を選ぶ（コンテナのスタック実装 / markdown-it-py / 守備範囲を縮めて拒否）。選択によっては plan の再生成と再承認
+- 更新: 2026-10-24 10:00
+- 現在フェーズ: C-3 待ち（改訂 plan の再承認待ち）
+- 完了: 初版 exec（T-1〜T-10、R1〜R3 是正）/ R4 で停止 / Human 裁定 (c) を plan D-1b・AC-11・TC-CB-*・T-13〜T-16 に反映 / 簡易 C-1 PASS
+- 次: Human が改訂 plan を再承認し `approvals/c3.json` を再発行（AI は作成しない）→ T-13 から exec
+- 注意: 既存の `approvals/c3.json` は初版の plan_hash で、本改訂には無効

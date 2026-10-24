@@ -44,6 +44,7 @@ R4 時点で HTML コメント内の seed の計上・BOM 以外の不可視文�
 | AC-7 | 構造判定に正規表現による Markdown 全体の構造推定（`re.MULTILINE` での見出し全文走査・行マスク置換）を使わない。正規表現の使用は 1 行内の字句判定（日付形式など）に限る |
 | AC-8 | ta-70 の PG-SH-GUARD 正典ブロックとのバイト一致を保つ（ta-70 PASS） |
 | AC-10 | （Q-3 決定、2026-10-24）issue の「CommonMark 準拠の Markdown パーサー（AST）」は「判定に使うブロック種別（fenced code / HTML block / indented code / ATX 見出し / 段落・リスト）は CommonMark の規則に従い、守備範囲外の構造（blockquote・ネストした見出し・setext 見出し）は日付を含めば fail-closed」と読み替える |
+| AC-11 | （改訂 2026-10-24、Human 裁定 (c)）コンテナ（リスト項目・blockquote）が空行なしで別のブロックに切り替わる構成は解釈せず拒否する。現行データ（seeds / digest）ではこの規則による誤拒否が出ない |
 | AC-9 | 新しい外部依存を追加しない（標準ライブラリのみ）。追加が必要と判断した場合は exec 前に停止し Human 判断を仰ぐ |
 
 ## Notes from Refinement

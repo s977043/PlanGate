@@ -21,7 +21,9 @@ created_by: orchestrator
 - 背景: #1574 の敵対レビュー R1〜R4 で毎ラウンド新しい回避クラスが出た（`pbi-input.md` Context）
 - 関連 Issue: #1608（Refs #1545 / #1574）
 - 関連 artifact: `pbi-input.md` / `test-cases.md` / `todo.md`
-- Requirement refs: `pbi-input.md` AC-1〜AC-10
+- Requirement refs: `pbi-input.md` AC-1〜AC-11
+- 改訂履歴: 初版は C-3 APPROVED（plan_hash `sha256:a1ddda40…`）後に exec。敵対レビュー R4 で Stop Condition に該当し BLOCKED。
+  Human 裁定 (c)（2026-10-24）を D-1b として反映した本改訂は再承認が必要（既存の `approvals/c3.json` は本改訂の plan_hash と一致しない）
 
 ## 設計を変える根拠（#1574 の 4 ラウンドの事実から）
 
@@ -76,6 +78,21 @@ created_by: orchestrator
 - 判定できない構造（例: blockquote 内の見出し `> ## 2026-...`、リスト内にネストした見出し）は
   **seed として数えず、日付を含むなら fail-closed で拒否**する。自作パーサーの守備範囲外を黙って通さない
 
+#### D-1b: コンテナ境界の fail-closed（改訂 2026-10-24 / Human 裁定 (c) / decision-log D-011）
+
+初版 exec の敵対レビューで、コンテナ（リスト項目・blockquote）の軸に R3・R4 と 2 ラウンド続けて新クラスが出た
+（`review-external.md`）。本状態機械はコンテナのスタックを持たないため、**コンテナが空行なしで終わる構成は解釈せず拒否する**。
+
+- 定義: 直前の非空行がコンテナの内側（リスト項目の行・その継続行・blockquote の行）にあり、空行を挟まずに
+  次の非空行が**列 0〜1 で始まり、かつ同じ種類のコンテナの続き（リストならリストマーカー行、blockquote なら `>` 行）でも
+  段落の継続（ブロックを開かない地の文）でもない**とき、`ValueError` で拒否する
+- 対象となる行の例（網羅でなく種別）: blockquote の開始 / fence の開始・閉じ / HTML ブロックの開始 / thematic break（`***` `---` `___`）/
+  ATX 見出し / setext 下線 / リストから blockquote・blockquote からリストへの切り替え
+- R3 で入れた「マーカー行・blockquote 行で開く fence / HTML の拒否」は維持する（コンテナ内でブロックを開く側の fail-closed）
+- これで「コンテナがいつ閉じたか」を状態機械が推定する場面は、空行で閉じる場合とコンテナ内のインデント継続だけになる
+- 現行データ（`docs/working/improvement-seeds.md` / `improvement-digest.md`）には該当する境界が無いことを実測済み
+  （空行なしで続くのは blockquote → blockquote の継続だけ。2026-10-24、`604ffccd` 時点）。誤拒否が出ないことを受入条件とする（AC-11）
+
 不採用の代替案（Q-1 で Human 決定済み）: `markdown-it-py` をハッシュ固定で追加して AST を使う。
 CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実行の前提を変えるため採らない。
 敵対レビューで同層の新クラスが 2 ラウンド続いた場合に限り、再提示する。
@@ -112,6 +129,8 @@ CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実�
 | S4 | 旧正規表現（`SEED_HEADING_LIKE` / `mask_code_blocks` / `DIGEST_SECTION`）の撤去と docstring の残存脅威モデル更新 | 同上 | 低 | 未使用コードゼロ |
 | S5 | 変異注入（状態遷移ごとに 1 変異）で新テストの検出力を実証 | evidence/test-runs/ | 中 | 各変異で 1 件以上 FAIL |
 | S6 | 敵対レビュー R1 / R2（下記） | review-external.md | 高 | 収束判定 |
+| S7（改訂） | D-1b のコンテナ境界拒否を実装し、R4 再現を拒否側 TC として追加。現行データで誤拒否ゼロを再測定 | `improvement_seed_delta.py` / テスト | 中 | TC-CB-* PASS・7 / 5 不変・変異注入 |
+| S8（改訂） | 敵対レビュー R5 / R6（コンテナ境界の拒否規則の回避と、規則による正常系の破壊） | review-external.md 追記 | 高 | 収束判定 |
 
 ## Files / Components to Touch
 
@@ -135,6 +154,9 @@ CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実�
 - R2 以降の焦点: (1) 是正が実は効いていない経路（別のブロック種別で同じ隠蔽ができないか）(2) 状態機械の追加が生んだ穴（未閉 HTML コメントなど新しい fail-open）(3) fail-closed 化が現行データ・正当な人名を壊していないか
 - 収束判定: 新しい**原因の層**のクラスが出なくなったか。同じブロック状態機械の層で新クラスが 2 ラウンド続いたら、
   継ぎ当てをやめて Q-1 の代替案（markdown-it-py）への切り替えを Human に提示する
+- 改訂後（D-1b）は R5 から数え直し、**下限 2 ラウンド（R5 / R6）**。R5 の焦点は「空行なし境界の拒否規則を、別の境界の作り方
+  （タブ・lazy continuation・入れ子・順序付きリスト）で回避できないか」と「規則が正当な文書を誤拒否しないか」。
+  R5・R6 でコンテナ軸に新クラスが続いた場合は再度停止して Human に戻す
 - 台帳は `review-external.md` に追記専用（「前ラウンドが見つけられなかった理由」必須）
 - 打ち切り時は完全性を主張せず、残存脅威モデルを docstring と handoff の両方に書く
 
@@ -144,7 +166,7 @@ CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実�
 
 **判定根拠**:
 - 変更ファイル数: 2（+ working docs）→ light
-- 受入基準数: 10 → high-risk
+- 受入基準数: 11 → high-risk
 - タスク数（見込み）: 約 12 → high-risk
 - 変更種別: 既存検査器の判定モデルの作り直し（リファクタ＋挙動変更）→ high-risk
 - リスク: fail-closed 検査の判定境界を変える。誤ると seed の黙った欠落（fail-open）になる → 高

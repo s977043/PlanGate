@@ -29,6 +29,14 @@
 - [ ] T-10 敵対レビュー R1（新構造への回避）→ `review-external.md` 台帳 — depends_on: T-9 / rollback: 不要
 - [ ] T-11 敵対レビュー R2（是正の有効性・新しい穴・正常系の破壊）→ 収束判定。同層新クラスが 2 連続なら停止して Q-1 再提示 🚩 — depends_on: T-10 / rollback: 不要
 
+### 改訂（2026-10-24、Human 裁定 (c) / plan D-1b）
+
+- [ ] H-3 改訂 plan の C-3 再承認（新しい plan_hash で `approvals/c3.json` を Human が再発行）— owner: human
+- [ ] T-13 TC-CB-01〜07 / N1〜N3 を追加し、現実装で RED になる内訳を記録 🚩 — depends_on: H-3 / rollback: テスト追加コミットを revert
+- [ ] T-14 コンテナ境界の拒否（D-1b）を実装 🚩 TC-CB PASS・既存 55 件 PASS・現行データ 7 / 5 不変 — depends_on: T-13 / rollback: commit revert
+- [ ] T-15 変異注入（境界判定の各条件）で検出力を実証 — depends_on: T-14 / rollback: 変異は commit しない
+- [ ] T-16 敵対レビュー R5 / R6 → 収束判定。コンテナ軸で新クラスが 2 ラウンド続いたら再停止 🚩 — depends_on: T-15 / rollback: 不要
+
 ### 完了
 
-- [ ] T-12 handoff.md（残存脅威モデルを含む）・status / INDEX 更新、PR を ready for review — depends_on: T-11 / rollback: 不要
+- [ ] T-12 handoff.md（残存脅威モデルを含む）・status / INDEX 更新、PR を ready for review — depends_on: T-16 / rollback: 不要

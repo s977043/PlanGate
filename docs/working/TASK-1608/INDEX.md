@@ -1,6 +1,6 @@
 # TASK-1608 INDEX
 
-> 最終更新: 2026-10-24 09:40（exec 後、敵対レビュー R4 で Stop Condition に該当し BLOCKED）
+> 最終更新: 2026-10-24 10:00（Human 裁定 (c) で plan 改訂、再承認待ち）
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従う。
 
 ## チケット概要（1-2文）
@@ -9,17 +9,17 @@
 
 ## 現在のフェーズ
 
-BLOCKED
+C-3 待ち
 
 ## 次のアクション
 
-敵対レビュー R4 の critical が未是正（review-external.md R4 / decision-log D-010）。Human が設計を選ぶ: (a) コンテナのスタックを実装 / (b) markdown-it-py（Q-1 代替案、HO パス変更を伴う）/ (c) 守備範囲を縮めて拒否に倒す。選択に応じて plan の再生成・再承認。V-1 判定は handoff.md §1 を参照（WARN）。
+Human 裁定 (c)（D-011）を plan D-1b / AC-11 / TC-CB-* / todo T-13〜T-16 に反映済み、簡易 C-1 PASS。Human が改訂 plan を再承認し、新しい plan_hash で `approvals/c3.json` を再発行 → exec 再開（T-13 から）。既存の c3.json は初版の plan_hash で、本改訂には無効。V-1 判定は handoff.md §1（WARN、中間）。
 
 ## ファイルマップ（読み込み優先度）
 
 | ファイル | フェーズ依存 | 説明 |
 |---------|------------|------|
-| pbi-input.md | plan, review | 要件・受入基準 AC-1〜10 |
+| pbi-input.md | plan, review | 要件・受入基準 AC-1〜11 |
 | plan.md | exec, review | 実行計画（Mode: high-risk / 敵対レビュー下限 2） |
 | todo.md | exec | タスク一覧 |
 | test-cases.md | exec, review | 回避クラス台帳の回帰ケース |

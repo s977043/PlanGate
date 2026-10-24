@@ -17,15 +17,15 @@ high-risk（根拠は plan.md「Mode 判定」）。`lite_eligible=false`。auto
 | 2026-10-24 08:52 | exec | T-3〜T-7 ブロック状態機械へ置き換え（`bcdc9340` 07:17）、T-9 変異注入の生存 2 件を是正（`cf440056`） |
 | 2026-10-24 09:31 | verify（V-3） | 敵対レビュー R1 是正（`6a4803fe`）/ R2 是正（`7e358c7f`）/ R3 是正（`a849dcfa`） |
 | 2026-10-24 09:40 | BLOCKED | R4 で plan の Stop Condition に該当（同層の新クラス 2 連続）。R4 critical は未是正で停止（D-010） |
+| 2026-10-24 10:00 | C-3 待ち | Human 裁定 (c)「守備範囲を縮める」（D-011）。plan D-1b・pbi-input AC-11・test-cases TC-CB-*・todo T-13〜T-16 を改訂、簡易 C-1 PASS。既存 c3.json は初版の plan_hash で本改訂には無効（未編集） |
 
 ## 残タスク
 
 - [x] H-1 C-3 判断と `approvals/c3.json` の発行（Human）
 - [x] T-1〜T-10（T-3〜T-7 は 1 commit にまとめた）
-- [ ] T-11 収束判定 — **BLOCKED**
-  - blocker: R4 の critical（空行なしでリストが閉じても in_list が残る）が未是正。同層で新クラス 2 連続
-  - owner: human
-  - unblock_condition: 設計の選択（コンテナのスタックを実装 / markdown-it-py（Q-1 代替案、HO パス変更を伴う）/ 守備範囲を縮めて拒否に倒す）の Human 決定と、必要なら plan 再承認
+- [x] T-11 収束判定 — R4 で不収束、Human 裁定 (c) で plan 改訂（D-011）
+- [ ] H-3 改訂 plan の C-3 再承認（Human）
+- [ ] T-13〜T-16（改訂分。todo.md）
 - [ ] T-12 PR を ready にする（BLOCKED 解除後）
 
 ## 計画からの変更点

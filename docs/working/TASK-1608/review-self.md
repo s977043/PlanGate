@@ -2,6 +2,16 @@
 
 > 対象: plan.md / todo.md / test-cases.md（初版、2026-10-24）。実施者は plan 作成者本人（独立レビューではない）。
 
+## 簡易 C-1 再判定（2026-10-24、Human 裁定 (c) による plan 改訂後）: PASS
+
+- C1-PLAN-01 / C1-TEST-13: AC-11 を追加し、TC-CB-01〜07（拒否側。TC-CB-01 は R4 の再現）/ TC-CB-N1〜N3（正常系）/ TC-INT-03 に対応づけた → PASS
+- C1-PLAN-02 Unknowns: 「コンテナ境界をどう解釈するか」は解釈しない（拒否）と決定済み（D-011）→ PASS
+- C1-PLAN-03 スコープ: 変更は同じ 2 ファイル。HO パスなし。規則の適用範囲は「空行なしのコンテナ切り替え」に一般化して定義し、例は種別として列挙 → PASS
+- C1-PLAN-04 テスト戦略: 現行データでの誤拒否ゼロを受入条件にし、事前実測（境界は blockquote 継続のみ）を記載 → PASS
+- C1-PLAN-08/09 Stop / Replan: 改訂後の敵対レビューは R5 から下限 2、コンテナ軸で新クラスが 2 連続なら再停止 → PASS
+- C1-TODO: H-3（再承認）→ T-13（RED 記録）→ T-14 → T-15 → T-16 の順、rollback 記載 → PASS
+- 注記: 既存の `approvals/c3.json` は初版の plan_hash であり本改訂とは一致しない（編集・削除していない）。exec 再開には Human の再承認が要る
+
 ## 簡易 C-1 再判定（2026-10-24、Q-1〜Q-4 確定反映後）: PASS
 
 - C1-PLAN-02 Unknowns 処理: WARN → **PASS**（Q-1〜Q-4 を Human 回答で決定済み。decision-log D-004〜D-007）
