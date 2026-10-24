@@ -389,6 +389,20 @@ class SeedInventoryTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "confirmation marker"):
                     MODULE.inventory(self.seeds, self.digest, 1)
 
+    def test_adv_r3_01_block_opened_on_marker_line_is_rejected(self):
+        for opener in ("- ```", "> ```", "- <!--", "1. ~~~", "> - <div>"):
+            with self.subTest(opener=opener):
+                self.write_seeds(f"{opener}\n  x\n  ```\n  ## 2026-09-09 — HIDDEN\n  ```\n")
+                with self.assertRaisesRegex(ValueError, "marker line"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r3_02_negative_value_variants_are_rejected(self):
+        for value in ("pending.", "ｐｅｎｄｉｎｇ", "no。", "TBD!"):
+            with self.subTest(value=value):
+                self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: {value}\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "confirmation marker"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
     def test_tc_struct_01_no_whole_document_regex(self):
         source = SOURCE.read_text(encoding="utf-8")
         self.assertIn("re.compile", source)  # positive control: the probe reads the real module

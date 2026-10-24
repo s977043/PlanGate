@@ -28,6 +28,9 @@ fenced code / HTML block（type 1〜7）/ indented code / ATX 見出し / setext
 守らないもの:
 - CommonMark の全規則ではない。リスト項目の内容オフセットは 2 桁固定の近似で、順序付きリスト
   （"1. " など）の継続行・入れ子の深いリストでは renderer と判定がずれうる
+- リストマーカー行・blockquote 行で開く fence / HTML ブロックは追跡せず拒否する（安全側の誤拒否）
+- 否定値は拒否リスト方式で、NFKC 正規化と先頭語の区切り（空白・句読点・かっこ）までしか見ない。
+  「未確認です」のように区切りの無い文は否定値として検出しない
 - 先頭語が否定値と同綴りの正当な人名（例: "Na Yeon"）は拒否する（安全側の誤り / #1608 Q-4）
 - 本文中の文としての confirmed_by の言及も確認マーカー候補として扱う（安全側の誤拒否）
 - confirmed_by の値が実在の Human による確認であることは検証しない（authority を参照）
@@ -194,6 +197,10 @@ def classify(source: str) -> list[tuple[str, str]]:
         if column >= 4 and not paragraph:
             result.append(("code", line))
             continue
+        inner = strip_containers(rest)
+        if inner != rest and (FENCE_OPEN.fullmatch(inner) or html_block_start(inner, False) is not False):
+            # マーカー行（"- ```" / "> <!--" など）で開くブロックはコンテナの追跡を要するため扱わない（守備範囲外は拒否）
+            raise ValueError("code or HTML block opened on a list or blockquote marker line is not supported")
         if column <= 3:
             opening = FENCE_OPEN.fullmatch(rest)
             if opening and (opening.group(1)[0] == "~" or "`" not in opening.group(2)):
@@ -254,8 +261,8 @@ def is_unconfirmed(value: str) -> bool:
     # 強調・コードの記号（` * _ ~）は外して、表示上の値で否定値を判定する。
     if any(char in value for char in INLINE_STRUCTURE):
         return True
-    normalized = re.sub(r"[`*_~]", "", value).strip().lower()
-    first = re.split(r"[\s（(:：,、]", normalized, maxsplit=1)[0]
+    normalized = unicodedata.normalize("NFKC", re.sub(r"[`*_~]", "", value)).strip().lower()
+    first = re.split(r"[\s（(:：,、.。!?！？]", normalized, maxsplit=1)[0]
     return not normalized or normalized in UNCONFIRMED or first in UNCONFIRMED
 
 

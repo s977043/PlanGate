@@ -35,3 +35,9 @@ M23 list block requires no paragraph: KILLED rc=1 ['FAILED (failures=2)']
 M24 setext keeps ownership: KILLED rc=1 ['FAILED (failures=2)']
 M19 section heading keeps ownership: KILLED rc=1 ['FAILED (failures=1)']
 survivors: []
+
+# 敵対レビュー R3 の是正後に再実行（M01〜M24 は全件 KILLED。M18 はアンカーを新コードに合わせ更新）
+M18 inline markup not stripped: KILLED rc=1 ['FAILED (failures=2)']
+M25 marker-line block allowed: KILLED rc=1 ['FAILED (failures=5)']
+M26 no NFKC / punctuation split: KILLED rc=1 ['FAILED (failures=3)']
+survivors: []
