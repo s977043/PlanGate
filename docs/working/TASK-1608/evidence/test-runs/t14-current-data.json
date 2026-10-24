@@ -1,0 +1,15 @@
+{
+  "status": "REVIEW_CANDIDATE",
+  "entries_with_confirmation_marker": 7,
+  "already_indexed": 2,
+  "unindexed_count": 5,
+  "threshold": 5,
+  "unindexed_entries": [
+    "2026-08-05 — v8.18.0 リリース + #914 完遂 + Plan Contract 系 pbi 整備 run",
+    "2026-09-07 — wave-10 run（#1289 EH-3 回帰網 / #1291 #1263 R3 / #1292 #1257 version bump ゲート）",
+    "2026-09-08 — Phase 0/0.1 残件解消 run（#1295〜#1302 / ai-loop V2 canon hardening）",
+    "2026-09-08 — HO patch 段 1 の適用と後続是正（#1304 マージ / #1305 / #1288 drift）",
+    "2026-09-09 — 退行の検出と是正（#1309 / #1310 / #1311 / #1307 レビュー）"
+  ],
+  "authority": "READ_ONLY_UNVERIFIED_MARKER_NO_PROMOTION"
+}
