@@ -1,7 +1,7 @@
 # TASK-1608 current-state
 
-- 更新: 2026-10-24 10:00
-- 現在フェーズ: C-3 待ち（改訂 plan の再承認待ち）
-- 完了: 初版 exec（T-1〜T-10、R1〜R3 是正）/ R4 で停止 / Human 裁定 (c) を plan D-1b・AC-11・TC-CB-*・T-13〜T-16 に反映 / 簡易 C-1 PASS
-- 次: Human が改訂 plan を再承認し `approvals/c3.json` を再発行（AI は作成しない）→ T-13 から exec
-- 注意: 既存の `approvals/c3.json` は初版の plan_hash で、本改訂には無効
+- 更新: 2026-10-25 01:24
+- 現在フェーズ: verify
+- 完了: 改訂 plan（D-1b）で T-13〜T-15。単体 57 件 OK / ta-116 / ta-70 PASS / 現行データ REVIEW_CANDIDATE・7・5 不変（AC-11）/ 変異 34 種のうち 33 KILLED + 等価 1（M17）
+- 次: T-16 敵対レビュー R5 / R6（オーガナイザー側）→ 収束なら T-12（PR を ready）
+- 注意: 既存テスト 1 件（#1574 由来）の fixture に空行を挟んだ（D-012、AC-1 と TC-CB-05 の衝突）。Human 確認事項

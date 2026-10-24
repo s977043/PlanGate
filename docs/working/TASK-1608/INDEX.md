@@ -1,6 +1,6 @@
 # TASK-1608 INDEX
 
-> 最終更新: 2026-10-24 10:00（Human 裁定 (c) で plan 改訂、再承認待ち）
+> 最終更新: 2026-10-25 01:24（再承認後の T-13〜T-15 完了、verify）
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従う。
 
 ## チケット概要（1-2文）
@@ -9,11 +9,11 @@
 
 ## 現在のフェーズ
 
-C-3 待ち
+verify
 
 ## 次のアクション
 
-Human 裁定 (c)（D-011）を plan D-1b / AC-11 / TC-CB-* / todo T-13〜T-16 に反映済み、簡易 C-1 PASS。Human が改訂 plan を再承認し、新しい plan_hash で `approvals/c3.json` を再発行 → exec 再開（T-13 から）。既存の c3.json は初版の plan_hash で、本改訂には無効。V-1 判定は handoff.md §1（WARN、中間）。
+改訂 plan（D-1b）で T-13〜T-15 完了。T-16 敵対レビュー R5 / R6 をオーガナイザー側で実施 → 収束なら PR を ready（T-12）。V-1 判定は handoff.md §1（WARN: AC-1 に D-012 の注記あり、T-16 未了）。
 
 ## ファイルマップ（読み込み優先度）
 
