@@ -1,6 +1,6 @@
 # TASK-1608 INDEX
 
-> 最終更新: 2026-10-24 04:35（Q-1〜Q-4 確定反映・簡易 C-1 PASS）
+> 最終更新: 2026-10-24 09:40（exec 後、敵対レビュー R4 で Stop Condition に該当し BLOCKED）
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従う。
 
 ## チケット概要（1-2文）
@@ -9,11 +9,11 @@
 
 ## 現在のフェーズ
 
-C-3 待ち
+BLOCKED
 
 ## 次のアクション
 
-Q-1〜Q-4 は決定済み（D-004〜D-007）。Human が C-3 判断 → 確定後 plan の plan_hash で APPROVED の `approvals/c3.json` を Human が発行 → exec（todo T-1 から）。
+敵対レビュー R4 の critical が未是正（review-external.md R4 / decision-log D-010）。Human が設計を選ぶ: (a) コンテナのスタックを実装 / (b) markdown-it-py（Q-1 代替案、HO パス変更を伴う）/ (c) 守備範囲を縮めて拒否に倒す。選択に応じて plan の再生成・再承認。V-1 判定は handoff.md §1 を参照（WARN）。
 
 ## ファイルマップ（読み込み優先度）
 
@@ -24,6 +24,9 @@ Q-1〜Q-4 は決定済み（D-004〜D-007）。Human が C-3 判断 → 確定�
 | todo.md | exec | タスク一覧 |
 | test-cases.md | exec, review | 回避クラス台帳の回帰ケース |
 | review-self.md | C-3, review | C-1 結果 |
+| review-external.md | review | 敵対レビュー R1〜R4 と回避クラス台帳 |
+| handoff.md | 引き継ぎ | 中間 handoff（BLOCKED 時点） |
+| evidence/test-runs/ | 根拠 | RED ログ・単体ログ・変異注入・現行データ出力 |
 | status.md | status, 復旧 | フェーズ履歴 |
 | current-state.md | status, 復旧 | 現在状態 |
 | decision-log.jsonl | 監査 | 判断履歴 |
