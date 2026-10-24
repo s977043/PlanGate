@@ -365,6 +365,30 @@ class SeedInventoryTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "canonical"):
                     MODULE.inventory(self.seeds, self.digest, 1)
 
+    def test_adv_r2_01_block_opened_right_after_list_paragraph_closes_with_item(self):
+        for opener in ("  ```", "  <div>"):
+            with self.subTest(opener=opener):
+                self.seeds.write_text(
+                    f"## {SEED_A}\n- confirmed_by: human\n{opener}\n## {SEED_B}\n- confirmed_by: pending\n```\n",
+                    encoding="utf-8",
+                )
+                with self.assertRaises(ValueError):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r2_02_setext_heading_ends_marker_ownership(self):
+        for underline in ("=====", "-----"):
+            with self.subTest(underline=underline):
+                self.seeds.write_text(f"## {SEED_A}\n\nNotes\n{underline}\n\n- confirmed_by: human\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "confirmation marker"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r2_03_inline_structure_in_confirmation_is_rejected(self):
+        for value in ("&#112;ending", "[pending](x)", "\\-", "&#x200B;", "human&amp;co"):
+            with self.subTest(value=value):
+                self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: {value}\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "confirmation marker"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
     def test_tc_struct_01_no_whole_document_regex(self):
         source = SOURCE.read_text(encoding="utf-8")
         self.assertIn("re.compile", source)  # positive control: the probe reads the real module

@@ -21,8 +21,9 @@ fenced code / HTML block（type 1〜7）/ indented code / ATX 見出し / setext
 - 正規形でない日付見出し（表記ゆれ・lookalike・blockquote / リスト内 / setext / 不可視文字・全角数字を含むもの）は拒否
 - code / HTML ブロック内の seed と確認マーカーは数えない。閉じていない fence / HTML ブロックは拒否
 - 確認マーカーの欠落・重複（ネストしたものを含む）・否定値・プレースホルダ・不可視文字は拒否。
-  値は HTML タグ・コメントとインライン記号（` * _ ~）を外した表示上の値で判定する
-- リスト項目内で開いた fence / HTML ブロックは項目の終了で閉じる。seed でない節見出しで確認マーカーの帰属を切る
+  値に表示を変えるインライン構文の文字（< > & [ ] バックスラッシュ）があれば拒否し、
+  強調・コードの記号（` * _ ~）は外した表示上の値で否定値を判定する
+- リスト項目内で開いた fence / HTML ブロックは項目の終了で閉じる。seed でない節見出し（ATX / setext）で確認マーカーの帰属を切る
 - 閉じ "#" 列や末尾空白を含む見出しは、renderer の表示と識別子がずれるため拒否
 守らないもの:
 - CommonMark の全規則ではない。リスト項目の内容オフセットは 2 桁固定の近似で、順序付きリスト
@@ -68,7 +69,8 @@ UNCONFIRMED = {
     "<human>", "pending", "tbd", "none", "未確認",
     "no", "n", "false", "-", "n/a", "na", "null", "unconfirmed", "rejected", "なし", "未", "否", "保留",
 }
-CANONICAL_ERROR = "seed heading does not match the canonical '## YYYY-MM-DD — <task_id>' format"
+INLINE_STRUCTURE = "<>&[]\\"
+CANONICAL_ERROR ="seed heading does not match the canonical '## YYYY-MM-DD — <task_id>' format"
 
 
 def has_invisible(text: str) -> bool:
@@ -138,7 +140,7 @@ def html_block_ends(line: str, closer) -> bool:
 
 
 def classify(source: str) -> list[tuple[str, str]]:
-    """各行を (kind, line) に分類する。kind は blank / code / html / heading / text。"""
+    """各行を (kind, line) に分類する。kind は blank / code / html / heading / setext / text。"""
     lines = source.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     if lines and lines[-1] == "":
         lines.pop()
@@ -183,7 +185,7 @@ def classify(source: str) -> list[tuple[str, str]]:
             previous_blank = True
             continue
         column, rest = indent_of(line)
-        block_in_list = in_list and column >= 2 and not paragraph
+        block_in_list = in_list and column >= 2
         if block_in_list:
             column -= 2
         elif in_list and column < 2 and previous_blank and not LIST_MARKER.match(skeleton(rest)):
@@ -211,7 +213,7 @@ def classify(source: str) -> list[tuple[str, str]]:
                 if any(DATE_LIKE.search(skeleton(text)) for text in paragraph):
                     raise ValueError(CANONICAL_ERROR)
                 paragraph = []
-                result.append(("text", line))
+                result.append(("setext", line))
                 continue
             if ATX.match(rest):
                 paragraph = []
@@ -248,11 +250,11 @@ def seed_title(line: str) -> str | None:
 
 
 def is_unconfirmed(value: str) -> bool:
-    # 表示上の値で判定する: HTML タグ・コメントを落とし、インライン強調・コードの記号を外す。
-    if "<!--" in value and "-->" not in value:
+    # 表示を変えるインライン構文（HTML・文字参照・リンク・エスケープ）を含む値は再現を試みずに拒否する。
+    # 強調・コードの記号（` * _ ~）は外して、表示上の値で否定値を判定する。
+    if any(char in value for char in INLINE_STRUCTURE):
         return True
-    rendered = re.sub(r"<!--.*?-->|<[^>]*>", "", value)
-    normalized = re.sub(r"[`*_~]", "", rendered).strip().lower()
+    normalized = re.sub(r"[`*_~]", "", value).strip().lower()
     first = re.split(r"[\s（(:：,、]", normalized, maxsplit=1)[0]
     return not normalized or normalized in UNCONFIRMED or first in UNCONFIRMED
 
@@ -262,6 +264,9 @@ def read_declared_seeds(path: Path) -> list[str]:
     confirmations: list[list[str]] = []
     in_seed = False
     for kind, line in classify(path.read_text(encoding="utf-8-sig")):
+        if kind == "setext":
+            in_seed = False  # setext 見出し（level 1/2）も節を区切る
+            continue
         if kind not in ("text", "heading"):
             continue
         title = seed_title(line)

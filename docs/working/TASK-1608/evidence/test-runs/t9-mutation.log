@@ -27,3 +27,11 @@ M19 section heading keeps ownership: KILLED rc=1 ['FAILED (failures=1)']
 M20 closing sequence accepted: KILLED rc=1 ['FAILED (failures=1)']
 M21 unterminated comment accepted: KILLED rc=1 ['FAILED (failures=1)']
 survivors: []
+
+# 敵対レビュー R2 の是正後に再実行（M01〜M20 は全件 KILLED。M21 は対象コードを撤去したため削除。M19 はアンカーを一意化）
+M18 inline markup not stripped: KILLED rc=1 ['FAILED (failures=2)']
+M22 inline structure allowed: KILLED rc=1 ['FAILED (failures=8)']
+M23 list block requires no paragraph: KILLED rc=1 ['FAILED (failures=2)']
+M24 setext keeps ownership: KILLED rc=1 ['FAILED (failures=2)']
+M19 section heading keeps ownership: KILLED rc=1 ['FAILED (failures=1)']
+survivors: []
