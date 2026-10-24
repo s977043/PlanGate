@@ -37,6 +37,16 @@
 - [ ] T-15 変異注入（境界判定の各条件）で検出力を実証 — depends_on: T-14 / rollback: 変異は commit しない
 - [ ] T-16 敵対レビュー R5 / R6 → 収束判定。コンテナ軸で新クラスが 2 ラウンド続いたら再停止 🚩 — depends_on: T-15 / rollback: 不要
 
+### 改訂 2（2026-10-25、Human 裁定「入れ子をすべて拒否」/ plan D-1c）
+
+- [ ] H-4 改訂 2 の plan の C-3 再承認（新しい plan_hash で `approvals/c3.json` を Human が再発行）— owner: human
+- [ ] T-17 TC-NEST-A / B / 03〜07 / N1〜N3 を追加し、現実装で RED の内訳を記録 🚩 — depends_on: H-4 / rollback: テスト追加コミットを revert
+- [ ] T-18 入れ子拒否（D-1c）を container 更新の前に実装 🚩 TC-NEST PASS・既存 60 件（`1c26e9de` の実測 `Ran 60 tests`）PASS・現行データ 7 / 5 不変 — depends_on: T-17 / rollback: commit revert
+- [ ] T-19 R6 m-1（リスト項目の内容オフセットを 2 に固定）の是正: 内容オフセットが 2 でないリスト（インデント付きマーカー ` - a`・番号付き `1. a`・マーカー後の空白 2 個以上）を拒否する（fail-closed。現行データ 0 行を実測済み）。拒否側 TC を追加 — depends_on: T-18 / rollback: commit revert
+- [ ] T-20 R6 m-2（TC 件数の記録ずれ）の是正: handoff / status / current-state の単体テスト件数を、`python3 scripts/test_improvement_seed_delta.py` の `Ran N tests` の実測値で書き直す（R6 時点の実測は 60 件、記録は 61 件）。以後は件数をログの実測から転記する — depends_on: T-19 / rollback: 不要
+- [ ] T-21 変異注入（入れ子判定・オフセット判定の各条件）で検出力を実証 — depends_on: T-20 / rollback: 変異は commit しない
+- [ ] T-22 敵対レビュー R7 / R8 → 収束判定（オーガナイザー側）。コンテナ軸で新クラスが 2 ラウンド続いたら再停止 🚩 — depends_on: T-21 / rollback: 不要
+
 ### 完了
 
-- [ ] T-12 handoff.md（残存脅威モデルを含む）・status / INDEX 更新、PR を ready for review — depends_on: T-16 / rollback: 不要
+- [ ] T-12 handoff.md（残存脅威モデルを含む）・status / INDEX 更新、PR を ready for review — depends_on: T-22 / rollback: 不要

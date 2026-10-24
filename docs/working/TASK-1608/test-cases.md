@@ -17,7 +17,8 @@
 | AC-8 | TC-INT-02 |
 | AC-9 | TC-STRUCT-02 |
 | AC-10 | TC-BLK-01〜05, TC-HTML-01〜04 |
-| AC-11 | TC-CB-01〜07, TC-INT-03 |
+| AC-11 | TC-CB-01〜07, TC-INT-03, TC-NEST-N1〜N3 |
+| AC-10（改訂 2） | TC-NEST-A / B / 03〜07 |
 
 ## コンテナ境界（改訂 2026-10-24 / plan D-1b）
 
@@ -32,6 +33,28 @@
 | TC-CB-05 | `- note` / `## 2026-09-09 — B` | 拒否 | ATX 見出しでの切り替え |
 | TC-CB-06 | `> q` / `- item` | 拒否 | blockquote → リスト |
 | TC-CB-07 | `> q` / `***` | 拒否 | blockquote → thematic break |
+
+## 入れ子コンテナ（改訂 2 2026-10-25 / plan D-1c）
+
+AC 対応: AC-10（守備範囲外の構造は fail-closed）/ AC-11（現行データで誤拒否なし）。期待はすべて `ValueError`（nested container）。
+
+| ID | 入力 | 期待 | 由来 |
+|----|------|------|------|
+| TC-NEST-A | `- a` / `  > b` / 空行 / `  ```` / `## 2026-01-01 — TASK-1` / `- confirmed_by: alice` / `  ```` / 空行 / `## 2026-01-02 — TASK-2` / `- confirmed_by: bob` | 拒否（現実装は TASK-1 を黙って落とし rc=0） | 敵対レビュー R6 の再現 A（fence 版） |
+| TC-NEST-B | 再現 A の fence を `  <div>` に替えたもの（`- a` / `  > b` / 空行 / `  <div>` / `## 2026-01-01 — TASK-1` / …） | 拒否 | R6 の再現 B（div 版） |
+| TC-NEST-03 | `> - a`（blockquote 内のリスト、同じ行） | 拒否 | 定義 1 |
+| TC-NEST-04 | `- > a`（リスト内の blockquote、同じ行） | 拒否 | 定義 1 |
+| TC-NEST-05 | `- a` / `  - b`（リスト内のリスト） | 拒否 | 定義 2 |
+| TC-NEST-06 | `> a` / `> > b`（blockquote 内の blockquote） | 拒否 | 定義 1・3 |
+| TC-NEST-07 | `1. a` / `   - b`（番号付きリスト内のリスト） | 拒否 | 定義 2 |
+
+入れ子でないことを固定する正常系（受理）:
+
+| ID | 入力 | 期待 |
+|----|------|------|
+| TC-NEST-N1 | `> a` / `> b`（同じ深さの blockquote の継続） | 受理 |
+| TC-NEST-N2 | `- a` / `- b` / `- c`（トップレベルのリストの複数項目） | 受理 |
+| TC-NEST-N3 | `- a` / 空行 / `  ```` / `  x` / `  ```` / 空行 / 正規 seed（リスト内の fence） | 受理、seed を数える |
 
 拒否しないことを固定する正常系:
 

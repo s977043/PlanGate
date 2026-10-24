@@ -20,7 +20,8 @@ high-risk（根拠は plan.md「Mode 判定」）。`lite_eligible=false`。auto
 | 2026-10-24 10:00 | C-3 待ち | Human 裁定 (c)「守備範囲を縮める」（D-011）。plan D-1b・pbi-input AC-11・test-cases TC-CB-*・todo T-13〜T-16 を改訂、簡易 C-1 PASS。既存 c3.json は初版の plan_hash で本改訂には無効（未編集） |
 | 2026-10-25 01:15 | exec | C-3 再承認（Human、plan_hash 439f1620…、approved_at 2026-10-24T16:15:34Z）。T-13 TC-CB 追加（現実装で 7 FAIL、`9cf433f9`） |
 | 2026-10-25 01:24 | verify | T-14 D-1b 実装 / T-15 変異注入（`57673063`）。単体 57 件 OK・ta-116・ta-70・現行データ 7 / 5 不変。T-16 の敵対レビューはオーガナイザー側で実施 |
-| 2026-10-25 02:00 | verify | R5（critical 1 / major 2 / minor 2）を是正。C-1 を再現し in_list を container に一本化（D-013）、M17 を M17a / b に分割、adv_r1_02 を到達可能な入力で復元。単体 61 件 OK・ta-116・ta-70・現行データ 7 / 5 不変・変異 36 種 KILLED |
+| 2026-10-25 02:00 | verify | R5（critical 1 / major 2 / minor 2）を是正。C-1 を再現し in_list を container に一本化（D-013）、M17 を M17a / b に分割、adv_r1_02 を到達可能な入力で復元。単体 61 件 OK（**誤記。実測は `Ran 60 tests`、R6 m-2**）・ta-116・ta-70・現行データ 7 / 5 不変・変異 36 種 KILLED |
+| 2026-10-25 10:00 | C-3 待ち | R6（major 1 = 入れ子の喪失 / minor 2）で Stop Condition。Human 裁定「入れ子をすべて拒否」（D-014）を plan D-1c・test-cases TC-NEST-*・todo T-17〜T-22 に反映、簡易 C-1 PASS。現行データの入れ子 0 行を実測。既存 c3.json（439f1620…）は本改訂に無効（未編集） |
 
 ## 残タスク
 
@@ -29,7 +30,9 @@ high-risk（根拠は plan.md「Mode 判定」）。`lite_eligible=false`。auto
 - [x] T-11 収束判定 — R4 で不収束、Human 裁定 (c) で plan 改訂（D-011）
 - [x] H-3 改訂 plan の C-3 再承認（Human）
 - [x] T-13〜T-15
-- [ ] T-16 敵対レビュー R5（是正済み）/ R6（未実施、オーガナイザー側）
+- [x] T-16 敵対レビュー R5（是正済み）/ R6（Stop Condition で停止、D-014）
+- [ ] H-4 改訂 2 の plan の C-3 再承認（Human）
+- [ ] T-17〜T-22（改訂 2。todo.md）
 - [ ] T-12 PR を ready にする（T-16 後）
 - [ ] T-12 PR を ready にする（BLOCKED 解除後）
 

@@ -2,6 +2,16 @@
 
 > 対象: plan.md / todo.md / test-cases.md（初版、2026-10-24）。実施者は plan 作成者本人（独立レビューではない）。
 
+## 簡易 C-1 再判定（2026-10-25、Human 裁定「入れ子をすべて拒否」による plan 改訂 2 後）: PASS
+
+- C1-PLAN-01 / C1-TEST-13: D-1c を AC-10（守備範囲外は fail-closed）/ AC-11（誤拒否なし）の範囲で扱い、TC-NEST-A / B（R6 再現 A・B）/ 03〜07（拒否）/ N1〜N3（同じ深さの blockquote 継続・トップレベルの複数項目・リスト内 fence の受理）に対応づけた → PASS
+- C1-PLAN-02 Unknowns: 入れ子の解釈は行わない（D-014）。単一の container 値で正しい根拠（深さ ≤1 ⇒ 最上段の種別でスタックと同値、上書きの行は更新前に拒否）を plan に記載 → PASS
+- C1-PLAN-03 スコープ: 変更は同じ 2 ファイル。HO パスなし。pbi-input は変更不要（入れ子は AC-10 の「守備範囲外の構造は fail-closed」に含まれる）→ PASS
+- C1-PLAN-04 テスト戦略: 現行データの入れ子 0 行・オフセット ≠2 のリスト 0 行を、陽性対照つきで事前実測して記載 → PASS
+- C1-PLAN-08/09: 改訂 2 後は R7 から下限 2、コンテナ軸の新クラス 2 連続で再停止 → PASS
+- C1-TODO: H-4 → T-17（RED）→ T-18 → T-19（R6 m-1）→ T-20（R6 m-2 件数是正）→ T-21 → T-22、rollback 記載 → PASS
+- 注記: 既存の `approvals/c3.json`（plan_hash 439f1620…）は本改訂と一致しない（編集・削除していない）
+
 ## 簡易 C-1 再判定（2026-10-24、Human 裁定 (c) による plan 改訂後）: PASS
 
 - C1-PLAN-01 / C1-TEST-13: AC-11 を追加し、TC-CB-01〜07（拒否側。TC-CB-01 は R4 の再現）/ TC-CB-N1〜N3（正常系）/ TC-INT-03 に対応づけた → PASS
