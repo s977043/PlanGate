@@ -129,7 +129,7 @@ class SeedInventoryTests(unittest.TestCase):
 
     def test_non_seed_heading_without_date_is_accepted(self):
         self.seeds.write_text(
-            f"# Seeds\n\n## 概要\n\n## {SEED_A}\n- confirmed_by: human\n### 補足\n", encoding="utf-8"
+            f"# Seeds\n\n## 概要\n\n## {SEED_A}\n- confirmed_by: human\n\n### 補足\n", encoding="utf-8"
         )
         result = MODULE.inventory(self.seeds, self.digest, 1)
         self.assertEqual(result["entries_with_confirmation_marker"], 1)
@@ -251,7 +251,7 @@ class SeedInventoryTests(unittest.TestCase):
 
     def test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected(self):
         for tail in (
-            f"> ## {SEED_B}\n- confirmed_by: human\n",
+            f"> ## {SEED_B}\n\n- confirmed_by: human\n",
             f"- ## {SEED_B}\n  - confirmed_by: human\n",
             f"{SEED_B}\n---\n- confirmed_by: human\n",
             f"{SEED_B}\n===\n- confirmed_by: human\n",
@@ -328,7 +328,7 @@ class SeedInventoryTests(unittest.TestCase):
             MODULE.inventory(self.seeds, self.digest, 1)
 
     def test_digest_section_rejects_non_list_blocks(self):
-        self.digest.write_text(f"## 対象エントリ\n\n- {SEED_A}\n<!--\n- 2026-06-09 — ghost\n-->\n", encoding="utf-8")
+        self.digest.write_text(f"## 対象エントリ\n\n- {SEED_A}\n\n<!--\n- 2026-06-09 — ghost\n-->\n", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "unrecognized record"):
             MODULE.inventory(self.seeds, self.digest, 1)
 
@@ -343,7 +343,7 @@ class SeedInventoryTests(unittest.TestCase):
 
     def test_adv_r1_02_top_level_fence_after_list_keeps_strict_close(self):
         self.write_seeds(f"## {SEED_B}\n- note\n```\n     ```\n- confirmed_by: human\n")
-        with self.assertRaisesRegex(ValueError, "unclosed code fence"):
+        with self.assertRaisesRegex(ValueError, "container boundary"):
             MODULE.inventory(self.seeds, self.digest, 1)
 
     def test_adv_r1_03_inline_markup_in_confirmation_is_rendered_first(self):

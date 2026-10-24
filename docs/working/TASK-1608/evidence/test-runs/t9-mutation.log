@@ -41,3 +41,17 @@ M18 inline markup not stripped: KILLED rc=1 ['FAILED (failures=2)']
 M25 marker-line block allowed: KILLED rc=1 ['FAILED (failures=5)']
 M26 no NFKC / punctuation split: KILLED rc=1 ['FAILED (failures=3)']
 survivors: []
+
+# 改訂 plan D-1b（T-14）実装後に全変異を再実行（2026-10-25）。M01〜M16 / M18〜M26 は全件 KILLED のまま
+M27 quote/list switch allowed: KILLED rc=1 ['FAILED (failures=1)']
+M28 block boundary allowed: KILLED rc=1 ['FAILED (failures=6)']
+M29 thematic break not a block: KILLED rc=1 ['FAILED (failures=1)']
+M30 HTML start not a block: KILLED rc=1 ['FAILED (failures=1)']
+M31 blank does not separate: KILLED rc=1 ['FAILED (failures=37, errors=26)']
+M32 list continuation ignores column: KILLED rc=1 ['FAILED (failures=5)']
+M33 ATX not a block: KILLED rc=1 ['FAILED (failures=1)']
+M34 lazy line after blank keeps container: KILLED rc=1 ['FAILED (failures=2, errors=1)']
+M35 fence start not a block: KILLED rc=1 ['FAILED (failures=1)']
+M17 close tolerance uses in_list: SURVIVED rc=0 ['OK']
+# M17 は等価変異と判定: D-1b により「in_list が真のまま列 0 で fence を開く」入力は境界規則で先に拒否され、
+# fence を開いた時点で in_list と block_in_list が異なる状態に到達できない（到達させる入力は adv_r1_02 だが、境界で拒否される）

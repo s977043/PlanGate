@@ -29,6 +29,8 @@ fenced code / HTML block（type 1〜7）/ indented code / ATX 見出し / setext
 - CommonMark の全規則ではない。リスト項目の内容オフセットは 2 桁固定の近似で、順序付きリスト
   （"1. " など）の継続行・入れ子の深いリストでは renderer と判定がずれうる
 - リストマーカー行・blockquote 行で開く fence / HTML ブロックは追跡せず拒否する（安全側の誤拒否）
+- コンテナ（リスト項目・blockquote）が空行なしで別のブロック（blockquote / リスト / fence / HTML /
+  thematic break / 見出し）へ切り替わる構成は解釈せず拒否する（#1608 D-1b。正当な文書も空行を要求される）
 - 否定値は拒否リスト方式で、NFKC 正規化と先頭語の区切り（空白・句読点・かっこ）までしか見ない。
   「未確認です」のように区切りの無い文は否定値として検出しない
 - 先頭語が否定値と同綴りの正当な人名（例: "Na Yeon"）は拒否する（安全側の誤り / #1608 Q-4）
@@ -51,6 +53,7 @@ DATE_LIKE = re.compile(r"\d{4}-\d{2}-\d{2}")
 ATX = re.compile(r"(#{1,6})(?:[ \t]|$)")
 FENCE_OPEN = re.compile(r"(`{3,}|~{3,})(.*)")
 SETEXT_UNDERLINE = re.compile(r"(?:=+|-+)[ \t]*")
+THEMATIC_BREAK = re.compile(r"(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})")
 LIST_MARKER = re.compile(r"(?:[-*+]|[0-9]{1,9}[.)])(?:[ \t]+|$)")
 CONFIRMATION = re.compile(r"- confirmed_by:[ \t]*(.*)")
 HTML_TYPE1 = re.compile(r"<(?:script|pre|style|textarea)(?:[ \t>]|$)", re.IGNORECASE)
@@ -142,6 +145,42 @@ def html_block_ends(line: str, closer) -> bool:
     return bool(closer.search(line))
 
 
+def line_shape(line: str) -> tuple[str, int]:
+    """コンテナ境界の判定用に、行の形を quote / list / block / text のいずれかで返す。"""
+    column, rest = indent_of(line)
+    if column <= 3:
+        if rest.startswith(">"):
+            return "quote", column
+        if LIST_MARKER.match(rest):
+            return "list", column
+        if (
+            FENCE_OPEN.fullmatch(rest)
+            or html_block_start(rest, False) is not False
+            or THEMATIC_BREAK.fullmatch(rest)
+            or SETEXT_UNDERLINE.fullmatch(rest)
+            or ATX.match(rest)
+        ):
+            return "block", column
+    return "text", column
+
+
+def next_container(container: str | None, shape: str, column: int, after_blank: bool) -> str | None:
+    """直前のコンテナ（list / quote / None）と行の形から、この行の後のコンテナを返す。
+    空行を挟まずにコンテナが別のブロックへ切り替わる場合は、解釈せずに拒否する（plan D-1b）。"""
+    if shape in ("quote", "list"):
+        if container is not None and container != shape and not after_blank and not (container == "list" and column >= 2):
+            raise ValueError("container boundary without a blank line is not supported")
+        return shape
+    inside_list = container == "list" and column >= 2
+    if shape == "block":
+        if container is not None and not after_blank and not inside_list:
+            raise ValueError("container boundary without a blank line is not supported")
+        return "list" if inside_list else None
+    if after_blank and not inside_list:
+        return None
+    return container
+
+
 def classify(source: str) -> list[tuple[str, str]]:
     """各行を (kind, line) に分類する。kind は blank / code / html / heading / setext / text。"""
     lines = source.replace("\r\n", "\n").replace("\r", "\n").split("\n")
@@ -155,7 +194,16 @@ def classify(source: str) -> list[tuple[str, str]]:
     in_list = False
     previous_blank = True
     block_in_list = False
+    container = None
+    after_blank = True
     for line in lines:
+        if not line.strip(" \t"):
+            after_blank = True
+        else:
+            if (fence is None and not in_html) or block_in_list:
+                shape, shape_column = line_shape(line)
+                container = next_container(container, shape, shape_column, after_blank)
+            after_blank = False
         if (fence is not None or in_html) and block_in_list and line.strip(" \t") and indent_of(line)[0] < 2:
             # リスト項目内で開いたブロックは、項目が終わる（列 0〜1 の行が来る）と一緒に閉じる
             fence, in_html, in_list, paragraph = None, False, False, []
