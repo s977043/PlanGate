@@ -403,6 +403,35 @@ class SeedInventoryTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "confirmation marker"):
                     MODULE.inventory(self.seeds, self.digest, 1)
 
+    def test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected(self):
+        cases = {
+            "CB-01": "- note\n> q\n  ```\n## 2026-09-09 — HIDDEN\n- confirmed_by: bob\n",
+            "CB-02": "- note\n```\nx\n```\n  ```\n## 2026-09-09 — HIDDEN\n",
+            "CB-03": "- note\n***\n  ```\n## 2026-09-09 — HIDDEN\n",
+            "CB-04": "- note\n<div>\n",
+            "CB-05": f"- note\n## {SEED_B}\n- confirmed_by: human\n",
+            "CB-06": "> q\n- item\n",
+            "CB-07": "> q\n***\n",
+        }
+        for case, tail in cases.items():
+            with self.subTest(case=case):
+                self.write_seeds(tail)
+                with self.assertRaisesRegex(ValueError, "container boundary"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_cb_n1_to_n3_container_continuations_are_accepted(self):
+        cases = {
+            "N1-quote": "> a\n> b\n",
+            "N1-list": "- a\n- b\n",
+            "N1-indent": "- a\n  b\n",
+            "N2-lazy": "- a\nlazy text\n",
+            "N3-blank": f"- a\n\n## {SEED_B}\n- confirmed_by: human\n",
+        }
+        for case, tail in cases.items():
+            with self.subTest(case=case):
+                self.write_seeds(tail)
+                MODULE.inventory(self.seeds, self.digest, 1)
+
     def test_tc_struct_01_no_whole_document_regex(self):
         source = SOURCE.read_text(encoding="utf-8")
         self.assertIn("re.compile", source)  # positive control: the probe reads the real module
