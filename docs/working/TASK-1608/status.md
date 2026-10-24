@@ -20,6 +20,7 @@ high-risk（根拠は plan.md「Mode 判定」）。`lite_eligible=false`。auto
 | 2026-10-24 10:00 | C-3 待ち | Human 裁定 (c)「守備範囲を縮める」（D-011）。plan D-1b・pbi-input AC-11・test-cases TC-CB-*・todo T-13〜T-16 を改訂、簡易 C-1 PASS。既存 c3.json は初版の plan_hash で本改訂には無効（未編集） |
 | 2026-10-25 01:15 | exec | C-3 再承認（Human、plan_hash 439f1620…、approved_at 2026-10-24T16:15:34Z）。T-13 TC-CB 追加（現実装で 7 FAIL、`9cf433f9`） |
 | 2026-10-25 01:24 | verify | T-14 D-1b 実装 / T-15 変異注入（`57673063`）。単体 57 件 OK・ta-116・ta-70・現行データ 7 / 5 不変。T-16 の敵対レビューはオーガナイザー側で実施 |
+| 2026-10-25 02:00 | verify | R5（critical 1 / major 2 / minor 2）を是正。C-1 を再現し in_list を container に一本化（D-013）、M17 を M17a / b に分割、adv_r1_02 を到達可能な入力で復元。単体 61 件 OK・ta-116・ta-70・現行データ 7 / 5 不変・変異 36 種 KILLED |
 
 ## 残タスク
 
@@ -28,7 +29,7 @@ high-risk（根拠は plan.md「Mode 判定」）。`lite_eligible=false`。auto
 - [x] T-11 収束判定 — R4 で不収束、Human 裁定 (c) で plan 改訂（D-011）
 - [x] H-3 改訂 plan の C-3 再承認（Human）
 - [x] T-13〜T-15
-- [ ] T-16 敵対レビュー R5 / R6（オーガナイザー側で実施）
+- [ ] T-16 敵対レビュー R5（是正済み）/ R6（未実施、オーガナイザー側）
 - [ ] T-12 PR を ready にする（T-16 後）
 - [ ] T-12 PR を ready にする（BLOCKED 解除後）
 
@@ -40,7 +41,8 @@ high-risk（根拠は plan.md「Mode 判定」）。`lite_eligible=false`。auto
 - 敵対レビューの是正で plan に無いテスト（adv_r1_* 〜 adv_r3_*）と判定を追加した。確認値の判定モデルを変更（D-009）
 - 敵対レビューは plan の下限 2 に対し 4 ラウンド実施し、R4 で Stop Condition に該当（D-010）
 - T-14 で既存テスト 4 件の fixture / 期待メッセージを調整（D-012）。#1574 由来の `test_non_seed_heading_without_date_is_accepted` は、AC-1 と TC-CB-05（リスト直後の空行なし見出しを拒否）が衝突したため、fixture に空行 1 行を挟んだ。判定の意図（日付の無い見出しは受理）は不変
-- 変異 M17（fence の閉じ許容幅に in_list を使う）は D-1b 後に等価変異となり生存（到達入力が境界規則で先に拒否される）
+- 変異 M17 の等価判定は R5 M-1 で撤回（C-1 経路で到達可能だった）。M17a / M17b に分けて KILLED
+- adv_r1_02 は D-012 で期待メッセージだけ変えていたが、R5 M-2 を受けて「トップレベル fence は 4 空白の行では閉じない」を到達可能な入力で検証する形に戻した
 - ta-116 の standalone ログは evidence に保存できなかった（エージェント実行環境が sh の出力リダイレクトを拒否）。実行結果は 2 passed / 0 failed（rc=0）を目視確認し、CI の plangate CLI tests でも通過
 
 ## 参照

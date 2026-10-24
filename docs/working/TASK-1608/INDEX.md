@@ -1,6 +1,6 @@
 # TASK-1608 INDEX
 
-> 最終更新: 2026-10-25 01:24（再承認後の T-13〜T-15 完了、verify）
+> 最終更新: 2026-10-25 02:00（R5 是正、verify）
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従う。
 
 ## チケット概要（1-2文）
@@ -13,7 +13,7 @@ verify
 
 ## 次のアクション
 
-改訂 plan（D-1b）で T-13〜T-15 完了。T-16 敵対レビュー R5 / R6 をオーガナイザー側で実施 → 収束なら PR を ready（T-12）。V-1 判定は handoff.md §1（WARN: AC-1 に D-012 の注記あり、T-16 未了）。
+改訂 plan（D-1b）で T-13〜T-15 完了、R5 是正済み。R6 をオーガナイザー側で実施 → 収束なら PR を ready（T-12）。V-1 判定は handoff.md §1（WARN: AC-1 と TC-CB-05 の衝突は Human 確認事項、R6 未了）。
 
 ## ファイルマップ（読み込み優先度）
 

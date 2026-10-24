@@ -341,10 +341,33 @@ class SeedInventoryTests(unittest.TestCase):
         self.write_seeds(f"- item\n\n  ```\n  x\n\n## {SEED_B}\n- confirmed_by: human\n")
         self.assertEqual(self.count(), 2)
 
-    def test_adv_r1_02_top_level_fence_after_list_keeps_strict_close(self):
-        self.write_seeds(f"## {SEED_B}\n- note\n```\n     ```\n- confirmed_by: human\n")
+    def test_adv_r1_02_top_level_fence_keeps_strict_close(self):
+        # トップレベルの fence は 4 空白以上の行では閉じない（リスト内の許容幅を流用しない）
+        self.write_seeds(f"```\n    ```\n## {SEED_B}\n- confirmed_by: human\n```\n")
+        self.assertEqual(self.count(), 1)
+
+    def test_adv_r5_fence_right_after_list_is_a_boundary(self):
+        self.write_seeds("- note\n```\nx\n```\n")
         with self.assertRaisesRegex(ValueError, "container boundary"):
             MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r5_m17_list_fence_closes_with_list_indent(self):
+        # リスト内の fence は列 2 を基準に閉じる。閉じたあとのリスト内見出しは守備範囲外として拒否される
+        self.write_seeds("- item\n\n  ```\n  x\n     ```\n  ## 2026-09-09 — HIDDEN\n")
+        with self.assertRaisesRegex(ValueError, "canonical"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r5_c1_invisible_prefixed_list_like_line_is_not_a_list(self):
+        for prefix in (" ", "​"):
+            with self.subTest(prefix=repr(prefix)):
+                self.write_seeds(f"{prefix}- note\n  ```\n## 2026-09-09 — HIDDEN\n- confirmed_by: bob\n")
+                with self.assertRaisesRegex(ValueError, "unclosed code fence"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+        self.write_seeds(" - note\n  <!--\n## 2026-09-09 — HIDDEN\n- confirmed_by: bob\n")
+        with self.assertRaisesRegex(ValueError, "unclosed HTML"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+        self.write_seeds(" - note\n  <div>\n## 2026-09-09 — HIDDEN\n- confirmed_by: bob\n")
+        self.assertEqual(self.count(), 1)
 
     def test_adv_r1_03_inline_markup_in_confirmation_is_rendered_first(self):
         for value in ("<!-- pending -->", "`pending`", "**pending**", "<!-- human", "<b></b>"):

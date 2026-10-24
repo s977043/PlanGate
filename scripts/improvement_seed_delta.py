@@ -30,7 +30,9 @@ fenced code / HTML block（type 1〜7）/ indented code / ATX 見出し / setext
   （"1. " など）の継続行・入れ子の深いリストでは renderer と判定がずれうる
 - リストマーカー行・blockquote 行で開く fence / HTML ブロックは追跡せず拒否する（安全側の誤拒否）
 - コンテナ（リスト項目・blockquote）が空行なしで別のブロック（blockquote / リスト / fence / HTML /
-  thematic break / 見出し）へ切り替わる構成は解釈せず拒否する（#1608 D-1b。正当な文書も空行を要求される）
+  thematic break / 見出し）へ切り替わる構成は解釈せず拒否する（#1608 D-1b。正当な文書も空行を要求される）。
+  拒否は広い: リスト行の直後に空行なしで見出しや fence を置くだけで拒否される（#1608 R5 の実測で、
+  repo の .md 2,228 本中 75 本が該当。seeds / digest は該当しない）。本検査を他の文書へ流用しないこと
 - 否定値は拒否リスト方式で、NFKC 正規化と先頭語の区切り（空白・句読点・かっこ）までしか見ない。
   「未確認です」のように区切りの無い文は否定値として検出しない
 - 先頭語が否定値と同綴りの正当な人名（例: "Na Yeon"）は拒否する（安全側の誤り / #1608 Q-4）
@@ -191,8 +193,6 @@ def classify(source: str) -> list[tuple[str, str]]:
     html = None
     in_html = False
     paragraph: list[str] = []
-    in_list = False
-    previous_blank = True
     block_in_list = False
     container = None
     after_blank = True
@@ -206,7 +206,7 @@ def classify(source: str) -> list[tuple[str, str]]:
             after_blank = False
         if (fence is not None or in_html) and block_in_list and line.strip(" \t") and indent_of(line)[0] < 2:
             # リスト項目内で開いたブロックは、項目が終わる（列 0〜1 の行が来る）と一緒に閉じる
-            fence, in_html, in_list, paragraph = None, False, False, []
+            fence, in_html, paragraph = None, False, []
         if fence is not None:
             result.append(("code", line))
             column, rest = indent_of(line)
@@ -224,7 +224,6 @@ def classify(source: str) -> list[tuple[str, str]]:
             if html is None and not line.strip(" \t"):
                 in_html = False
                 result.append(("blank", line))
-                previous_blank = True
                 continue
             result.append(("html", line))
             if html is not None and html_block_ends(line, html):
@@ -233,15 +232,12 @@ def classify(source: str) -> list[tuple[str, str]]:
         if not line.strip(" \t"):
             result.append(("blank", line))
             paragraph = []
-            previous_blank = True
             continue
         column, rest = indent_of(line)
-        block_in_list = in_list and column >= 2
+        # リスト内かどうかは、境界判定と同じ入力（生の行の形）から求めた container だけで決める
+        block_in_list = container == "list" and column >= 2
         if block_in_list:
             column -= 2
-        elif in_list and column < 2 and previous_blank and not LIST_MARKER.match(skeleton(rest)):
-            in_list = False
-        previous_blank = False
         if column >= 4 and not paragraph:
             result.append(("code", line))
             continue
@@ -272,11 +268,8 @@ def classify(source: str) -> list[tuple[str, str]]:
                 continue
             if ATX.match(rest):
                 paragraph = []
-                in_list = in_list and column > 0
                 result.append(("heading", line))
                 continue
-        if LIST_MARKER.match(skeleton(rest)):
-            in_list = True
         paragraph.append(rest)
         result.append(("text", line))
     if fence is not None:

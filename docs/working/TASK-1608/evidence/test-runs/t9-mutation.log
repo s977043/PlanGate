@@ -55,3 +55,13 @@ M35 fence start not a block: KILLED rc=1 ['FAILED (failures=1)']
 M17 close tolerance uses in_list: SURVIVED rc=0 ['OK']
 # M17 は等価変異と判定: D-1b により「in_list が真のまま列 0 で fence を開く」入力は境界規則で先に拒否され、
 # fence を開いた時点で in_list と block_in_list が異なる状態に到達できない（到達させる入力は adv_r1_02 だが、境界で拒否される）
+# → R5 M-1 で撤回: in_list（skeleton 判定）と container（生の行）が食い違う C-1 の経路で到達可能だった。
+
+# R5 是正後に全変異を再実行（2026-10-25）。in_list を撤去して container に一本化したため M16 / M23 のアンカーを更新し、
+# M17 を「許容幅を常に +2（M17a）」「常に +0（M17b）」の 2 変異に分けた。M36 は C-1 の回帰（リスト判定を skeleton で行う）
+M01〜M16, M18〜M20, M22〜M34: すべて KILLED
+M17a close tolerance always +2: KILLED rc=1 ['FAILED (errors=1)']
+M17b close tolerance never +2: KILLED rc=1 ['FAILED (failures=1)']
+M36 list shape judged on skeleton: KILLED rc=1 ['FAILED (failures=3)']
+M35 fence start not a block: KILLED rc=1 ['FAILED (failures=1)']（初回は生存。test_adv_r5_fence_right_after_list_is_a_boundary を追加して KILLED）
+survivors: []
