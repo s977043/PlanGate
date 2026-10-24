@@ -18,3 +18,12 @@ M13 type 6 never matches: KILLED rc=1 ['FAILED (errors=1)']
 M14 ASCII-only date candidate: KILLED rc=1 ['FAILED (failures=1)']
 M15 type 2 comment end ignored: KILLED rc=1 ['FAILED (failures=2, errors=3)']
 survivors: []
+
+# 敵対レビュー R1 の是正後に再実行（M01〜M15 は全件 KILLED のまま。M11 は failures=1 に変化）
+M16 list end does not close block: KILLED rc=1 ['FAILED (failures=2, errors=2)']
+M17 close tolerance uses in_list: KILLED rc=1 ['FAILED (failures=1)']
+M18 inline markup not stripped: KILLED rc=1 ['FAILED (failures=4)']
+M19 section heading keeps ownership: KILLED rc=1 ['FAILED (failures=1)']
+M20 closing sequence accepted: KILLED rc=1 ['FAILED (failures=1)']
+M21 unterminated comment accepted: KILLED rc=1 ['FAILED (failures=1)']
+survivors: []

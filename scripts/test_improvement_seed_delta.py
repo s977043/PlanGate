@@ -274,10 +274,9 @@ class SeedInventoryTests(unittest.TestCase):
         self.write_seeds(f"## 概要\n\n    ```\n\n## {SEED_B}\n- confirmed_by: human\n")
         self.assertEqual(self.count(), 2)
 
-    def test_tc_blk_05b_fence_inside_list_item_hides_until_closed(self):
+    def test_tc_blk_05b_fence_inside_list_item_closes_with_the_item(self):
         self.write_seeds(f"- item\n\n    ```\n\n## {SEED_B}\n- confirmed_by: human\n")
-        with self.assertRaisesRegex(ValueError, "unclosed code fence"):
-            MODULE.inventory(self.seeds, self.digest, 1)
+        self.assertEqual(self.count(), 2)
 
     def test_tc_blk_06_crlf_matches_lf(self):
         self.seeds.write_bytes(f"## {SEED_A}\r\n- confirmed_by: human\r\n\r\n## {SEED_B}\r\n- confirmed_by: human\r\n".encode())
@@ -332,6 +331,39 @@ class SeedInventoryTests(unittest.TestCase):
         self.digest.write_text(f"## 対象エントリ\n\n- {SEED_A}\n<!--\n- 2026-06-09 — ghost\n-->\n", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "unrecognized record"):
             MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r1_01_list_item_end_closes_inner_block(self):
+        for opener, closer in (("  ```", "```"), ("  <!--", "-->")):
+            with self.subTest(opener=opener):
+                self.write_seeds(f"- item\n\n{opener}\n  x\n\n## {SEED_B}\n- confirmed_by: pending\n{closer}\n")
+                with self.assertRaises(ValueError):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+        self.write_seeds(f"- item\n\n  ```\n  x\n\n## {SEED_B}\n- confirmed_by: human\n")
+        self.assertEqual(self.count(), 2)
+
+    def test_adv_r1_02_top_level_fence_after_list_keeps_strict_close(self):
+        self.write_seeds(f"## {SEED_B}\n- note\n```\n     ```\n- confirmed_by: human\n")
+        with self.assertRaisesRegex(ValueError, "unclosed code fence"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r1_03_inline_markup_in_confirmation_is_rendered_first(self):
+        for value in ("<!-- pending -->", "`pending`", "**pending**", "<!-- human", "<b></b>"):
+            with self.subTest(value=value):
+                self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: {value}\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "confirmation marker"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r1_04_non_seed_section_ends_marker_ownership(self):
+        self.write_seeds(f"## {SEED_B}\n\n## Notes\n- confirmed_by: human\n")
+        with self.assertRaisesRegex(ValueError, "confirmation marker"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r1_05_closing_hash_sequence_is_not_canonical(self):
+        for heading in (f"## {SEED_B} ##", f"## {SEED_B} #  ", f"## {SEED_B} "):
+            with self.subTest(heading=heading):
+                self.write_seeds(f"{heading}\n- confirmed_by: human\n")
+                with self.assertRaisesRegex(ValueError, "canonical"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
 
     def test_tc_struct_01_no_whole_document_regex(self):
         source = SOURCE.read_text(encoding="utf-8")

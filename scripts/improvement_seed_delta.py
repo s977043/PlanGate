@@ -20,7 +20,10 @@ fenced code / HTML block（type 1〜7）/ indented code / ATX 見出し / setext
 守るもの:
 - 正規形でない日付見出し（表記ゆれ・lookalike・blockquote / リスト内 / setext / 不可視文字・全角数字を含むもの）は拒否
 - code / HTML ブロック内の seed と確認マーカーは数えない。閉じていない fence / HTML ブロックは拒否
-- 確認マーカーの欠落・重複（ネストしたものを含む）・否定値・プレースホルダ・不可視文字は拒否
+- 確認マーカーの欠落・重複（ネストしたものを含む）・否定値・プレースホルダ・不可視文字は拒否。
+  値は HTML タグ・コメントとインライン記号（` * _ ~）を外した表示上の値で判定する
+- リスト項目内で開いた fence / HTML ブロックは項目の終了で閉じる。seed でない節見出しで確認マーカーの帰属を切る
+- 閉じ "#" 列や末尾空白を含む見出しは、renderer の表示と識別子がずれるため拒否
 守らないもの:
 - CommonMark の全規則ではない。リスト項目の内容オフセットは 2 桁固定の近似で、順序付きリスト
   （"1. " など）の継続行・入れ子の深いリストでは renderer と判定がずれうる
@@ -37,6 +40,8 @@ import unicodedata
 from pathlib import Path
 
 CANONICAL_SEED = re.compile(r"## ([0-9]{4}-[0-9]{2}-[0-9]{2} — .+)")
+# 末尾の閉じ "#" 列は renderer が表示しないため、識別子に含まれると表示と食い違う
+CLOSING_SEQUENCE = re.compile(r"[ \t]#+[ \t]*$")
 # \d は Unicode 数字にも一致する。全角数字などの lookalike を候補として拾うために意図して使う。
 DATE_LIKE = re.compile(r"\d{4}-\d{2}-\d{2}")
 ATX = re.compile(r"(#{1,6})(?:[ \t]|$)")
@@ -144,13 +149,17 @@ def classify(source: str) -> list[tuple[str, str]]:
     paragraph: list[str] = []
     in_list = False
     previous_blank = True
+    block_in_list = False
     for line in lines:
+        if (fence is not None or in_html) and block_in_list and line.strip(" \t") and indent_of(line)[0] < 2:
+            # リスト項目内で開いたブロックは、項目が終わる（列 0〜1 の行が来る）と一緒に閉じる
+            fence, in_html, in_list, paragraph = None, False, False, []
         if fence is not None:
             result.append(("code", line))
             column, rest = indent_of(line)
             closing = FENCE_OPEN.fullmatch(rest)
             if (
-                column <= 3 + (2 if in_list else 0)
+                column <= 3 + (2 if block_in_list else 0)
                 and closing
                 and closing.group(1)[0] == fence[0]
                 and len(closing.group(1)) >= len(fence)
@@ -174,7 +183,8 @@ def classify(source: str) -> list[tuple[str, str]]:
             previous_blank = True
             continue
         column, rest = indent_of(line)
-        if in_list and column >= 2 and not paragraph:
+        block_in_list = in_list and column >= 2 and not paragraph
+        if block_in_list:
             column -= 2
         elif in_list and column < 2 and previous_blank and not LIST_MARKER.match(skeleton(rest)):
             in_list = False
@@ -219,19 +229,30 @@ def classify(source: str) -> list[tuple[str, str]]:
     return result
 
 
+def canonical_title(heading: str) -> str | None:
+    match = CANONICAL_SEED.fullmatch(heading)
+    if match is None or has_invisible(heading) or heading != heading.rstrip(" ") or CLOSING_SEQUENCE.search(heading):
+        return None
+    return match.group(1)
+
+
 def seed_title(line: str) -> str | None:
     """日付見出しの候補なら正規形のタイトルを返し、候補でなければ None。正規形でない候補は拒否する。"""
     content = strip_containers(skeleton(line))
     if not content.startswith("#") or not DATE_LIKE.search(content):
         return None
-    canonical = CANONICAL_SEED.fullmatch(line)
-    if canonical is None or has_invisible(line):
+    title = canonical_title(line)
+    if title is None:
         raise ValueError(CANONICAL_ERROR)
-    return canonical.group(1)
+    return title
 
 
 def is_unconfirmed(value: str) -> bool:
-    normalized = value.strip().lower()
+    # 表示上の値で判定する: HTML タグ・コメントを落とし、インライン強調・コードの記号を外す。
+    if "<!--" in value and "-->" not in value:
+        return True
+    rendered = re.sub(r"<!--.*?-->|<[^>]*>", "", value)
+    normalized = re.sub(r"[`*_~]", "", rendered).strip().lower()
     first = re.split(r"[\s（(:：,、]", normalized, maxsplit=1)[0]
     return not normalized or normalized in UNCONFIRMED or first in UNCONFIRMED
 
@@ -239,6 +260,7 @@ def is_unconfirmed(value: str) -> bool:
 def read_declared_seeds(path: Path) -> list[str]:
     entries: list[str] = []
     confirmations: list[list[str]] = []
+    in_seed = False
     for kind, line in classify(path.read_text(encoding="utf-8-sig")):
         if kind not in ("text", "heading"):
             continue
@@ -246,9 +268,15 @@ def read_declared_seeds(path: Path) -> list[str]:
         if title is not None:
             entries.append(title)
             confirmations.append([])
+            in_seed = True
+            continue
+        if kind == "heading" and len(ATX.match(indent_of(line)[1]).group(1)) <= 2:
+            in_seed = False  # seed でない節見出しで、確認マーカーの帰属を切る
             continue
         content = strip_containers(skeleton(line))
         if entries and content.lower().startswith("confirmed_by"):
+            if not in_seed:
+                raise ValueError("confirmation marker outside a seed section")
             confirmations[-1].append(line)
     if not entries:
         raise ValueError("no seed entries found")
@@ -277,7 +305,7 @@ def read_digest_index(path: Path) -> list[str]:
         if kind != "text" or not line.startswith("- "):
             raise ValueError("digest entry section contains an unrecognized record")
         title = line[2:].strip(" ")
-        if has_invisible(title) or not CANONICAL_SEED.fullmatch("## " + title):
+        if canonical_title("## " + title) is None:
             raise ValueError("digest entry does not match the seed identity format")
         indexed.append(title)
     if not indexed or len(indexed) != len(set(indexed)):
