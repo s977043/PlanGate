@@ -1,6 +1,6 @@
 # TASK-1608 INDEX
 
-> 最終更新: 2026-10-25 10:00（R6 で停止、Human 裁定で plan 改訂 2、再承認待ち）
+> 最終更新: 2026-10-25 10:30（改訂 2 の T-17〜T-21 完了、verify）
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従う。
 
 ## チケット概要（1-2文）
@@ -9,11 +9,11 @@
 
 ## 現在のフェーズ
 
-C-3 待ち
+verify
 
 ## 次のアクション
 
-R6 で Stop Condition（コンテナ軸の新クラス 2 連続）に該当。Human 裁定「入れ子をすべて拒否」（D-014）を plan D-1c / TC-NEST-* / todo T-17〜T-22 に反映済み、簡易 C-1 PASS。Human が改訂 2 の plan を再承認し `approvals/c3.json` を再発行 → T-17 から exec。既存 c3.json（439f1620…）は本改訂に無効。V-1 判定は handoff.md §1（WARN、中間）。
+改訂 2（D-1c、plan_hash 24a35af0…）で T-17〜T-21 完了。T-22 敵対レビュー R7 / R8 をオーガナイザー側で実施 → 収束なら PR を ready（T-12）。V-1 判定は handoff.md §1（WARN: AC-1 と TC-CB-05 の衝突は Human 確認事項、R7 / R8 未了）。
 
 ## ファイルマップ（読み込み優先度）
 

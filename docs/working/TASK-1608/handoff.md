@@ -1,13 +1,14 @@
 # TASK-1608 handoff（verify 時点 / T-16 敵対レビュー前）
 
-> issued_at: R5 是正後（本ファイルを含む commit。測定値はその commit の実装に対する値）。
-> 改訂 plan（D-1b、plan_hash `439f1620…`、C-3 再承認 2026-10-24T16:15:34Z）に基づく。R5 是正済み、R6 は未実施。
+> issued_at_commit: `72d55dac`（実装の最終 commit。本ファイルを含む commit はその直後）。以下の測定値はこの SHA 時点の値。
+> 改訂 2 の plan（D-1c、plan_hash `24a35af0…`、C-3 再承認 2026-10-25T00:33:14Z）に基づく。敵対レビュー R7 / R8 は未実施。
+> テスト件数は `python3 scripts/test_improvement_seed_delta.py` の `Ran N tests` の実測から転記する（T-20）。
 
 ## 1. 要件適合確認（総合: WARN）
 
 | AC | 判定 | 根拠 |
 |----|------|------|
-| AC-1 既存テスト・ta-116 PASS | **WARN（Human 確認事項）** | 単体 61 件 OK・ta-116 2 passed / 0 failed。ただし **AC-1 と TC-CB-05 が衝突**している: main の既存テスト `test_non_seed_heading_without_date_is_accepted` は「リスト項目の直後に空行なしで `### 補足`」を受理と期待し、承認済み TC-CB-05 は同じ形を拒否と定める。D-1b（Human 裁定）を優先し、既存テストの入力に空行 1 行を挟んだ（D-012）。「日付の無い見出しは受理」という意図は残るが、main の既存テストの入力を書き換えた点で AC-1 の趣旨を一部損なう。AC-1 を「既存テストの意図を保つ」と読み替えてよいか、または ATX 見出しを境界規則から外すかの判断が要る |
+| AC-1 既存テスト・ta-116 PASS | **WARN（Human 確認事項）** | 単体 `Ran 66 tests` OK・ta-116 2 passed / 0 failed（以前の版の「61 件」は誤記で、`1c26e9de` の実測は 60 件。T-20 で是正）。ただし **AC-1 と TC-CB-05 が衝突**している: main の既存テスト `test_non_seed_heading_without_date_is_accepted` は「リスト項目の直後に空行なしで `### 補足`」を受理と期待し、承認済み TC-CB-05 は同じ形を拒否と定める。D-1b（Human 裁定）を優先し、既存テストの入力に空行 1 行を挟んだ（D-012）。「日付の無い見出しは受理」という意図は残るが、main の既存テストの入力を書き換えた点で AC-1 の趣旨を一部損なう。AC-1 を「既存テストの意図を保つ」と読み替えてよいか、または ATX 見出しを境界規則から外すかの判断が要る |
 | AC-2 HTML コメント / ブロック内の seed を数えない | PASS | TC-R4-02 / TC-HTML-01〜06 |
 | AC-3 現行データ REVIEW_CANDIDATE / 7 / 5 | PASS | `evidence/test-runs/t14-current-data.json` |
 | AC-4 #1574 台帳の回帰ケース | PASS | test-cases の TC-R1〜R4 |
@@ -16,12 +17,13 @@
 | AC-7 全文走査の正規表現を使わない | PASS | TC-STRUCT-01 |
 | AC-8 PG-SH-GUARD バイト一致 | PASS | ta-70 9 passed / 0 failed |
 | AC-9 標準ライブラリのみ | PASS | TC-STRUCT-02 |
-| AC-10 対象ブロックは CommonMark 規則、守備範囲外は拒否 | PASS（R6 未了） | R4 critical を TC-CB-01〜04、R5 critical を adv_r5_c1 で拒否側に固定 |
-| AC-11 空行なしのコンテナ切り替えは拒否、現行データで誤拒否なし | PASS | TC-CB-01〜07 / N1〜N3、現行データ 7 / 5 不変 |
+| AC-10 対象ブロックは CommonMark 規則、守備範囲外は拒否 | PASS（R7 / R8 未了） | R4 critical を TC-CB-01〜04、R5 critical を adv_r5_c1、R6 major（入れ子の喪失）を TC-NEST-A / B で拒否側に固定。入れ子とオフセット違いのリストは解釈せず拒否（D-1c） |
+| AC-11 空行なしのコンテナ切り替えは拒否、現行データで誤拒否なし | PASS | TC-CB-01〜07 / N1〜N3 / TC-NEST-N1〜N3、現行データ 7 / 5 不変（`evidence/test-runs/t18-current-data.json`） |
 
 ## 2. 既知課題
 
-- 敵対レビュー R6 が未実施（R5 は是正済み: 状態判定の入力の不一致 = 新クラス）。R5 は列 2 以上・タブ・深い入れ子・番号付きリスト・lazy 継続が拒否側に倒れることを確認済み
+- 敵対レビュー R7 / R8 が未実施。R6（入れ子の喪失）で Stop Condition に該当し、Human 裁定で入れ子とオフセット違いのリストを拒否する D-1c へ改訂済み
+- 拒否範囲がさらに広がった: 入れ子のリスト・blockquote、番号付きリスト、インデント付きマーカーはすべて拒否される（seeds / digest は 0 行で該当しない）
 - **拒否が広い（m-1）**: リスト行の直後に空行なしで見出しや fence を置くだけで拒否される。R5 の実測で repo の `.md` 2,228 本中 75 本が `container boundary` で拒否される（seeds / digest は該当しない）。本検査を他の文書へ流用しないこと（docstring にも明記）
 - D-012（AC-1 と TC-CB-05 の衝突、§1）は Human 確認事項
 - 区切りの無い和文の否定値（「未確認です」）は検出しない（docstring に明記）
@@ -47,8 +49,8 @@ T-16 の敵対レビューはオーガナイザー側で実施する。収束す
 
 | コマンド | 結果 |
 |---------|------|
-| `python3 scripts/test_improvement_seed_delta.py` | 61 tests OK（rc=0） |
+| `python3 scripts/test_improvement_seed_delta.py` | `Ran 66 tests` OK（rc=0、`evidence/test-runs/t18-unit.log`） |
 | `sh tests/extras/ta-116-improvement-seed-delta.sh` | 2 passed / 0 failed（rc=0） |
 | `sh tests/extras/ta-70-py-sh-misinvocation-guard.sh` | 9 passed / 0 failed（rc=0） |
 | 現行データ CLI | rc=0、REVIEW_CANDIDATE / 7 / 2 / 5 |
-| 変異注入（36 種） | 36 KILLED（`evidence/test-runs/t9-mutation.log`。M17 は等価判定を撤回し M17a / M17b に分割） |
+| 変異注入（41 種） | 41 KILLED（`evidence/test-runs/t9-mutation.log`。D-1c 用に M37〜M41 を追加） |

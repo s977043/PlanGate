@@ -1,7 +1,7 @@
 # TASK-1608 current-state
 
-- 更新: 2026-10-25 10:00
-- 現在フェーズ: C-3 待ち（改訂 2 の plan の再承認待ち）
-- 完了: D-1b 実装と R5 是正（単体は実測 `Ran 60 tests` OK）。R6 で Stop Condition → Human 裁定「入れ子をすべて拒否」を plan D-1c・TC-NEST-*・T-17〜T-22 に反映、簡易 C-1 PASS
-- 次: Human が改訂 2 を再承認し `approvals/c3.json` を再発行（AI は作成しない）→ T-17 から exec
-- 注意: 既存の `approvals/c3.json`（439f1620…）は本改訂に無効。handoff の「61 tests」は誤記（T-20 で是正予定）
+- 更新: 2026-10-25 10:30
+- 現在フェーズ: verify
+- 完了: 改訂 2（D-1c）で T-17〜T-21。単体 `Ran 66 tests` OK / ta-116 / ta-70 PASS / 現行データ REVIEW_CANDIDATE・7・5 不変（AC-11）/ 変異 41 種すべて KILLED
+- 次: T-22 敵対レビュー R7 / R8（オーガナイザー側）→ 収束なら T-12（PR を ready）
+- Human 確認事項: AC-1 と TC-CB-05 の衝突（D-012、handoff §1）

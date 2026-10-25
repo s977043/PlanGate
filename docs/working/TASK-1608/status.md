@@ -22,6 +22,8 @@ high-risk（根拠は plan.md「Mode 判定」）。`lite_eligible=false`。auto
 | 2026-10-25 01:24 | verify | T-14 D-1b 実装 / T-15 変異注入（`57673063`）。単体 57 件 OK・ta-116・ta-70・現行データ 7 / 5 不変。T-16 の敵対レビューはオーガナイザー側で実施 |
 | 2026-10-25 02:00 | verify | R5（critical 1 / major 2 / minor 2）を是正。C-1 を再現し in_list を container に一本化（D-013）、M17 を M17a / b に分割、adv_r1_02 を到達可能な入力で復元。単体 61 件 OK（**誤記。実測は `Ran 60 tests`、R6 m-2**）・ta-116・ta-70・現行データ 7 / 5 不変・変異 36 種 KILLED |
 | 2026-10-25 10:00 | C-3 待ち | R6（major 1 = 入れ子の喪失 / minor 2）で Stop Condition。Human 裁定「入れ子をすべて拒否」（D-014）を plan D-1c・test-cases TC-NEST-*・todo T-17〜T-22 に反映、簡易 C-1 PASS。現行データの入れ子 0 行を実測。既存 c3.json（439f1620…）は本改訂に無効（未編集） |
+| 2026-10-25 10:15 | exec | C-3 再承認（Human、plan_hash 24a35af0…、approved_at 2026-10-25T00:33:14Z）。T-17 RED（12 FAIL / 1 ERROR、`43ebb79b`） |
+| 2026-10-25 10:30 | verify | T-18〜T-21（`72d55dac`）。単体 `Ran 66 tests` OK・ta-116・ta-70・現行データ 7 / 5 不変・変異 41 種すべて KILLED。T-22 の敵対レビューはオーガナイザー側 |
 
 ## 残タスク
 
@@ -31,8 +33,9 @@ high-risk（根拠は plan.md「Mode 判定」）。`lite_eligible=false`。auto
 - [x] H-3 改訂 plan の C-3 再承認（Human）
 - [x] T-13〜T-15
 - [x] T-16 敵対レビュー R5（是正済み）/ R6（Stop Condition で停止、D-014）
-- [ ] H-4 改訂 2 の plan の C-3 再承認（Human）
-- [ ] T-17〜T-22（改訂 2。todo.md）
+- [x] H-4 改訂 2 の plan の C-3 再承認（Human）
+- [x] T-17〜T-21
+- [ ] T-22 敵対レビュー R7 / R8（オーガナイザー側）
 - [ ] T-12 PR を ready にする（T-16 後）
 - [ ] T-12 PR を ready にする（BLOCKED 解除後）
 
@@ -45,6 +48,9 @@ high-risk（根拠は plan.md「Mode 判定」）。`lite_eligible=false`。auto
 - 敵対レビューは plan の下限 2 に対し 4 ラウンド実施し、R4 で Stop Condition に該当（D-010）
 - T-14 で既存テスト 4 件の fixture / 期待メッセージを調整（D-012）。#1574 由来の `test_non_seed_heading_without_date_is_accepted` は、AC-1 と TC-CB-05（リスト直後の空行なし見出しを拒否）が衝突したため、fixture に空行 1 行を挟んだ。判定の意図（日付の無い見出しは受理）は不変
 - 変異 M17 の等価判定は R5 M-1 で撤回（C-1 経路で到達可能だった）。M17a / M17b に分けて KILLED
+- T-18 で、本 PR で追加した既存テスト 3 件（adv_r3_01 の `1. ~~~` / `> - <div>`、test_nested_confirmation_does_not_hide_a_second_marker、TC-BLK-01 のリスト内見出し）は、入力が入れ子・オフセット規則で先に拒否されるようになったため、期待メッセージに新しい理由を加えるか空行を挟んだ（拒否されること自体は不変）。TC-NEST-07 は test-cases の期待（nested container）に対し、番号付きリストが T-19 のオフセット規則で先に拒否されるため `nested container|content offset` で検証した
+- コンテナ状態をブロックの中身で更新しないよう変更（D-015。plan D-1c の前提を満たすための実装上の判断）
+- T-21 で生存した M12 に対し test_t21_non_canonical_second_marker_is_counted を追加
 - adv_r1_02 は D-012 で期待メッセージだけ変えていたが、R5 M-2 を受けて「トップレベル fence は 4 空白の行では閉じない」を到達可能な入力で検証する形に戻した
 - ta-116 の standalone ログは evidence に保存できなかった（エージェント実行環境が sh の出力リダイレクトを拒否）。実行結果は 2 passed / 0 failed（rc=0）を目視確認し、CI の plangate CLI tests でも通過
 
