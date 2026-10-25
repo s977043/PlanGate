@@ -252,7 +252,7 @@ class SeedInventoryTests(unittest.TestCase):
     def test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected(self):
         for tail in (
             f"> ## {SEED_B}\n\n- confirmed_by: human\n",
-            f"- ## {SEED_B}\n  - confirmed_by: human\n",
+            f"- ## {SEED_B}\n\n- confirmed_by: human\n",
             f"{SEED_B}\n---\n- confirmed_by: human\n",
             f"{SEED_B}\n===\n- confirmed_by: human\n",
         ):
@@ -324,7 +324,7 @@ class SeedInventoryTests(unittest.TestCase):
 
     def test_nested_confirmation_does_not_hide_a_second_marker(self):
         self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: human\n  - confirmed_by: no\n", encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "confirmation marker"):
+        with self.assertRaisesRegex(ValueError, "confirmation marker|nested container"):
             MODULE.inventory(self.seeds, self.digest, 1)
 
     def test_digest_section_rejects_non_list_blocks(self):
@@ -416,7 +416,8 @@ class SeedInventoryTests(unittest.TestCase):
         for opener in ("- ```", "> ```", "- <!--", "1. ~~~", "> - <div>"):
             with self.subTest(opener=opener):
                 self.write_seeds(f"{opener}\n  x\n  ```\n  ## 2026-09-09 — HIDDEN\n  ```\n")
-                with self.assertRaisesRegex(ValueError, "marker line"):
+                # D-1c 以降、番号付きリストと入れ子は内容オフセット / 入れ子の規則で先に拒否される
+                with self.assertRaisesRegex(ValueError, "marker line|content offset|nested container"):
                     MODULE.inventory(self.seeds, self.digest, 1)
 
     def test_adv_r3_02_negative_value_variants_are_rejected(self):
@@ -494,6 +495,14 @@ class SeedInventoryTests(unittest.TestCase):
             with self.subTest(tail=tail):
                 self.write_seeds(tail)
                 with self.assertRaisesRegex(ValueError, "content offset"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_t21_non_canonical_second_marker_is_counted(self):
+        # 入れ子でない形の 2 本目のマーカー（別の箇条記号 / 地の文）も確認マーカー候補として数える
+        for second in ("* confirmed_by: no", "confirmed_by: no"):
+            with self.subTest(second=second):
+                self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: human\n{second}\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "confirmation marker"):
                     MODULE.inventory(self.seeds, self.digest, 1)
 
     def test_t19_nested_code_line_does_not_change_container(self):

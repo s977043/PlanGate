@@ -26,8 +26,9 @@ fenced code / HTML block（type 1〜7）/ indented code / ATX 見出し / setext
 - リスト項目内で開いた fence / HTML ブロックは項目の終了で閉じる。seed でない節見出し（ATX / setext）で確認マーカーの帰属を切る
 - 閉じ "#" 列や末尾空白を含む見出しは、renderer の表示と識別子がずれるため拒否
 守らないもの:
-- CommonMark の全規則ではない。リスト項目の内容オフセットは 2 桁固定の近似で、順序付きリスト
-  （"1. " など）の継続行・入れ子の深いリストでは renderer と判定がずれうる
+- CommonMark の全規則ではない。入れ子のコンテナ（リスト内の blockquote・リスト、blockquote 内のリスト・blockquote）と、
+  内容オフセットが 2 でないリスト（インデント付きマーカー・番号付きリスト・マーカー後の空白 2 個以上）は解釈せず拒否する
+  （#1608 D-1c。開いているコンテナを高々 1 段・オフセット 2 に限ることで、単一の状態値で判定できる範囲に入力を絞る）
 - リストマーカー行・blockquote 行で開く fence / HTML ブロックは追跡せず拒否する（安全側の誤拒否）
 - コンテナ（リスト項目・blockquote）が空行なしで別のブロック（blockquote / リスト / fence / HTML /
   thematic break / 見出し）へ切り替わる構成は解釈せず拒否する（#1608 D-1b。正当な文書も空行を要求される）。
@@ -55,6 +56,9 @@ DATE_LIKE = re.compile(r"\d{4}-\d{2}-\d{2}")
 ATX = re.compile(r"(#{1,6})(?:[ \t]|$)")
 FENCE_OPEN = re.compile(r"(`{3,}|~{3,})(.*)")
 SETEXT_UNDERLINE = re.compile(r"(?:=+|-+)[ \t]*")
+# リスト項目は「列 0 の - * + の直後に空白 1 個、続いて内容」だけを扱う（内容オフセット 2 固定の前提を入力側で保証する）
+LIST_ITEM_OFFSET_TWO = re.compile(r"[-*+] [^ \t]")
+NESTED_ERROR = "nested container (list / blockquote inside another) is not supported"
 THEMATIC_BREAK = re.compile(r"(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})")
 LIST_MARKER = re.compile(r"(?:[-*+]|[0-9]{1,9}[.)])(?:[ \t]+|$)")
 CONFIRMATION = re.compile(r"- confirmed_by:[ \t]*(.*)")
@@ -147,13 +151,24 @@ def html_block_ends(line: str, closer) -> bool:
     return bool(closer.search(line))
 
 
+def starts_container(text: str) -> bool:
+    return text.startswith(">") or bool(LIST_MARKER.match(text)) and bool(text[LIST_MARKER.match(text).end():])
+
+
 def line_shape(line: str) -> tuple[str, int]:
     """コンテナ境界の判定用に、行の形を quote / list / block / text のいずれかで返す。"""
     column, rest = indent_of(line)
     if column <= 3:
         if rest.startswith(">"):
+            if starts_container(rest[1:].lstrip(" ")):
+                raise ValueError(NESTED_ERROR)
             return "quote", column
-        if LIST_MARKER.match(rest):
+        marker = LIST_MARKER.match(rest)
+        if marker:
+            if starts_container(rest[marker.end():]):
+                raise ValueError(NESTED_ERROR)
+            if column != 0 or not LIST_ITEM_OFFSET_TWO.match(rest):
+                return "list_offset", column
             return "list", column
         if (
             FENCE_OPEN.fullmatch(rest)
@@ -169,7 +184,11 @@ def line_shape(line: str) -> tuple[str, int]:
 def next_container(container: str | None, shape: str, column: int, after_blank: bool) -> str | None:
     """直前のコンテナ（list / quote / None）と行の形から、この行の後のコンテナを返す。
     空行を挟まずにコンテナが別のブロックへ切り替わる場合は、解釈せずに拒否する（plan D-1b）。"""
-    if shape in ("quote", "list"):
+    if shape in ("quote", "list", "list_offset"):
+        if container == "list" and column >= 2:
+            raise ValueError(NESTED_ERROR)
+        if shape == "list_offset":
+            raise ValueError("list item content offset other than 2 is not supported")
         if container is not None and container != shape and not after_blank and not (container == "list" and column >= 2):
             raise ValueError("container boundary without a blank line is not supported")
         return shape
@@ -197,16 +216,17 @@ def classify(source: str) -> list[tuple[str, str]]:
     container = None
     after_blank = True
     for line in lines:
-        if not line.strip(" \t"):
-            after_blank = True
-        else:
-            if (fence is None and not in_html) or block_in_list:
-                shape, shape_column = line_shape(line)
-                container = next_container(container, shape, shape_column, after_blank)
-            after_blank = False
         if (fence is not None or in_html) and block_in_list and line.strip(" \t") and indent_of(line)[0] < 2:
             # リスト項目内で開いたブロックは、項目が終わる（列 0〜1 の行が来る）と一緒に閉じる
             fence, in_html, paragraph = None, False, []
+        if not line.strip(" \t"):
+            after_blank = True
+        else:
+            # ブロック（fence / HTML）の中身はコンテナの判定対象にしない
+            if fence is None and not in_html:
+                shape, shape_column = line_shape(line)
+                container = next_container(container, shape, shape_column, after_blank)
+            after_blank = False
         if fence is not None:
             result.append(("code", line))
             column, rest = indent_of(line)

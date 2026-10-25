@@ -65,3 +65,14 @@ M17b close tolerance never +2: KILLED rc=1 ['FAILED (failures=1)']
 M36 list shape judged on skeleton: KILLED rc=1 ['FAILED (failures=3)']
 M35 fence start not a block: KILLED rc=1 ['FAILED (failures=1)']（初回は生存。test_adv_r5_fence_right_after_list_is_a_boundary を追加して KILLED）
 survivors: []
+
+# 改訂 2（plan D-1c / T-18〜T-21）実装後に全 41 変異を再実行（2026-10-25）
+# 初回: M12（完全一致のマーカーだけ数える）が生存 = 既存の検出テストの入力が入れ子規則で先に拒否されるようになったため。
+#       test_t21_non_canonical_second_marker_is_counted を追加して KILLED。M36 はアンカーを新コードに合わせ更新
+M01〜M20, M22〜M36: すべて KILLED
+M37 quote-inner nesting allowed: KILLED rc=1 ['FAILED (failures=2)']
+M38 list-inner nesting allowed: KILLED rc=1 ['FAILED (failures=1)']
+M39 list continuation nesting allowed: KILLED rc=1 ['FAILED (failures=4)']
+M40 content offset not enforced: KILLED rc=1 ['FAILED (failures=6)']
+M41 block content updates container: KILLED rc=1 ['FAILED (failures=1, errors=5)']
+survivors: []
