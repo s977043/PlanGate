@@ -83,7 +83,7 @@
 
 | R-NNN | status | reflected_in(commit) | notes |
 |-------|--------|---------------------|-------|
-| R-001 | reflected | plan 改訂 3 の反映コミット（`Refs: R-001`） | 実装は C-3 再承認後の exec |
-| R-002 | reflected | 同上（`Refs: R-002`） | 参照パーサーの CI 入手方法は Human 判断事項 HD-1 |
-| R-003 | reflected | 同上（`Refs: R-003`） | |
-| R-004 | reflected | 同上（`Refs: R-004`） | |
+| R-001 | pending（plan 未反映。EH-3 により改訂 3 の反映を保留） | — | 実装は C-3 再承認後の exec |
+| R-002 | pending（plan 未反映。EH-3 により改訂 3 の反映を保留） | — | 参照パーサーの CI 入手方法は Human 判断事項 HD-1 |
+| R-003 | pending（plan 未反映。EH-3 により改訂 3 の反映を保留） | — | |
+| R-004 | pending（plan 未反映。EH-3 により改訂 3 の反映を保留） | — | |
