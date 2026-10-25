@@ -455,6 +455,52 @@ class SeedInventoryTests(unittest.TestCase):
                 self.write_seeds(tail)
                 MODULE.inventory(self.seeds, self.digest, 1)
 
+    def test_tc_nest_rejected(self):
+        cases = {
+            "NEST-A": "- a\n  > b\n\n  ```\n## 2026-01-01 — TASK-1\n- confirmed_by: alice\n  ```\n\n"
+            f"## {SEED_B}\n- confirmed_by: bob\n",
+            "NEST-B": "- a\n  > b\n\n  <div>\n## 2026-01-01 — TASK-1\n- confirmed_by: alice\n\n"
+            f"## {SEED_B}\n- confirmed_by: bob\n",
+            "NEST-03": "> - a\n",
+            "NEST-04": "- > a\n",
+            "NEST-05": "- a\n  - b\n",
+            "NEST-06": "> a\n> > b\n",
+        }
+        for case, tail in cases.items():
+            with self.subTest(case=case):
+                self.write_seeds(tail)
+                with self.assertRaisesRegex(ValueError, "nested container"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_nest_07_ordered_list_nesting_is_rejected(self):
+        # 番号付きリストは T-19 の内容オフセット規則で先に拒否される
+        self.write_seeds("1. a\n   - b\n")
+        with self.assertRaisesRegex(ValueError, "nested container|content offset"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_nest_normal_cases_are_accepted(self):
+        cases = {
+            "N1": ("> a\n> b\n", 1),
+            "N2": ("- a\n- b\n- c\n", 1),
+            "N3": (f"- a\n\n  ```\n  x\n  ```\n\n## {SEED_B}\n- confirmed_by: human\n", 2),
+        }
+        for case, (tail, expected) in cases.items():
+            with self.subTest(case=case):
+                self.write_seeds(tail)
+                self.assertEqual(self.count(), expected)
+
+    def test_t19_list_content_offset_other_than_two_is_rejected(self):
+        for tail in (" - a\n", "1. a\n", "-  a\n", "2) a\n", "+\ta\n"):
+            with self.subTest(tail=tail):
+                self.write_seeds(tail)
+                with self.assertRaisesRegex(ValueError, "content offset"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_t19_nested_code_line_does_not_change_container(self):
+        # リスト内 fence の中身（"  > b"）はコードであり、入れ子でも container の更新対象でもない
+        self.write_seeds(f"- a\n\n  ```\n  > b\n  ```\n\n## {SEED_B}\n- confirmed_by: human\n")
+        self.assertEqual(self.count(), 2)
+
     def test_tc_struct_01_no_whole_document_regex(self):
         source = SOURCE.read_text(encoding="utf-8")
         self.assertIn("re.compile", source)  # positive control: the probe reads the real module
