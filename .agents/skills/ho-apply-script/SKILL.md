@@ -55,8 +55,11 @@ cd "$REPO" || die "repo に入れない: $REPO"
 ### 2. 前提の確認
 
 ```sh
+# origin/main から切った feature ブランチを必須にする（main への直接 commit / push は禁止）
 br=$(git rev-parse --abbrev-ref HEAD)
-[ "$br" = "main" ] || die "branch が main でない（現在: $br）"
+case "${br}" in
+  HEAD|main|master|release/*) die "feature ブランチで実行すること（現在: ${br}）" ;;
+esac
 
 # 未コミット変更。**対象ファイル自身は除外する**（下記の落とし穴 2）
 dirty=$(git status --porcelain \
@@ -64,7 +67,7 @@ dirty=$(git status --porcelain \
   | grep -vF -- "$TARGET" || true)
 [ -z "$dirty" ] || { printf '%s\n' "$dirty" >&2; die "未コミットの変更がある"; }
 
-[ -f "$DOC" ] || die "patch 文書が無い: $DOC（PR が未マージの可能性）"
+[ -f "$DOC" ] || die "patch 文書が無い: $DOC（feature ブランチの base に patch 文書が含まれていない可能性）"
 ```
 
 ### 3. 抽出（**awk 方式**。落とし穴 3）
@@ -146,7 +149,8 @@ printf '{"tool_input":{"file_path":"%s"}}' "$path" \
 | 8 | **検証 probe の `grep` パターンにシェル/正規表現のメタ文字が入っている**（`grep -c '_x="${y#A\|B}"'` 等） | `$` `{` `\|` が正規表現として解釈され**常に 0 件**。適用済みの patch を「未適用」と誤判定する | 文字列一致は **`grep -F`**。加えて **positive control**（既知の一致するパターンで 1 件以上返ることを同時に確認）を置く。**挙動は grep 実装依存**（実測: `ugrep` 7.8.4 / macOS で BRE=0 件・`-F`=1 件。GNU grep とは異なりうる）なので、なおさら `-F` で固定する |
 | 9 | **前提 assert 自体の偽陽性を疑わない** | 5-bis の「実 repo の HO が rc=2」assert が rc=0 を返して die したが、**同じ probe を手で 3 通り実行すると全て rc=2** だった。patch は正しいのにスクリプトが止まる | die する前に **probe の入力（path・stdin・env）をそのまま stderr へ出す**。die メッセージは「検証環境の問題」で止まる旨と再現用の 1 行を必ず含める |
 | 10 | **`probe()` をコマンド置換で呼び、関数内で設定した変数を親で読む** | `$( )` は**サブシェル**なので `_reason` 等は親に戻らない。`set -u` 下では `unbound variable` で**スクリプトが検証の途中で死ぬ**（実際に Human の実行時に発生） | 返す値は **1 レコードに畳む**（`printf '%s\|%s' "$_rc" "$_reason"` → 親で `${r%%\|*}` / `${r#*\|}`）。関数の副作用に依存しない |
-| 11 | **適用スクリプトを連結実行する**（`for s in a.sh b.sh; do sh "$s"; done`） | 1 本目が残した差分を **2 本目の dirty ガードが検出して abort** する。「未コミットの変更がある」で止まり、2 本目が入らない | **1 本適用 → commit → 次**。まとめて回したいなら、各スクリプトの dirty ガードが**直前のスクリプトの対象ファイルも除外**する設計にする |
+| 11 | **適用スクリプトを連結実行する**（`for s in a.sh b.sh; do sh "$s"; done`） | 1 本目が残した差分を **2 本目の dirty ガードが検出して abort** する。「未コミットの変更がある」で止まり、2 本目が入らない | **feature ブランチで適用 → commit → PR**。まとめて回したいなら、各スクリプトの dirty ガードが**直前のスクリプトの対象ファイルも除外**する設計にする |
+| 12 | **workflow patch が、それが gate する PR 自身が追加するファイルを前提にする**（例: TASK-1608 の requirements ファイル） | HO 側を先に merge するとファイル不在で CI が落ち、PR 側を先に merge すると gate が無い。**適用順序がデッドロックする**（出典: TASK-1608 L2/L3 レビュー（PR #1611）） | step に **`if: hashFiles('<file>') != ''`** ガードを付け HO 側を先行 merge 可能にする。**skip 中は検証済み扱いにしない** |
 
 ## Checklist
 
@@ -162,7 +166,9 @@ printf '{"tool_input":{"file_path":"%s"}}' "$path" \
 - [ ] **検証の `grep` が `-F` か、メタ文字を含まない**（`${...}` を含むパターンを BRE で書いていない）
 - [ ] **前提 assert が die するとき、probe の入力と再現用 1 行を出力する**
 - [ ] **関数の戻り値をコマンド置換で受けるとき、必要な値がすべて stdout に乗っている**（サブシェルなので変数は親に戻らない）
-- [ ] **他の適用スクリプトと連結実行しない前提になっている**（1 本適用 → commit → 次）
+- [ ] **他の適用スクリプトと連結実行しない前提になっている**（feature ブランチで適用 → commit → PR）
+- [ ] **verify は YAML 解析失敗・解析器不在・依存不足を fail にする**（warn で通さない。出典: TASK-1608 L2/L3 レビュー（PR #1611））
+- [ ] **workflow に step を足すとき、step の timeout + 既存 step の実測時間 ≤ job の timeout** を確認した（出典: 同上）
 - [ ] **commit も push もしない**
 - [ ] `PLANGATE_APPLY_REPO` 等で repo パスを上書きでき、複製で dry-run できる
 
