@@ -137,3 +137,5 @@
 | R-022 | reflected（ho/apply-test-yml.sh / TC-HO-07） | 同上 | |
 | R-023 | reflected（plan / ho/ / TC-HO-04） | 同上 | 検査の追加でなく明記で対応 |
 | R-024 | reflected（todo H-6 / 依存注記） | 同上 | |
+
+追記: R-019〜R-024 の「改訂 5 commit」は `ab25d92d`。
