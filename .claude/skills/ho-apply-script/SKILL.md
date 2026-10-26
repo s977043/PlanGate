@@ -61,6 +61,9 @@ case "${br}" in
   HEAD|main|master|release/*) die "feature ブランチで実行すること（現在: ${br}）" ;;
 esac
 
+# base 検証。事前に `git fetch origin` を実行しておくこと
+git merge-base --is-ancestor origin/main HEAD || die "origin/main から分岐していない"
+
 # 未コミット変更。**対象ファイル自身は除外する**（下記の落とし穴 2）
 dirty=$(git status --porcelain \
   | grep -v 'docs/working/_audit/skip-decision-log.jsonl' \
@@ -150,7 +153,7 @@ printf '{"tool_input":{"file_path":"%s"}}' "$path" \
 | 9 | **前提 assert 自体の偽陽性を疑わない** | 5-bis の「実 repo の HO が rc=2」assert が rc=0 を返して die したが、**同じ probe を手で 3 通り実行すると全て rc=2** だった。patch は正しいのにスクリプトが止まる | die する前に **probe の入力（path・stdin・env）をそのまま stderr へ出す**。die メッセージは「検証環境の問題」で止まる旨と再現用の 1 行を必ず含める |
 | 10 | **`probe()` をコマンド置換で呼び、関数内で設定した変数を親で読む** | `$( )` は**サブシェル**なので `_reason` 等は親に戻らない。`set -u` 下では `unbound variable` で**スクリプトが検証の途中で死ぬ**（実際に Human の実行時に発生） | 返す値は **1 レコードに畳む**（`printf '%s\|%s' "$_rc" "$_reason"` → 親で `${r%%\|*}` / `${r#*\|}`）。関数の副作用に依存しない |
 | 11 | **適用スクリプトを連結実行する**（`for s in a.sh b.sh; do sh "$s"; done`） | 1 本目が残した差分を **2 本目の dirty ガードが検出して abort** する。「未コミットの変更がある」で止まり、2 本目が入らない | **feature ブランチで適用 → commit → PR**。まとめて回したいなら、各スクリプトの dirty ガードが**直前のスクリプトの対象ファイルも除外**する設計にする |
-| 12 | **workflow patch が、それが gate する PR 自身が追加するファイルを前提にする**（例: TASK-1608 の requirements ファイル） | HO 側を先に merge するとファイル不在で CI が落ち、PR 側を先に merge すると gate が無い。**適用順序がデッドロックする**（出典: TASK-1608 L2/L3 レビュー（PR #1611）） | step に **`if: hashFiles('<file>') != ''`** ガードを付け HO 側を先行 merge 可能にする。**skip 中は検証済み扱いにしない** |
+| 12 | **workflow patch が、それが gate する PR 自身が追加するファイルを前提にする**（例: TASK-1608 の requirements ファイル） | HO 側を先に merge するとファイル不在で CI が落ち、PR 側を先に merge すると gate が無い。**適用順序がデッドロックする**（出典: TASK-1608 L2/L3 レビュー（PR #1611）） | step に **`if: hashFiles('<file>') != ''`** ガードを付け HO 側を先行 merge 可能にする。**skip 中は検証済み扱いにしない**。hashFiles ガードは sentinel を消すと恒常 skip・CI 緑になる。対照 assert を無条件で置く（ハーネスと requirements の両方が存在することを、ハーネスとは別のテストファイルで検査し、両方同時削除でも FAIL）。HO verify も ハーネスあり + requirements なし で FAIL（出典: PR #1611 L3 M-2 とその限定確認） |
 
 ## Checklist
 
@@ -168,7 +171,7 @@ printf '{"tool_input":{"file_path":"%s"}}' "$path" \
 - [ ] **関数の戻り値をコマンド置換で受けるとき、必要な値がすべて stdout に乗っている**（サブシェルなので変数は親に戻らない）
 - [ ] **他の適用スクリプトと連結実行しない前提になっている**（feature ブランチで適用 → commit → PR）
 - [ ] **verify は YAML 解析失敗・解析器不在・依存不足を fail にする**（warn で通さない。出典: TASK-1608 L2/L3 レビュー（PR #1611））
-- [ ] **workflow に step を足すとき、step の timeout + 既存 step の実測時間 ≤ job の timeout** を確認した（出典: 同上）
+- [ ] **workflow に step を足すとき、job の timeout-minutes 未設定時は既定 360 分。step timeout 合計 + 既存 step の実測（ばらつきを見込んだ余裕）≤ job timeout。収まらなければ別 job に分ける（必要なら needs と required check 登録を検討）** を確認した（出典: 同上）
 - [ ] **commit も push もしない**
 - [ ] `PLANGATE_APPLY_REPO` 等で repo パスを上書きでき、複製で dry-run できる
 
