@@ -91,7 +91,15 @@
 
 | R-NNN | status | reflected_in(commit) | notes |
 |-------|--------|---------------------|-------|
-| R-001 | pending（plan 未反映。EH-3 により改訂 3 の反映を保留） | — | 実装は C-3 再承認後の exec |
-| R-002 | pending（plan 未反映。EH-3 により改訂 3 の反映を保留） | — | 参照パーサーの CI 入手方法は Human 判断事項 HD-1 |
-| R-003 | pending（plan 未反映。EH-3 により改訂 3 の反映を保留） | — | |
-| R-004 | pending（plan 未反映。EH-3 により改訂 3 の反映を保留） | — | |
+| R-001 | reflected（plan D-1d） | `2692ab93` | 実装は C-3 再承認後の exec |
+| R-002 | reflected（plan V-A） | `2692ab93` | CI 入手方法は HD-1=y（D-016） |
+| R-003 | reflected（plan V-C） | `2692ab93` | |
+| R-004 | reflected（plan 停止条件 E-1〜E-5） | `2692ab93` | |
+| R-005 | reflected | `2692ab93` | |
+| R-006 | reflected（golden 廃止に置換） | `2692ab93` | |
+| R-007 | reflected | `2692ab93` | CI 適用は Human（H-6） |
+| R-008 | reflected | `2692ab93` | |
+| R-009 | reflected（retro-phase §2 明記は不採用） | `2692ab93` | |
+| R-010 | reflected | `2692ab93` | |
+| R-011 | partially adopted | `2692ab93` | 採否と理由は plan「スコープ膨張の指摘の採否」 |
+| R-012 | reflected | `2692ab93` | |
