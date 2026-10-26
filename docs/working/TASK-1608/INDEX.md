@@ -13,7 +13,7 @@ C-3 待ち
 
 ## 次のアクション
 
-D-018: M-1 / M-2 の是正部分（別 job `seed-delta-reference` / 存在対照 TC-DIFF-11・verify の FAIL 化）に限った短い確認を 1 本 → plan 改訂 5（改訂 4 + L3 R-019〜R-024）の C-3 再承認（Human、plan_hash 変更。既存 c3.json 24a35af0… は無効）。簡易 C-1 は WARN（review-self.md）。承認後 T-23〜T-26、HO patch（`ho/`）は Human が feature ブランチ → PR で #1611 より先に main へ（H-6）。
+D-018 の限定確認は完了（R-025 / R-026 を改訂 5.1 で反映）→ plan 改訂 5.1（改訂 4 + L3 R-019〜R-024 + R-025 / R-026）の C-3 再承認（Human、plan_hash 変更。既存 c3.json 24a35af0… は無効）。簡易 C-1 は WARN（review-self.md）。承認後 T-23〜T-26、HO patch（`ho/`）は Human が feature ブランチ → PR で #1611 より先に main へ（H-6）。
 
 ## ファイルマップ（読み込み優先度）
 

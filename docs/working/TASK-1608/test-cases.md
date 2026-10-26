@@ -51,7 +51,7 @@
 | TC-DIFF-08 | 生成器がコンテナマーカー直前の不可視文字を生成する | 該当ケース ≥ 1 件、すべて REJECT |
 | TC-DIFF-09 | 証跡: seed 範囲・版・spec 版・実行時間をログに出力 | ログに 4 項目 |
 | TC-DIFF-10 | 実行時間（`SEED_DELTA_MINIMIZE=0`）が E-1 の上限内。CI では最小化せず失敗 seed のみ出力（R-018） | 上限内（上限は別 job `seed-delta-reference` の差分 step `timeout-minutes` = T-26 で `max(5, ceil(2t))` に確定。R-019） |
-| TC-DIFF-11 | 存在対照（`scripts/test_improvement_seed_delta.py` 内、run-tests.sh → ta-116 経由。R-020）: `scripts/test_improvement_seed_delta_reference.py` が存在するなら `tests/requirements-seed-delta-reference.txt` も存在し、`markdown-it-py==4.2.0` / `mdurl==0.1.2` の行を含む | PASS。陽性対照: requirements をスクラッチ複製で削除・改名すると FAIL（変異として E-5 に含める） |
+| TC-DIFF-11 | 存在対照（`scripts/test_improvement_seed_delta.py` 内、run-tests.sh → ta-116 経由。R-020）: `scripts/test_improvement_seed_delta_reference.py` と `tests/requirements-seed-delta-reference.txt` の両方が存在し、requirements が `markdown-it-py==4.2.0` / `mdurl==0.1.2` の行を含むことを無条件に assert（改訂 5.1 / R-025） | PASS。陽性対照: スクラッチ複製で (a) requirements のみ削除・改名、(b) ハーネスと requirements の両方削除・改名、のいずれも FAIL（変異として E-5 に含める） |
 
 ### コーパス（V-C / R-003）
 
@@ -64,7 +64,8 @@
 ### 変異注入（E-5、改訂 3 追加分）
 
 「常に `ValueError`」「常に空集合で受理」、`reference_view` の level 判定・トップレベル判定・節境界、D-1d の列上限の復活、
-`out_of_scope` の過大変異（常に True / 列 2 以上で True。改訂 4 / R-015）を各 1 変異とし、すべて KILLED。
+`out_of_scope` の過大変異（常に True / 列 2 以上で True。改訂 4 / R-015）、TC-DIFF-11 の存在対照（requirements のみ削除 /
+ハーネスと requirements の両方削除。改訂 5.1 / R-025）を各 1 変異とし、すべて KILLED。
 
 ### HO 適用スクリプト（改訂 4 / R-013・R-014。AI は dry-run のみ）
 

@@ -53,8 +53,9 @@
 - [ ] T-23 参照パーサー依存のハッシュ固定 requirements と、`reference_view` / `out_of_scope` + 射影規則の単体テスト（impl 非 import の検査つき）— depends_on: H-5 / rollback: commit revert
 - [ ] T-24 4 値判定の差分ハーネス・件数 / 版 / ハッシュの assert・陽性対照 fixture（`ca9a8b33` / `1c26e9de`）🚩 陽性対照で検出 ≥ 1、参照パーサー不在で FAIL — depends_on: T-23 / rollback: commit revert
 - [ ] T-25 V-B 生成器（不可視文字の独立軸・受理されるべき入れ子でない構造を含む）と V-C コーパス fixture（8 本、blob SHA 記録）。TC-NEST-C4〜C7 / N4〜N6 を追加し RED を記録 — depends_on: T-24 / rollback: テスト追加コミットを revert
-- [ ] T-26 D-1d（列の上限なしの入れ子拒否）を実装 🚩 E-1〜E-4 をローカルで成立・現行データ 7 / 5 不変。差分テストのローカル実行時間（`SEED_DELTA_MINIMIZE=0`）と既存 `run-tests.sh` の時間を実測して status に記録し、E-1 の時間上限と patch の step `timeout-minutes` を確定（超える場合は patch を改訂）。HO patch の dry-run 結果を記録 — depends_on: T-25 / rollback: commit revert
+- [ ] T-26 D-1d（列の上限なしの入れ子拒否）を実装 🚩 E-1〜E-4 をローカルで成立・現行データ 7 / 5 不変。差分テストのローカル実行時間（`SEED_DELTA_MINIMIZE=0`）と既存 `run-tests.sh` の時間を実測して status に記録し、E-1 の時間上限と patch の step `timeout-minutes`（差分 step に加え install step の暫定 3 分も再測定対象。改訂 5.1）を確定（超える場合は patch を改訂）。HO patch の dry-run 結果を記録 — depends_on: T-25 / rollback: commit revert
 - [ ] H-6 HO patch（`docs/working/TASK-1608/ho/test-yml.patch`、別 job `seed-delta-reference`・hashFiles ガード付き）を、Human が `git fetch origin` 後に origin/main から切った feature ブランチで `apply-test-yml.sh` により適用（apply が base 検証を行う）→ commit → PR → merge（#1611 より先。#1611 の merge には依存しない。D-017）— owner: human / depends_on: T-26（H-5 → T-23〜T-26 を経由）
+- [ ] H-7 （任意・本 PBI の完了条件に含めない）main ruleset の required status check に `seed-delta-reference` を加えるかの判断（現状 required は `Markdown lint` のみ。改訂 5.1 / R-026）— owner: human
 - [ ] T-27 変異注入（impl の状態遷移・常に拒否・常に空・射影規則・`out_of_scope` の常に True / 列 2 以上で True）で E-5 を実証 — depends_on: T-26 / rollback: 変異は commit しない
 - [ ] T-28 H-6 の merge 後に #1611 を main へ追従し、CI で差分テスト step が skip されず実行されたジョブログを確認して E-1 の証跡（URL・seed 範囲・版・spec 版・実行時間）を記録 🚩 — depends_on: H-6, T-27 / rollback: 不要
 - [ ] T-29 敵対レビュー R8（検証モデルの穴）→ 停止条件で判定（オーガナイザー側）— depends_on: T-28 / rollback: 不要

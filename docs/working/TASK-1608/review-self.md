@@ -2,6 +2,13 @@
 
 > 対象: plan.md / todo.md / test-cases.md（初版、2026-10-24）。実施者は plan 作成者本人（独立レビューではない）。
 
+## 簡易 C-1 再判定（2026-10-27、plan 改訂 5.1 = R-025 / R-026 反映後）: WARN
+
+- C1-PLAN-01 受入基準網羅: PASS（AC 不変。TC-DIFF-11 の無条件化で M-2 同型の両方削除経路を塞ぎ、陽性対照 2 種を E-5 に追加）
+- C1-PLAN-03 スコープ: PASS（D-018 の範囲内。D-019 なし。HO スクリプトは無変更、条件分岐の許容範囲を plan に明記のみ）
+- C1-PLAN-04 テスト戦略: PASS（TC-DIFF-11 は既存 job から ta-116 経由で走り、ハーネス削除でも残る）
+- 残る WARN: 新 job の timeout（差分・install）は T-26 の実測で確定。`seed-delta-reference` は required check でなく、失敗は merge を機械的に止めない（R-026、H-7 は Human 判断・完了条件外）
+
 ## 簡易 C-1 再判定（2026-10-27、plan 改訂 5 = L3 R-019〜R-024 / D-018 反映後）: WARN
 
 FAIL 項目なし。新 job の timeout と軸別下限値の確定が exec（T-25 / T-26）に残るため WARN。D-018 により C-3 の前に M-1 / M-2 限定の短い確認を 1 本入れる。

@@ -30,6 +30,7 @@ created_by: orchestrator
   **改訂 3**（D-1d・検証モデル V-A〜V-C・停止条件の再定義）として反映した。
   L2 レビュー（R-013〜R-018）と Human 裁定 D-017（HO は hashFiles ガードで #1611 より先に main へ）を **改訂 4** として反映した。
   L3 レビュー（R-019〜R-024）と Human 裁定 D-018（局所是正 + M-1 / M-2 限定の短い確認後に C-3）を **改訂 5** として反映した。
+  D-018 の限定確認で出た R-025 / R-026 を **改訂 5.1** として反映した（D-018 の範囲内）。
   **再承認が必要**（plan_hash 変更）
 
 ## 設計を変える根拠（#1574 の 4 ラウンドの事実から）
@@ -206,8 +207,11 @@ created_by: orchestrator
   `ceil(2t)` が 20 分を超える場合は H-6 の前に停止し、生成件数か job 構成の見直しを Human に提示する。E-1 の時間上限は差分 step の timeout とする
 - 存在対照（改訂 5 / R-020）: hashFiles ガードは requirements の削除・改名で step を恒常的に skip させ、CI は緑のまま残る。
   これを防ぐため、**#1611 の tests 側**（`scripts/test_improvement_seed_delta.py`。`run-tests.sh` → ta-116 経由で既存 job から呼ばれる）に
-  「参照ハーネス `scripts/test_improvement_seed_delta_reference.py` が存在するなら `tests/requirements-seed-delta-reference.txt` も存在し、
-  markdown-it-py / mdurl の pin を含む」を assert する TC（TC-DIFF-11）を置く。HO verify も「ハーネスあり・requirements なし」を FAIL にする
+  「参照ハーネス `scripts/test_improvement_seed_delta_reference.py` と `tests/requirements-seed-delta-reference.txt` の**両方が存在し**、
+  requirements が markdown-it-py / mdurl の pin を含む」を**無条件に** assert する TC（TC-DIFF-11）を置く（改訂 5.1 / R-025: 条件付きだと
+  ハーネスと requirements を同時に削除・改名したとき素通りする。TC-DIFF-11 はハーネスとは別ファイルにあるため、ハーネスを削除しても検査は残る）。
+  HO verify も「ハーネスあり・requirements なし」を FAIL にする。HO verify の「ハーネスが無ければ requirements を問わない」分岐は、
+  **patch を #1611 より先に merge する期間（D-017）に限った許容**であり、#1611 merge 後の両方削除は TC-DIFF-11 が担保する（R-025）
 - 適用スクリプトは main / master / release/* / detached HEAD では停止し、apply・rollback とも同じ前提検査と dirty 検査を行う。
   適用先は cwd の toplevel に固定し（環境変数による差し替えなし）、スクリプト自身の repo と一致しなければ停止する。
   **base 検証（改訂 5 / R-022）**: apply・rollback は `origin/main` が HEAD の祖先であること、`git diff --name-only origin/main` が
@@ -239,11 +243,14 @@ created_by: orchestrator
 
 - E-1 live（CI とローカル）: MISMATCH 0・FALSE_REJECT 0・件数 assert 成立・**実行時間が上限内**（上限は別 job `seed-delta-reference` の
   差分 step の `timeout-minutes`。T-26 のローカル実測 t から `max(5, ceil(2t))` で確定。既存 job の予算とは独立。R-018 / R-019）。
-  CI 側は hashFiles ガードで step が実行されたジョブに限る
+  CI 側は hashFiles ガードで step が実行されたジョブに限る。
+  **残存脅威（改訂 5.1 / R-026）**: main の ruleset の required status check は `Markdown lint` のみで（既存 `plangate-cli` も required ではない）、
+  新 job `seed-delta-reference` の失敗は merge を機械的に止めない。E-1 の成立は C-4 で Human がジョブ結果を確認して担保する。
+  required 化は Human 判断事項（todo H-7）であり、本 PBI の完了条件に含めない
 - E-2 コーパス: FALSE_REJECT 0・全件 AGREE
 - E-3 陽性対照: 旧実装 2 本でそれぞれ MISMATCH または FALSE_REJECT ≥ 1
 - E-4 軸別の `out_of_scope=False` かつ AGREE の件数が各軸値で下限以上（R-017。全体比率は補助指標）
-- E-5 変異（impl の状態遷移 + 常に拒否 / 常に空 + `reference_view` の射影規則 + `out_of_scope` の過大変異 2 種）がすべて KILLED
+- E-5 変異（impl の状態遷移 + 常に拒否 / 常に空 + `reference_view` の射影規則 + `out_of_scope` の過大変異 2 種 + TC-DIFF-11 の存在対照変異: requirements のみ削除・ハーネスと requirements の両方削除。R-025）がすべて KILLED
 - 証跡（R-012）: E-1 のログ・seed 範囲・参照パーサーの版と spec 版・実行時間を `evidence/test-runs/` に残す。CI はジョブログの URL を記録
 - R8 は検証モデルの穴（射影の誤り・文法外構造・`out_of_scope` の判定誤り）に焦点を置く
 - 再停止: 是正後も別クラスの MISMATCH が 3 回連続 / 陽性対照が成立しない / コーパスで FALSE_REJECT

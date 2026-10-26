@@ -103,6 +103,8 @@
 | R-022 | L3 Claude m-4（同型） | minor | apply / rollback が feature ブランチの base を検証しない | 採用: `origin/main` が HEAD の祖先、`git diff --name-only origin/main` が `test.yml` と `ho/` 以外を含まない、`.github` に untracked なし（TC-HO-07） |
 | R-023 | L3 Codex 中 | minor | `--dry-run` / `--verify` は apply / rollback と同じ安全検査をしない | 採用（明記側）: 保証範囲をスクリプト冒頭・dry-run 出力・plan・TC-HO-04 に明記し、適用安全性の証拠にしない |
 | R-024 | L3 Codex 低 | info | H-6 の `depends_on` と順序注記が食い違う（todo.md:57-63） | 採用: H-6 を T-26 の直後へ移し、`depends_on: T-26`（H-5 は推移的）と注記を一致させた |
+| R-025 | D-018 限定確認（M-2 同型の残存） | major | ハーネスと requirements を同時に削除・改名すると、TC-DIFF-11（条件付き）と HO verify（ho/apply-test-yml.sh:119-120 も条件付き）が両方素通りし、hashFiles ガードで恒常 skip・CI 緑 | 採用: TC-DIFF-11 を「両方が存在し pin を含む」の無条件 assert に変更（置き場所は従来どおり scripts/test_improvement_seed_delta.py）。陽性対照に「両方削除」を追加し E-5 に含める。HO verify の条件分岐は先行 merge 期間（D-017）に限った許容と plan に明記し、#1611 merge 後は TC-DIFF-11 が担保 |
+| R-026 | D-018 限定確認（残存脅威） | minor | main ruleset の required status check は `Markdown lint` のみ（`plangate-cli` も非 required）。新 job の失敗は merge を機械的に止めない | 採用（明記側）: plan の E-1 に残存脅威として明記。required 化は Human 判断事項 H-7（本 PBI の完了条件外）。併せて install step timeout 3 分を T-26 の再測定対象に追加（minor） |
 
 ### 監査表（追記専用）
 
@@ -139,3 +141,8 @@
 | R-024 | reflected（todo H-6 / 依存注記） | 同上 | |
 
 追記: R-019〜R-024 の「改訂 5 commit」は `ab25d92d`。
+
+| R-NNN | status | reflected_in(commit) | notes |
+|-------|--------|---------------------|-------|
+| R-025 | reflected（plan 存在対照・E-5 / TC-DIFF-11 / E-5 変異） | 改訂 5.1 commit（下記追記で SHA 確定） | ho/ は無変更（条件分岐の許容範囲を plan に明記） |
+| R-026 | reflected（plan E-1 残存脅威 / todo H-7・T-26） | 同上 | required 化は Human 判断・完了条件外 |
