@@ -1,19 +1,25 @@
 diff --git a/.github/workflows/test.yml b/.github/workflows/test.yml
 --- a/.github/workflows/test.yml
 +++ b/.github/workflows/test.yml
-@@ -24,5 +24,15 @@ jobs:
-         with:
-           persist-credentials: false
+@@ -26,3 +26,21 @@ jobs:
 
-+      # TASK-1608 HD-1: CommonMark reference parser for the seed-delta differential test
+       - name: Run CLI tests
+         run: sh tests/run-tests.sh
++
++      # TASK-1608 HD-1 / D-017: CommonMark reference parser for the seed-delta differential test.
++      # Skipped until tests/requirements-seed-delta-reference.txt exists on the checked-out ref.
 +      - name: Install seed-delta reference parser (hash-pinned)
++        if: hashFiles('tests/requirements-seed-delta-reference.txt') != ''
 +        run: |
 +          python3 -m venv "$RUNNER_TEMP/seed-delta-ref"
 +          "$RUNNER_TEMP/seed-delta-ref/bin/python" -m pip install --require-hashes --no-deps \
 +            -r tests/requirements-seed-delta-reference.txt
-+          echo "$RUNNER_TEMP/seed-delta-ref/bin" >> "$GITHUB_PATH"
 +
-       - name: Run CLI tests
++      - name: Run seed-delta differential test
++        if: hashFiles('tests/requirements-seed-delta-reference.txt') != ''
++        timeout-minutes: 8
 +        env:
 +          SEED_DELTA_REFERENCE: "1"
-         run: sh tests/run-tests.sh
++          SEED_DELTA_MINIMIZE: "0"
++        run: |
++          "$RUNNER_TEMP/seed-delta-ref/bin/python" scripts/test_improvement_seed_delta_reference.py

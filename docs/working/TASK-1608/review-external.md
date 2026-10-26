@@ -70,6 +70,11 @@
   前ラウンドが見つけられなかった理由: R6 とその是正は列 2 の入れ子だけを再現・TC 化しており、列による早期分岐が生の列で判定している点が検査モデルの外にあった
 - 対応: 継ぎ当てを続けず、Human 決定（2026-10-26「検証設計を変える」）で plan 改訂 3（検証モデルの変更）へ。D-016
 
+## L2（改訂 3 head `56929077`、PR #1611 issuecomment-6407222034）
+
+- Claude 敵対 = REQUEST CHANGES（critical 1 / major 4 / minor 1）、Codex = CONDITIONAL（高 2 / 中 3）。F-1 / F-2 はオーガナイザーが照合済み
+- critical があるため停止し、Human 裁定 D-017（F-1 は hashFiles ガード）を受けて改訂 4 で R-013〜R-018 を反映
+
 ### 指摘の集約（R-NNN、追記専用）
 
 | ID | 出典 | severity | 指摘 | 扱い |
@@ -86,6 +91,12 @@
 | R-010 | L1 Codex 高-1 | major | `reference_view` がテスト側の独自実装で自己参照・drift しうる | 採用: impl 非 import の検査、射影規則ごとの手書き期待値テスト、射影側の変異 KILLED 必須。golden を廃止し期待値は毎回参照パーサーから生成（TC-DIFF-06・07） |
 | R-011 | L1 Codex 中 | minor | スコープ膨張（参照パーサー + fuzz + 最小化 + 全履歴コーパス + 変異） | 一部採用: golden・再生成手順・delta debugging 自動化を削除。生成テスト・全履歴コーパス・変異注入は維持（理由は plan「スコープ膨張の指摘の採否」） |
 | R-012 | L1 Claude minor-2 | minor | E-1 の live ログ・seed 範囲・パーサー版を evidence に残していない | 採用: 証跡 4 項目と CI ジョブログ URL を記録（TC-DIFF-09 / todo T-28） |
+| R-013 | L2 Claude F-1（新クラス） | critical | HO 適用順序のデッドロック: verify は requirements 必須だが requirements は #1611（T-23）で入り、#1611 は E-1（HO 適用後）まで ready にならない | 採用（Human 裁定 D-017 = (b)）: patch の参照パーサー step に `if: hashFiles('tests/requirements-seed-delta-reference.txt') != ''`。HO は Human が feature ブランチ → PR で先に main へ。verify は requirements 不在を許容（skip 中は E-1 未達）。todo の depends_on を H-6 → T-26（patch 確定）に組み直し循環を解消 |
+| R-014 | L2 Claude F-2（新クラス）+ Codex 高（verify 素通り）/ 中（rollback 無保護） | major | apply が main 必須で main 直接 commit に誘導 / `--rollback` に前提検査なし / `PLANGATE_APPLY_REPO` で適用先差し替え可 / verify が grep のみで YAML 解析失敗を warn で通す / requirements はハッシュ文字列の有無のみ | 採用: main・master・release/*・detached では die（feature ブランチ必須）、rollback にも同じ前提検査と dirty 検査、`PLANGATE_APPLY_REPO` を廃止し適用先を表示・スクリプト側 toplevel との一致を要求、verify は PyYAML 必須（不在・解析失敗は fail）で `safe_load` の step 構造・`if`・env・timeout を検査、requirements は版（markdown-it-py 4.2.0 / mdurl 0.1.2）と全依存の sha256・余計な依存なしを検査 |
+| R-015 | L2 Claude F-3 | major | `out_of_scope` の過大変異が E-5 に無く、FALSE_REJECT が REJECT に化けて隠れる | 採用: E-5 に `out_of_scope` 変異（常に True / 列 2 以上で True）を追加し KILLED 必須。TC-DIFF-06 に `out_of_scope=False` の手書き期待値を追加 |
+| R-016 | L2 Claude F-4（R-006 同型） | major | wheel ハッシュの assert は空振り（pip `--require-hashes` が担う）/ 件数の数え方が未定義 / 未設定時の skip が黙る | 採用: ハッシュ assert を削除し、実行時 assert は参照パーサーの版と準拠 spec 版に限定。件数は 4 値（AGREE / REJECT / FALSE_REJECT / MISMATCH）の合計で 20,000。`SEED_DELTA_REFERENCE` 未設定時は `SKIP` を明示出力 |
+| R-017 | L2 Claude F-5 + Codex 中（50% の根拠不足 / カテゴリ偏り） | minor | 50% 閾値 2 条件は裏表で独立していない。全体比率では生成器の軸別の偏りを検出できない | 採用: 停止条件を軸別の `out_of_scope=False` 最低件数（各軸の各値で ≥ 下限）に置換。全体比率は補助指標として記録のみ。下限値は T-25 で分布を実測して決め status に記録 |
+| R-018 | L2 Claude F-6（新クラス）+ Codex 高（CI 時間未測定） | major | 20,000 件の live 比較の CI 実行時間が未測定（job `timeout-minutes: 10`）。最小化 O(n²) が CI で走りうる | 採用: T-26 でローカル実測時間と既存 `run-tests.sh` の時間を記録し、上限を E-1 に含める。CI は `SEED_DELTA_MINIMIZE=0`（最小化 off・失敗 seed のみ出力）。差分テストは専用 step（`timeout-minutes: 8`、run-tests.sh とは別）に分離。実測が上限を超える場合は H-6 の前に patch を改訂 |
 
 ### 監査表（追記専用）
 
@@ -103,3 +114,9 @@
 | R-010 | reflected | `2692ab93` | |
 | R-011 | partially adopted | `2692ab93` | 採否と理由は plan「スコープ膨張の指摘の採否」 |
 | R-012 | reflected | `2692ab93` | |
+| R-013 | reflected（plan 改訂 4 / D-017 / ho/） | 改訂 4 commit（下記追記で SHA 確定） | 適用は Human（H-6、#1611 より先に main へ） |
+| R-014 | reflected（ho/apply-test-yml.sh） | 同上 | dry-run rc=0（2026-10-27） |
+| R-015 | reflected（plan E-5 / TC-DIFF-06・10） | 同上 | |
+| R-016 | reflected（plan V-A・CI 節 / TC-DIFF-02・04） | 同上 | |
+| R-017 | reflected（plan 判定節 E-4 / TC-DIFF-03） | 同上 | 下限値は T-25 で実測して決定 |
+| R-018 | reflected（plan E-1 / T-26 / ho/test-yml.patch） | 同上 | |

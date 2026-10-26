@@ -2,6 +2,16 @@
 
 > 対象: plan.md / todo.md / test-cases.md（初版、2026-10-24）。実施者は plan 作成者本人（独立レビューではない）。
 
+## 簡易 C-1 再判定（2026-10-27、plan 改訂 4 = L2 R-013〜R-018 / D-017 反映後）: WARN
+
+FAIL 項目なし。数値の確定が exec に残るため WARN。
+
+- C1-PLAN-01 / C1-TEST-13: R-013〜R-018 すべてに反映先（plan / todo / test-cases / ho）がある。TC-DIFF-02〜04・06・10、TC-HO-01〜03 → PASS
+- C1-PLAN-04 テスト戦略: 50% 閾値を軸別の最低件数に置換、`out_of_scope` 過大変異を E-5 に追加、ハッシュ assert を削除し件数は 4 値合計 → **WARN**: 軸別下限値と E-1 の時間上限は T-25 / T-26 の実測で決める（未確定）
+- C1-PLAN-06 / C1-TODO 依存関係: H-6 は T-26 のみに依存し、hashFiles ガードで #1611 の merge に依存しない。H-5 → T-23〜T-26 → {T-27, H-6} → T-28 → T-29 → T-12 → H-2 に循環なし → PASS
+- C1-SEC-01: 適用スクリプトは feature ブランチ必須（apply / rollback）、適用先の差し替え不可、verify は YAML 解析失敗を fail → PASS
+- 注記: HO patch dry-run は rc=0（2026-10-27）。patch 適用後の YAML はスクラッチ複製で `safe_load` し、2 step の `if`・env・timeout を確認。既存 `approvals/c3.json` は本改訂と一致しない（未編集）
+
 ## 簡易 C-1 再判定（2026-10-26、plan 改訂 3 = 検証モデルの変更 / D-016 / R-001〜R-012 反映後）: WARN
 
 FAIL 項目なし。下記 2 点を Human の C-3 で確認してほしいため WARN。

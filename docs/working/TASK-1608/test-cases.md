@@ -42,14 +42,15 @@
 | ID | 内容 | 期待 |
 |----|------|------|
 | TC-DIFF-01 | seed 0〜19,999 の生成入力を 4 値で判定 | MISMATCH 0・FALSE_REJECT 0 |
-| TC-DIFF-02 | 生成件数・参照パーサーの版・wheel ハッシュの assert | 20,000 件・`markdown-it-py` 4.2.0・requirements のハッシュと一致 |
-| TC-DIFF-03 | REJECT 率 / `out_of_scope=False` の割合 | REJECT ≤ 50%・`out_of_scope=False` ≥ 50% |
-| TC-DIFF-04 | `SEED_DELTA_REFERENCE=1` で参照パーサーが import できない | FAIL（skip しない） |
+| TC-DIFF-02 | 生成件数（4 値 AGREE / REJECT / FALSE_REJECT / MISMATCH の合計）・参照パーサーの版・準拠 spec 版の assert（wheel ハッシュは pip `--require-hashes` に任せ assert しない。R-016） | 合計 20,000 件・`markdown-it-py` 4.2.0・spec 版が記録と一致 |
+| TC-DIFF-03 | 軸別（各軸の各値）の `out_of_scope=False` かつ AGREE の件数（R-017） | 各軸値で下限以上（下限は T-25 で実測して決定）。REJECT 率・全体割合はログに記録のみ |
+| TC-DIFF-04 | `SEED_DELTA_REFERENCE=1` で参照パーサーが import できない / 変数未設定 | 前者は FAIL（skip しない）、後者は `SKIP: SEED_DELTA_REFERENCE unset` を出力 |
 | TC-DIFF-05 | 陽性対照: `ca9a8b33` / `1c26e9de` の旧実装で差分テスト | それぞれ MISMATCH または FALSE_REJECT ≥ 1 |
-| TC-DIFF-06 | `reference_view` / `out_of_scope` の射影規則ごとの手書き期待値 | 全件一致 |
+| TC-DIFF-06 | `reference_view` / `out_of_scope` の射影規則ごとの手書き期待値。`out_of_scope=False` が期待される入力（列 2 以上の段落継続・リスト内 fence・同じ深さの blockquote 継続・トップレベルの複数項目）を含む（R-015） | 全件一致 |
 | TC-DIFF-07 | 差分ハーネスが impl を import していない（参照側モジュールの import グラフ） | impl の import 0 件（positive control: impl を import した疑似モジュールで検出 1） |
 | TC-DIFF-08 | 生成器がコンテナマーカー直前の不可視文字を生成する | 該当ケース ≥ 1 件、すべて REJECT |
-| TC-DIFF-09 | 証跡: seed 範囲・版・ハッシュ・実行時間をログに出力 | ログに 4 項目 |
+| TC-DIFF-09 | 証跡: seed 範囲・版・spec 版・実行時間をログに出力 | ログに 4 項目 |
+| TC-DIFF-10 | 実行時間（`SEED_DELTA_MINIMIZE=0`）が E-1 の上限内。CI では最小化せず失敗 seed のみ出力（R-018） | 上限内（上限は T-26 で実測して決定、CI step `timeout-minutes` 以内） |
 
 ### コーパス（V-C / R-003）
 
@@ -61,7 +62,16 @@
 
 ### 変異注入（E-5、改訂 3 追加分）
 
-「常に `ValueError`」「常に空集合で受理」、`reference_view` の level 判定・トップレベル判定・節境界、D-1d の列上限の復活を各 1 変異とし、すべて KILLED。
+「常に `ValueError`」「常に空集合で受理」、`reference_view` の level 判定・トップレベル判定・節境界、D-1d の列上限の復活、
+`out_of_scope` の過大変異（常に True / 列 2 以上で True。改訂 4 / R-015）を各 1 変異とし、すべて KILLED。
+
+### HO 適用スクリプト（改訂 4 / R-013・R-014。AI は dry-run のみ）
+
+| ID | 内容 | 期待 |
+|----|------|------|
+| TC-HO-01 | `apply-test-yml.sh --dry-run`（AI 実行） | rc=0、forward apply possible |
+| TC-HO-02 | patch 適用後の test.yml を `yaml.safe_load` で解析（スクラッチ複製で確認） | 2 step に hashFiles ガード、差分 step に env 2 つと `timeout-minutes` |
+| TC-HO-03 | main 上での apply / rollback（Human の手順確認） | ABORT（feature ブランチ必須） |
 
 ## コンテナ境界（改訂 2026-10-24 / plan D-1b）
 

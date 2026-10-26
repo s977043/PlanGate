@@ -27,7 +27,9 @@ created_by: orchestrator
   その後 R5・R6 で Stop Condition に該当し、Human 裁定（2026-10-25）を D-1c として反映した本改訂は再々承認が必要
   （既存の `approvals/c3.json` は本改訂の plan_hash と一致しない）。改訂 2 は再承認（plan_hash `24a35af0…`）後に exec し、
   R7 で列 4〜5 の入れ子の素通り（新クラス）が出た。Human 決定（2026-10-26「検証設計を変える」）と HD-1 / HD-2（D-016）を
-  **改訂 3**（D-1d・検証モデル V-A〜V-C・停止条件の再定義）として反映した。**再承認が必要**（plan_hash 変更）
+  **改訂 3**（D-1d・検証モデル V-A〜V-C・停止条件の再定義）として反映した。
+  L2 レビュー（R-013〜R-018）と Human 裁定 D-017（HO は hashFiles ガードで #1611 より先に main へ）を **改訂 4** として反映した。
+  **再承認が必要**（plan_hash 変更）
 
 ## 設計を変える根拠（#1574 の 4 ラウンドの事実から）
 
@@ -148,14 +150,20 @@ created_by: orchestrator
 | `ValueError` | `out_of_scope=False` | **FALSE_REJECT** | **不合格** |
 | 受理・射影不一致 | — | MISMATCH | 不合格（最小化して fixture 固定） |
 
-- 生成入力のうち `out_of_scope=False` の割合に下限（50% 以上）を課し、REJECT 率が上限（50%）を超えたら FAIL とする
-  （生成器が拒否側に偏ると AGREE が空になる）
+- 生成器の偏りは**軸別の `out_of_scope=False` 最低件数**で測る（改訂 4 / R-017）: V-B の各軸の各値（コンテナ種別・深さ・列・空行数・
+  ブロック種別・不可視文字の有無）について、`out_of_scope=False` かつ AGREE の件数が下限以上であることを要求する
+  （全体比率では特定の軸値が拒否側に偏っても検出できないため）。下限値は T-25 で生成器の分布を実測して決め、status に記録する。
+  REJECT 率・`out_of_scope=False` の全体割合は**補助指標として記録のみ**（合否に使わない）
+- 件数は 4 値（AGREE / REJECT / FALSE_REJECT / MISMATCH）の**合計**で数え、20,000 と一致することを assert する（R-016）
 - 「常に `ValueError`」「常に空集合で受理」の 2 変異は E-5 で KILLED 必須
+- `out_of_scope` の過大変異（「常に True」「列 2 以上で True」）も E-5 で KILLED 必須（改訂 4 / R-015。過大な `out_of_scope` は
+  FALSE_REJECT を REJECT に化けさせて隠すため）
 
 #### `reference_view` の自己参照対策（R-010 = Codex 高-1）
 
 - `reference_view` / `out_of_scope` は impl モジュールを import しない（テストで import グラフを検査）
 - 射影規則ごとに手書き期待値の単体テストを持ち、射影側の変異（level 判定・トップレベル判定・節境界）も E-5 で KILLED 必須
+- `out_of_scope` にも手書き期待値を持つ。`out_of_scope=False` が期待される入力（列 2 以上の段落継続・リスト内 fence・同じ深さの blockquote 継続など）を必ず含める（R-015）
 - golden fixture は**作らない**（下記 R-011 の採否）。期待値は毎回参照パーサーから生成するため、陳腐化・impl 出力からの再生成の経路が無い
 
 #### V-A 参照パーサー（R-002 / HD-2）
@@ -163,7 +171,10 @@ created_by: orchestrator
 - `markdown-it-py` 4.2.0（依存 `mdurl` 0.1.2）をテスト用依存として**ハッシュ固定**で使う
   （`tests/requirements-seed-delta-reference.txt`、`pip install --require-hashes --no-deps`）。repo の実行時依存・`improvement_seed_delta.py` の import は変えない（AC-9 / TC-STRUCT-02 不変）
 - 比較した代替: commonmark.py（spec 0.29・deprecated）/ mistletoe（CommonMark との差分既知）/ commonmark.js・cmark（CI に npm・バイナリなし）。準拠する spec 版は exec で実測し evidence に記録する
-- live 比較は `SEED_DELTA_REFERENCE=1` のときに走る。**この変数が立っていて参照パーサーが import できなければ skip ではなく FAIL**
+- live 比較は `SEED_DELTA_REFERENCE=1` のときに走る。**この変数が立っていて参照パーサーが import できなければ skip ではなく FAIL**。
+  変数が未設定のときは `SKIP: SEED_DELTA_REFERENCE unset` を明示出力する（黙った skip にしない。R-016）
+- wheel のハッシュは pip `--require-hashes` が検査するため、テスト側ではハッシュを assert しない（空振りになる。R-016）。
+  実行時 assert は参照パーサーの版（4.2.0）と準拠 spec 版に限定する
 - 陽性対照: 旧実装のスナップショット（`ca9a8b33` = R7、`1c26e9de` = R6 の `improvement_seed_delta.py`）を fixture として同梱し、差分テストで MISMATCH または FALSE_REJECT を 1 件以上検出することを CI でも assert する
 
 #### CI での直接比較（HD-1 / R-007 = Codex 高-2）
@@ -171,8 +182,21 @@ created_by: orchestrator
 - CI（`test.yml`）で参照パーサーを入れて `SEED_DELTA_REFERENCE=1` で live 比較を走らせる。`.github/workflows/*.yml` は HO 対象のため、
   **AI は patch・適用スクリプト・dry-run 手順まで、適用は Human**（`docs/working/TASK-1608/ho/`）
 - CI の保証範囲: seed 0〜19,999 の生成入力 / V-C コーパス全件 / 陽性対照。ローカルと CI で同じ範囲（分離しない）
-- 生成件数（20,000）と参照パーサーの版・wheel ハッシュを実行時に assert する（0 件で通る素通りを防ぐ。R-006）
+- 生成件数（4 値の合計 = 20,000）と参照パーサーの版・spec 版を実行時に assert する（0 件で通る素通りを防ぐ。R-006 / R-016）
 - HO 未適用の間は CI で live が走らないため、**E-1 は未達扱い**（ローカル実行だけで合格にしない）。PR は ready にしない
+
+#### HO の適用順序（改訂 4 / D-017 / R-013・R-014）
+
+- patch の 2 step（参照パーサーの導入・差分テスト）に `if: hashFiles('tests/requirements-seed-delta-reference.txt') != ''` を付ける。
+  requirements が無い ref（main・他 PR）では skip されるため、HO patch は #1611 に依存せず**先に** main へ入れられる
+- 順序: T-26（patch を実測値で確定・dry-run）→ H-6（Human が origin/main から feature ブランチを切り `apply-test-yml.sh` で適用 → PR → merge）
+  → #1611 を main に追従 → T-28（#1611 の CI で live が走ることを確認）。循環依存は無い
+- skip 中（requirements が無い / HO 未適用）は E-1 未達扱いを維持する。step が skip されたジョブを E-1 の証跡にしない
+- 差分テストは `run-tests.sh` とは別の専用 step にし、`SEED_DELTA_MINIMIZE=0`（CI では最小化 off・失敗 seed の出力のみ）と
+  step の `timeout-minutes` を持つ（R-018）。`Run CLI tests` の env は変えない
+- 適用スクリプトは main / master / release/* / detached HEAD では停止し、apply・rollback とも同じ前提検査と dirty 検査を行う。
+  適用先は cwd の toplevel に固定し（環境変数による差し替えなし）、スクリプト自身の repo と一致しなければ停止する。
+  verify は PyYAML 必須で `safe_load` の step 構造・`if`・env・timeout を検査し、requirements があれば版と全依存の sha256 を検査する
 
 #### V-B 生成テスト
 
@@ -190,12 +214,13 @@ created_by: orchestrator
 
 #### 停止条件（改訂 3 / R-004）
 
-- E-1 live（CI とローカル）: MISMATCH 0・FALSE_REJECT 0・件数 assert 成立
+- E-1 live（CI とローカル）: MISMATCH 0・FALSE_REJECT 0・件数 assert 成立・**実行時間が上限内**（上限は T-26 のローカル実測と
+  既存 `run-tests.sh` の時間から決め、CI の step `timeout-minutes` 以内。R-018）。CI 側は hashFiles ガードで step が実行されたジョブに限る
 - E-2 コーパス: FALSE_REJECT 0・全件 AGREE
 - E-3 陽性対照: 旧実装 2 本でそれぞれ MISMATCH または FALSE_REJECT ≥ 1
-- E-4 REJECT 率 ≤ 50%、`out_of_scope=False` 側 ≥ 50%
-- E-5 変異（impl の状態遷移 + 常に拒否 / 常に空 + `reference_view` の射影規則）がすべて KILLED
-- 証跡（R-012）: E-1 のログ・seed 範囲・参照パーサーの版とハッシュ・実行時間を `evidence/test-runs/` に残す。CI はジョブログの URL を記録
+- E-4 軸別の `out_of_scope=False` かつ AGREE の件数が各軸値で下限以上（R-017。全体比率は補助指標）
+- E-5 変異（impl の状態遷移 + 常に拒否 / 常に空 + `reference_view` の射影規則 + `out_of_scope` の過大変異 2 種）がすべて KILLED
+- 証跡（R-012）: E-1 のログ・seed 範囲・参照パーサーの版と spec 版・実行時間を `evidence/test-runs/` に残す。CI はジョブログの URL を記録
 - R8 は検証モデルの穴（射影の誤り・文法外構造・`out_of_scope` の判定誤り）に焦点を置く
 - 再停止: 是正後も別クラスの MISMATCH が 3 回連続 / 陽性対照が成立しない / コーパスで FALSE_REJECT
 
@@ -250,7 +275,7 @@ CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実�
 | S10（改訂 2） | 敵対レビュー R7 / R8（入れ子拒否の回避と正常系の破壊） | review-external.md 追記 | 高 | 収束判定 |
 | S11（改訂 3） | 参照パーサー依存（ハッシュ固定）・`reference_view` / `out_of_scope` と単体テスト・4 値判定の差分ハーネス・陽性対照 fixture | `scripts/test_improvement_seed_delta_reference.py` / fixture / requirements | 中 | 陽性対照 2 本で検出 ≥ 1・impl 未 import |
 | S12（改訂 3） | V-B 生成器（R-008 / R-009 の軸）と V-C コーパス fixture。D-1d を実装し TC-NEST-C4〜C7 / N4〜N6 を追加 | 同上 / `improvement_seed_delta.py` | 中 | E-1〜E-4 をローカルで成立 |
-| S13（改訂 3） | HO patch（`test.yml`）と適用スクリプトを用意し、dry-run（`git apply --check`）の結果を記録。**適用は Human** | `docs/working/TASK-1608/ho/` | 中 | Human 適用後に CI で E-1 成立 |
+| S13（改訂 3・4） | HO patch（`test.yml`、hashFiles ガード・専用 step・timeout）と適用スクリプトを用意し、T-26 の実測で確定して dry-run の結果を記録。**適用は Human が feature ブランチ → PR で #1611 より先に main へ** | `docs/working/TASK-1608/ho/` | 中 | Human 適用後に #1611 の CI で E-1 成立 |
 | S14（改訂 3） | 変異注入（E-5）と敵対レビュー R8（検証モデルの穴） | evidence / review-external.md | 高 | 停止条件 E-1〜E-5 |
 
 ## Files / Components to Touch
@@ -261,7 +286,7 @@ CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実�
 - 改訂 3 で追加: `scripts/test_improvement_seed_delta_reference.py`（差分ハーネス）/ `tests/requirements-seed-delta-reference.txt` /
   差分テスト用 fixture（陽性対照の旧実装 2 本・V-C コーパス 8 本・最小化した失敗例）
 - HO パスへの変更: AI は**行わない**。`.github/workflows/test.yml` の patch と適用スクリプトを `docs/working/TASK-1608/ho/` に置き、適用は Human（HD-1）。
-  `tests/extras/ta-116-*.sh` は変更しない（差分ハーネスは単体テストから呼ぶ）
+  `tests/extras/ta-116-*.sh` は変更しない（差分ハーネスは CI の専用 step とローカルの直接実行で呼び、`run-tests.sh` には載せない。改訂 4 / R-018）
 
 ## Testing Strategy
 
@@ -320,6 +345,7 @@ CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実�
 
 - **HD-1 = y**: CI でも参照パーサーと直接比較する。workflow は HO のため AI は patch・適用スクリプト・dry-run 手順まで、適用は Human
 - **HD-2 = y**: `markdown-it-py` をテスト用ローカル依存にし、ハッシュ固定（実行時依存にはしない）
+- **D-017（改訂 4）**: F-1 は (b) hashFiles ガード方式。HO patch は Human が feature ブランチ → PR で main に先行 merge し、#1611 は後続。skip 中は E-1 未達扱いを維持
 
 ## Questions / Unknowns（決定済み）
 

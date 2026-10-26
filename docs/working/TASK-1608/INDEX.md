@@ -1,6 +1,6 @@
 # TASK-1608 INDEX
 
-> 最終更新: 2026-10-26 10:00（plan 改訂 3 を確定反映、C-3 再承認待ち）
+> 最終更新: 2026-10-27 10:00（plan 改訂 4 を確定反映、C-3 再承認待ち）
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従う。
 
 ## チケット概要（1-2文）
@@ -13,7 +13,7 @@ C-3 待ち
 
 ## 次のアクション
 
-plan 改訂 3（D-1d・CommonMark 参照パーサーとの差分テスト、D-016）の C-3 再承認（Human、plan_hash 変更。既存 c3.json 24a35af0… は無効）。簡易 C-1 は WARN（review-self.md）。承認後 T-23〜、HO patch（`ho/`）の適用は Human（H-6）。
+plan 改訂 4（改訂 3 + L2 R-013〜R-018・D-017 hashFiles ガード）の C-3 再承認（Human、plan_hash 変更。既存 c3.json 24a35af0… は無効）。簡易 C-1 は WARN（review-self.md）。承認後 T-23〜T-26、HO patch（`ho/`）は Human が feature ブランチ → PR で #1611 より先に main へ（H-6）。
 
 ## ファイルマップ（読み込み優先度）
 
