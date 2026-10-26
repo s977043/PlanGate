@@ -19,6 +19,49 @@
 | AC-10 | TC-BLK-01〜05, TC-HTML-01〜04 |
 | AC-11 | TC-CB-01〜07, TC-INT-03, TC-NEST-N1〜N3 |
 | AC-10（改訂 2） | TC-NEST-A / B / 03〜07 |
+| AC-10 / AC-11（改訂 3） | TC-NEST-C4〜C7 / N4〜N6、TC-DIFF-*、TC-CORPUS-* |
+
+## 改訂 3（2026-10-26 / plan D-1d・検証モデル）
+
+### 列の上限なしの入れ子（D-1d / R-001）
+
+前提: 正規の seed の後に続ける。拒否側の期待は `ValueError`（nested container）。
+
+| ID | 入力 | 期待 |
+|----|------|------|
+| TC-NEST-C4 | `- confirmed_by: alice` / `    - x` / 空行 / `        confirmed_by: rejected`（R7 の再現） | 拒否 |
+| TC-NEST-C5 | `- a` / 列 5 の `> b` | 拒否 |
+| TC-NEST-C6 | `- a` / 列 6 の `- b` | 拒否 |
+| TC-NEST-C7 | `> a` / `>` の後に 7 空白 + `- b` | 拒否 |
+| TC-NEST-N4 | `- a` / 列 4 の地の文の継続 | 受理（誤拒否しない） |
+| TC-NEST-N5 | `- a` / 空行 / 列 2 の fence 内に列 6 の `- x` | 受理（コードの中は数えない） |
+| TC-NEST-N6 | `> a` / `> 本文に - を含む` | 受理 |
+
+### 差分テスト（V-A / V-B / R-002・R-005〜R-010・R-012）
+
+| ID | 内容 | 期待 |
+|----|------|------|
+| TC-DIFF-01 | seed 0〜19,999 の生成入力を 4 値で判定 | MISMATCH 0・FALSE_REJECT 0 |
+| TC-DIFF-02 | 生成件数・参照パーサーの版・wheel ハッシュの assert | 20,000 件・`markdown-it-py` 4.2.0・requirements のハッシュと一致 |
+| TC-DIFF-03 | REJECT 率 / `out_of_scope=False` の割合 | REJECT ≤ 50%・`out_of_scope=False` ≥ 50% |
+| TC-DIFF-04 | `SEED_DELTA_REFERENCE=1` で参照パーサーが import できない | FAIL（skip しない） |
+| TC-DIFF-05 | 陽性対照: `ca9a8b33` / `1c26e9de` の旧実装で差分テスト | それぞれ MISMATCH または FALSE_REJECT ≥ 1 |
+| TC-DIFF-06 | `reference_view` / `out_of_scope` の射影規則ごとの手書き期待値 | 全件一致 |
+| TC-DIFF-07 | 差分ハーネスが impl を import していない（参照側モジュールの import グラフ） | impl の import 0 件（positive control: impl を import した疑似モジュールで検出 1） |
+| TC-DIFF-08 | 生成器がコンテナマーカー直前の不可視文字を生成する | 該当ケース ≥ 1 件、すべて REJECT |
+| TC-DIFF-09 | 証跡: seed 範囲・版・ハッシュ・実行時間をログに出力 | ログに 4 項目 |
+
+### コーパス（V-C / R-003）
+
+| ID | 内容 | 期待 |
+|----|------|------|
+| TC-CORPUS-01 | `improvement-seeds.md` 全 7 リビジョン | FALSE_REJECT 0・全件 AGREE |
+| TC-CORPUS-02 | `improvement-digest.md` 全 1 リビジョン | 同上 |
+| TC-CORPUS-03 | fixture 件数と blob SHA の照合 | 8 件・記録と一致 |
+
+### 変異注入（E-5、改訂 3 追加分）
+
+「常に `ValueError`」「常に空集合で受理」、`reference_view` の level 判定・トップレベル判定・節境界、D-1d の列上限の復活を各 1 変異とし、すべて KILLED。
 
 ## コンテナ境界（改訂 2026-10-24 / plan D-1b）
 

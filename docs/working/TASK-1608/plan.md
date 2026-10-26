@@ -25,7 +25,9 @@ created_by: orchestrator
 - 改訂履歴: 初版は C-3 APPROVED（plan_hash `sha256:a1ddda40…`）後に exec。敵対レビュー R4 で Stop Condition に該当し BLOCKED。
   Human 裁定 (c)（2026-10-24）を D-1b として反映した改訂は再承認済み（plan_hash `439f1620…`）。
   その後 R5・R6 で Stop Condition に該当し、Human 裁定（2026-10-25）を D-1c として反映した本改訂は再々承認が必要
-  （既存の `approvals/c3.json` は本改訂の plan_hash と一致しない）
+  （既存の `approvals/c3.json` は本改訂の plan_hash と一致しない）。改訂 2 は再承認（plan_hash `24a35af0…`）後に exec し、
+  R7 で列 4〜5 の入れ子の素通り（新クラス）が出た。Human 決定（2026-10-26「検証設計を変える」）と HD-1 / HD-2（D-016）を
+  **改訂 3**（D-1d・検証モデル V-A〜V-C・停止条件の再定義）として反映した。**再承認が必要**（plan_hash 変更）
 
 ## 設計を変える根拠（#1574 の 4 ラウンドの事実から）
 
@@ -54,6 +56,7 @@ created_by: orchestrator
 - 不可視文字の扱い（下記 D-2）
 - 否定値判定の見直し（下記 D-3）
 - 単体テストの追加（回避クラス台帳の全クラス）、docstring の残存脅威モデル更新
+- 改訂 3: CommonMark 参照パーサーとの差分テスト（テスト側のみ）と、CI 配線の HO patch の用意（適用は Human）
 
 ### Out of Scope
 
@@ -119,9 +122,95 @@ created_by: orchestrator
   内容オフセットが 2 でないリスト（インデント付きマーカー・番号付きリスト・マーカー後の空白 2 個以上）も 0 行
 - 入れ子拒否は D-1b と同じく、既存の判定より前に行う（container の更新前に拒否）
 
+#### D-1d: 列の上限なしの入れ子拒否（改訂 3 2026-10-26 / R-001）
+
+- list コンテナ内では、列 2 以上の行を strip した先頭が `>` / リストマーカーなら、**列の上限なしで** nested container として拒否する
+  （R7: 列 4〜5 が indented code 扱いになり素通りした）。blockquote 内も `>` を外した残りを上限なしで判定する
+- 不可視文字（Cf・非 ASCII 空白）がマーカー直前にある行は D-2 で先に拒否する（R5 と同型の入力不一致を作らない）
+- TC-NEST-C4〜C7（列 4 / 5 / 6 / 7 × quote / list）。誤拒否は V-B の FALSE_REJECT と V-C で測る
+
+### 検証モデル（改訂 3 / R-002〜R-004・R-005〜R-012 / D-016）
+
+改訂 3 の主題は実装の継ぎ当てではなく**検証の作り直し**である。R1〜R7 は「敵対レビュアーが思いついた入力」でしか
+食い違いを検出できず、毎ラウンド新クラスが出た。以後は CommonMark 参照パーサーとの機械的な差分で検出する。
+
+#### 一致の定義（3 値ではなく 4 値）
+
+- `reference_view(text)`（テスト側）: 参照 AST から射影する — トップレベル level 2 の日付 ATX 見出し /
+  その節内トップレベル bullet の `confirmed_by` 段落 / digest の索引行。併せて `out_of_scope(text)` を参照 AST から求める
+  （入れ子コンテナ・コンテナ内の日付見出し・setext の日付見出し・未閉の fence / HTML コメント・不可視文字など、plan が拒否すると定めた構造の有無）
+- 判定（R-005 = Claude major-1 を反映。REJECT を無条件合格にしない）:
+
+| impl | 参照 | 判定 | 合否 |
+|------|------|------|------|
+| 受理・射影一致 | — | AGREE | 合格 |
+| `ValueError` | `out_of_scope=True` | REJECT | 合格（記録） |
+| `ValueError` | `out_of_scope=False` | **FALSE_REJECT** | **不合格** |
+| 受理・射影不一致 | — | MISMATCH | 不合格（最小化して fixture 固定） |
+
+- 生成入力のうち `out_of_scope=False` の割合に下限（50% 以上）を課し、REJECT 率が上限（50%）を超えたら FAIL とする
+  （生成器が拒否側に偏ると AGREE が空になる）
+- 「常に `ValueError`」「常に空集合で受理」の 2 変異は E-5 で KILLED 必須
+
+#### `reference_view` の自己参照対策（R-010 = Codex 高-1）
+
+- `reference_view` / `out_of_scope` は impl モジュールを import しない（テストで import グラフを検査）
+- 射影規則ごとに手書き期待値の単体テストを持ち、射影側の変異（level 判定・トップレベル判定・節境界）も E-5 で KILLED 必須
+- golden fixture は**作らない**（下記 R-011 の採否）。期待値は毎回参照パーサーから生成するため、陳腐化・impl 出力からの再生成の経路が無い
+
+#### V-A 参照パーサー（R-002 / HD-2）
+
+- `markdown-it-py` 4.2.0（依存 `mdurl` 0.1.2）をテスト用依存として**ハッシュ固定**で使う
+  （`tests/requirements-seed-delta-reference.txt`、`pip install --require-hashes --no-deps`）。repo の実行時依存・`improvement_seed_delta.py` の import は変えない（AC-9 / TC-STRUCT-02 不変）
+- 比較した代替: commonmark.py（spec 0.29・deprecated）/ mistletoe（CommonMark との差分既知）/ commonmark.js・cmark（CI に npm・バイナリなし）。準拠する spec 版は exec で実測し evidence に記録する
+- live 比較は `SEED_DELTA_REFERENCE=1` のときに走る。**この変数が立っていて参照パーサーが import できなければ skip ではなく FAIL**
+- 陽性対照: 旧実装のスナップショット（`ca9a8b33` = R7、`1c26e9de` = R6 の `improvement_seed_delta.py`）を fixture として同梱し、差分テストで MISMATCH または FALSE_REJECT を 1 件以上検出することを CI でも assert する
+
+#### CI での直接比較（HD-1 / R-007 = Codex 高-2）
+
+- CI（`test.yml`）で参照パーサーを入れて `SEED_DELTA_REFERENCE=1` で live 比較を走らせる。`.github/workflows/*.yml` は HO 対象のため、
+  **AI は patch・適用スクリプト・dry-run 手順まで、適用は Human**（`docs/working/TASK-1608/ho/`）
+- CI の保証範囲: seed 0〜19,999 の生成入力 / V-C コーパス全件 / 陽性対照。ローカルと CI で同じ範囲（分離しない）
+- 生成件数（20,000）と参照パーサーの版・wheel ハッシュを実行時に assert する（0 件で通る素通りを防ぐ。R-006）
+- HO 未適用の間は CI で live が走らないため、**E-1 は未達扱い**（ローカル実行だけで合格にしない）。PR は ready にしない
+
+#### V-B 生成テスト
+
+- `random.Random(seed)`。軸: コンテナ種別・深さ 0〜3、列 0〜7 + タブ、空行 0〜2、fence / HTML type 1・2・6・7 と閉じの有無、indented code、
+  thematic break、setext、seed / 非正規見出し / `confirmed_by` / **コンテナマーカー直前の不可視文字（独立軸。R-008）**
+- `out_of_scope=False` 側として、列 2 以上の段落継続・リスト内 fence など**受理されるべき入れ子でない構造**を必ず生成する（R-009。D-1d の誤拒否を空でなく測る）
+- 失敗は行削除による簡易最小化（1 行ずつ外して判定が変わらない限り削る）で縮め、fixture に固定する
+
+#### V-C コーパス（R-003）
+
+- `improvement-seeds.md` 全リビジョン（7）+ `improvement-digest.md` 全リビジョン（1）。全件で FALSE_REJECT 0・AGREE、HEAD は REVIEW_CANDIDATE / 7 / 2 / 5
+- コーパスは列 2 以上の `-` / `>` / 番号行を含まない（実測）。D-1d の誤拒否 0 は**コーパスでは空で満たされる**ため、誤拒否の測定は V-B の
+  `out_of_scope=False` 側と正常系 fixture（TC-NEST-N4〜N6）で行う（R-009）
+- CI の checkout は浅いため、全リビジョンは fixture として同梱する（取得コマンドと各 blob SHA を記録）
+
+#### 停止条件（改訂 3 / R-004）
+
+- E-1 live（CI とローカル）: MISMATCH 0・FALSE_REJECT 0・件数 assert 成立
+- E-2 コーパス: FALSE_REJECT 0・全件 AGREE
+- E-3 陽性対照: 旧実装 2 本でそれぞれ MISMATCH または FALSE_REJECT ≥ 1
+- E-4 REJECT 率 ≤ 50%、`out_of_scope=False` 側 ≥ 50%
+- E-5 変異（impl の状態遷移 + 常に拒否 / 常に空 + `reference_view` の射影規則）がすべて KILLED
+- 証跡（R-012）: E-1 のログ・seed 範囲・参照パーサーの版とハッシュ・実行時間を `evidence/test-runs/` に残す。CI はジョブログの URL を記録
+- R8 は検証モデルの穴（射影の誤り・文法外構造・`out_of_scope` の判定誤り）に焦点を置く
+- 再停止: 是正後も別クラスの MISMATCH が 3 回連続 / 陽性対照が成立しない / コーパスで FALSE_REJECT
+
+#### スコープ膨張の指摘（R-011 = Codex 中）の採否
+
+**一部採用**。golden fixture・golden 再生成手順・delta debugging の自動化は削り、CI でも live の直接比較 1 経路に絞る
+（HD-1=y で golden が不要になり、major-2 の陳腐化・自己参照の経路も同時に消える）。最小化は行削除だけの簡易版にする。
+**生成テスト・全履歴コーパス・変異注入は残す**: R1〜R7 は手書きの再現だけで毎回新クラスを取りこぼしており、
+「再現済み回避クラス + 既存コーパス」に絞ると、改訂 3 の目的（Human 決定「検証設計を変える」）そのものが成り立たない。
+全履歴コーパスは 8 ファイルで費用が小さく、変異注入は既存の運用（T-9 / T-15 / T-21）の継続である。
+
 不採用の代替案（Q-1 で Human 決定済み）: `markdown-it-py` をハッシュ固定で追加して AST を使う。
 CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実行の前提を変えるため採らない。
 敵対レビューで同層の新クラスが 2 ラウンド続いた場合に限り、再提示する。
+（改訂 3 注記: 実装の判定には引き続き使わない。HD-2 で**テスト側の参照パーサーとしてのみ**採用した）
 
 ### D-2: 不可視文字（AC-5）— 推奨: 拒否（fail-closed）
 
@@ -159,13 +248,20 @@ CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実�
 | S8（改訂） | 敵対レビュー R5 / R6（コンテナ境界の拒否規則の回避と、規則による正常系の破壊） | review-external.md 追記 | 高 | 収束判定 |
 | S9（改訂 2） | D-1c の入れ子拒否を実装し、R6 の再現 A / B を拒否側 TC に追加。内容オフセット固定（R6 m-1）を是正。現行データで誤拒否ゼロを再測定 | `improvement_seed_delta.py` / テスト | 中 | TC-NEST-* PASS・7 / 5 不変・変異注入 |
 | S10（改訂 2） | 敵対レビュー R7 / R8（入れ子拒否の回避と正常系の破壊） | review-external.md 追記 | 高 | 収束判定 |
+| S11（改訂 3） | 参照パーサー依存（ハッシュ固定）・`reference_view` / `out_of_scope` と単体テスト・4 値判定の差分ハーネス・陽性対照 fixture | `scripts/test_improvement_seed_delta_reference.py` / fixture / requirements | 中 | 陽性対照 2 本で検出 ≥ 1・impl 未 import |
+| S12（改訂 3） | V-B 生成器（R-008 / R-009 の軸）と V-C コーパス fixture。D-1d を実装し TC-NEST-C4〜C7 / N4〜N6 を追加 | 同上 / `improvement_seed_delta.py` | 中 | E-1〜E-4 をローカルで成立 |
+| S13（改訂 3） | HO patch（`test.yml`）と適用スクリプトを用意し、dry-run（`git apply --check`）の結果を記録。**適用は Human** | `docs/working/TASK-1608/ho/` | 中 | Human 適用後に CI で E-1 成立 |
+| S14（改訂 3） | 変異注入（E-5）と敵対レビュー R8（検証モデルの穴） | evidence / review-external.md | 高 | 停止条件 E-1〜E-5 |
 
 ## Files / Components to Touch
 
 - `scripts/improvement_seed_delta.py`（PG-SH-GUARD ブロックはバイト不変）
 - `scripts/test_improvement_seed_delta.py`（同上）
 - `docs/working/TASK-1608/` 配下
-- HO パスへの変更: **なし**（`tests/extras/ta-116-*.sh` も変更しない予定）
+- 改訂 3 で追加: `scripts/test_improvement_seed_delta_reference.py`（差分ハーネス）/ `tests/requirements-seed-delta-reference.txt` /
+  差分テスト用 fixture（陽性対照の旧実装 2 本・V-C コーパス 8 本・最小化した失敗例）
+- HO パスへの変更: AI は**行わない**。`.github/workflows/test.yml` の patch と適用スクリプトを `docs/working/TASK-1608/ho/` に置き、適用は Human（HD-1）。
+  `tests/extras/ta-116-*.sh` は変更しない（差分ハーネスは単体テストから呼ぶ）
 
 ## Testing Strategy
 
@@ -174,6 +270,7 @@ CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実�
 - 現行データ: CLI 実行で REVIEW_CANDIDATE / 7 / 5（AC-3）
 - 変異注入: 状態機械の各遷移（fence 閉じ条件 / HTML コメント終了 / indented code 判定 / setext 拒否 / 不可視文字拒否 / 否定値の先頭トークン判定）を 1 つずつ壊し、FAIL を確認
 - Verification Automation: 上記 3 コマンドを `evidence/test-runs/` にログ保存
+- 差分テスト（改訂 3）: `SEED_DELTA_REFERENCE=1 python3 scripts/test_improvement_seed_delta_reference.py`（ローカル・CI 同範囲）。停止条件 E-1〜E-5 は「検証モデル」節
 
 ## 敵対レビューのラウンド設計（§7-quater）
 
@@ -217,12 +314,18 @@ CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実�
 - 標準ライブラリだけで AC-2 / AC-7 を満たせないと判明した → 停止し Q-1 を Human に提示
 - 現行データの結果（7 / 5）が変わった → 停止し原因を報告
 - 敵対レビューで同層の新クラスが 2 ラウンド連続 → 停止し設計切り替えを提示
+- 改訂 3 以降は「検証モデル」節の停止条件 E-1〜E-5 と再停止条件で判定する（ラウンドの新クラス有無ではなく差分テストの結果）
+
+## Human 判断事項（改訂 3、決定済み / D-016）
+
+- **HD-1 = y**: CI でも参照パーサーと直接比較する。workflow は HO のため AI は patch・適用スクリプト・dry-run 手順まで、適用は Human
+- **HD-2 = y**: `markdown-it-py` をテスト用ローカル依存にし、ハッシュ固定（実行時依存にはしない）
 
 ## Questions / Unknowns（決定済み）
 
 根拠: Human 回答（2026-10-24、coordinator 経由で受領。いずれも推奨案を採用）。decision-log D-004〜D-007。
 
-- **Q-1（決定）**: 標準ライブラリの限定ブロック状態機械（D-1）。`markdown-it-py` 追加はしない
+- **Q-1（決定）**: 標準ライブラリの限定ブロック状態機械（D-1）。`markdown-it-py` を実装の依存には追加しない（改訂 3 の HD-2 でテスト側の参照パーサーとしてのみ使用）
 - **Q-2（決定）**: 不可視文字は拒否（D-2）
 - **Q-3（決定）**: issue の AC 案「CommonMark 準拠の Markdown パーサー（AST）」を「判定に使うブロック種別は CommonMark の規則に従い、守備範囲外の構造は fail-closed」と読み替える（pbi-input AC-10）
 - **Q-4（決定）**: 先頭語が否定値と同綴りの人名の誤拒否は残存脅威として残す（D-3）

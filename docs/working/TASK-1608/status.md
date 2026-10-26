@@ -24,6 +24,8 @@ high-risk（根拠は plan.md「Mode 判定」）。`lite_eligible=false`。auto
 | 2026-10-25 10:00 | C-3 待ち | R6（major 1 = 入れ子の喪失 / minor 2）で Stop Condition。Human 裁定「入れ子をすべて拒否」（D-014）を plan D-1c・test-cases TC-NEST-*・todo T-17〜T-22 に反映、簡易 C-1 PASS。現行データの入れ子 0 行を実測。既存 c3.json（439f1620…）は本改訂に無効（未編集） |
 | 2026-10-25 10:15 | exec | C-3 再承認（Human、plan_hash 24a35af0…、approved_at 2026-10-25T00:33:14Z）。T-17 RED（12 FAIL / 1 ERROR、`43ebb79b`） |
 | 2026-10-25 10:30 | verify | T-18〜T-21（`72d55dac`）。単体 `Ran 66 tests` OK・ta-116・ta-70・現行データ 7 / 5 不変・変異 41 種すべて KILLED。T-22 の敵対レビューはオーガナイザー側 |
+| 2026-10-26 07:06 | verify（V-3） | R7（`ca9a8b33`）で新クラス（列 4〜5 の入れ子の素通り）。Human 決定「検証設計を変える」。R-001〜R-004 を review-external に集約（plan 反映は EH-3 により保留） |
+| 2026-10-26 10:00 | C-3 待ち | **C-3 再承認待ち（plan_hash 変更）**。L1 レビュー（issuecomment-6404932159）を R-005〜R-012 に集約し、HD-1=y / HD-2=y（D-016）と合わせて plan 改訂 3（D-1d・検証モデル）・todo T-23〜T-29 / H-5 / H-6・test-cases TC-NEST-C* / TC-DIFF-* / TC-CORPUS-* に 1 回で確定反映。簡易 C-1 WARN（閾値の根拠・H-6 依存）。HO patch と適用スクリプトを `ho/` に置き dry-run rc=0。既存 c3.json（24a35af0…）は本改訂に無効（未編集） |
 
 ## 残タスク
 
@@ -35,7 +37,10 @@ high-risk（根拠は plan.md「Mode 判定」）。`lite_eligible=false`。auto
 - [x] T-16 敵対レビュー R5（是正済み）/ R6（Stop Condition で停止、D-014）
 - [x] H-4 改訂 2 の plan の C-3 再承認（Human）
 - [x] T-17〜T-21
-- [ ] T-22 敵対レビュー R7 / R8（オーガナイザー側）
+- [x] T-22 敵対レビュー R7（新クラス → 改訂 3 へ）
+- [ ] H-5 改訂 3 の plan の C-3 再承認（Human。plan_hash 変更）
+- [ ] H-6 HO patch（`ho/test-yml.patch`）の適用（Human）
+- [ ] T-23〜T-29（改訂 3、H-5 後）
 - [ ] T-12 PR を ready にする（T-16 後）
 - [ ] T-12 PR を ready にする（BLOCKED 解除後）
 

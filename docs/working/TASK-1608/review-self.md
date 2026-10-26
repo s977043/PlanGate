@@ -2,6 +2,19 @@
 
 > 対象: plan.md / todo.md / test-cases.md（初版、2026-10-24）。実施者は plan 作成者本人（独立レビューではない）。
 
+## 簡易 C-1 再判定（2026-10-26、plan 改訂 3 = 検証モデルの変更 / D-016 / R-001〜R-012 反映後）: WARN
+
+FAIL 項目なし。下記 2 点を Human の C-3 で確認してほしいため WARN。
+
+- C1-PLAN-01 / C1-TEST-13: R-001（D-1d）→ TC-NEST-C4〜C7・N4〜N6、R-002 / R-005〜R-010 / R-012 → TC-DIFF-01〜09、R-003 → TC-CORPUS-01〜03。L1 指摘 8 件すべてに R-NNN と反映先がある → PASS
+- C1-PLAN-02 Unknowns: HD-1 / HD-2 は D-016 で決定済み。参照パーサーの準拠 spec 版は exec で実測（plan に明記）→ PASS
+- C1-PLAN-03 スコープ: 変更ファイルが増える（差分ハーネス・requirements・fixture）。R-011 の採否と理由を plan に記載。HO（`test.yml`）は patch と適用スクリプトのみで AI は適用しない → PASS
+- C1-PLAN-04 テスト戦略: FALSE_REJECT を不合格にし、REJECT 率・件数・版・ハッシュを assert。陽性対照を CI で検査 → **WARN**: REJECT 率上限 50% / `out_of_scope=False` 下限 50% は AI が置いた閾値で、実測の根拠はまだ無い（exec の T-25 で生成器の分布を測り、閾値を変える場合は status に逸脱として記録する）
+- C1-PLAN-08/09: 停止条件を E-1〜E-5 の測定可能な条件に再定義。HO 未適用の間は E-1 未達扱い → PASS
+- C1-TODO: H-5 → T-23〜T-27 → H-6（Human の HO 適用）→ T-28 → T-29 → T-12、rollback 記載 → **WARN**: T-28 以降は Human の HO 適用（H-6）に依存し、適用まで PR を ready にできない
+- C1-SEC-01: 参照パーサーはテスト側のみ・`--require-hashes --no-deps`・venv。impl の import は不変（AC-9 / TC-STRUCT-02）→ PASS
+- 注記: 既存の `approvals/c3.json`（plan_hash 24a35af0…）は本改訂と一致しない（編集・削除していない）。HO patch の dry-run は `apply-test-yml.sh --dry-run` で forward 適用可能（rc=0、2026-10-26）
+
 ## 簡易 C-1 再判定（2026-10-25、Human 裁定「入れ子をすべて拒否」による plan 改訂 2 後）: PASS
 
 - C1-PLAN-01 / C1-TEST-13: D-1c を AC-10（守備範囲外は fail-closed）/ AC-11（誤拒否なし）の範囲で扱い、TC-NEST-A / B（R6 再現 A・B）/ 03〜07（拒否）/ N1〜N3（同じ深さの blockquote 継続・トップレベルの複数項目・リスト内 fence の受理）に対応づけた → PASS

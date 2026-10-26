@@ -1,6 +1,6 @@
 # TASK-1608 INDEX
 
-> 最終更新: 2026-10-25 10:30（改訂 2 の T-17〜T-21 完了、verify）
+> 最終更新: 2026-10-26 10:00（plan 改訂 3 を確定反映、C-3 再承認待ち）
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従う。
 
 ## チケット概要（1-2文）
@@ -9,11 +9,11 @@
 
 ## 現在のフェーズ
 
-verify
+C-3 待ち
 
 ## 次のアクション
 
-改訂 2（D-1c、plan_hash 24a35af0…）で T-17〜T-21 完了。T-22 敵対レビュー R7 / R8 をオーガナイザー側で実施 → 収束なら PR を ready（T-12）。V-1 判定は handoff.md §1（WARN: AC-1 と TC-CB-05 の衝突は Human 確認事項、R7 / R8 未了）。
+plan 改訂 3（D-1d・CommonMark 参照パーサーとの差分テスト、D-016）の C-3 再承認（Human、plan_hash 変更。既存 c3.json 24a35af0… は無効）。簡易 C-1 は WARN（review-self.md）。承認後 T-23〜、HO patch（`ho/`）の適用は Human（H-6）。
 
 ## ファイルマップ（読み込み優先度）
 

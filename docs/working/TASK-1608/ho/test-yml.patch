@@ -1,0 +1,19 @@
+diff --git a/.github/workflows/test.yml b/.github/workflows/test.yml
+--- a/.github/workflows/test.yml
++++ b/.github/workflows/test.yml
+@@ -24,5 +24,15 @@ jobs:
+         with:
+           persist-credentials: false
+
++      # TASK-1608 HD-1: CommonMark reference parser for the seed-delta differential test
++      - name: Install seed-delta reference parser (hash-pinned)
++        run: |
++          python3 -m venv "$RUNNER_TEMP/seed-delta-ref"
++          "$RUNNER_TEMP/seed-delta-ref/bin/python" -m pip install --require-hashes --no-deps \
++            -r tests/requirements-seed-delta-reference.txt
++          echo "$RUNNER_TEMP/seed-delta-ref/bin" >> "$GITHUB_PATH"
++
+       - name: Run CLI tests
++        env:
++          SEED_DELTA_REFERENCE: "1"
+         run: sh tests/run-tests.sh

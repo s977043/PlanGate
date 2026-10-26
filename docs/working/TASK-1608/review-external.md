@@ -78,6 +78,14 @@
 | R-002 | Codex (1) | major | CommonMark 参照パーサーとの差分テストが無い。自作状態機械の食い違いを敵対レビュアーの想像力でしか検出できない | plan V-A（参照パーサー差分テスト）+ TC-DIFF-* |
 | R-003 | Codex (2) | major | 実文書コーパスが現行データ 1 ファイル（HEAD 時点）のみ | plan V-C（seeds / digest の全 git リビジョン）+ TC-CORPUS-* |
 | R-004 | Codex (3) | major | 停止条件「新クラスなし」に探索入力・分類基準・終了判定が定義されていない | plan「停止条件（改訂 3）」で測定可能な終了判定に再定義 |
+| R-005 | L1 Claude major-1 | major | REJECT を無条件合格にしており、常に拒否する実装が停止条件を素通りする | 採用: 参照 AST 由来の `out_of_scope` で FALSE_REJECT を不合格に。REJECT 率上限・「常に拒否」変異の KILLED 必須（plan 検証モデル / TC-DIFF-01・03） |
+| R-006 | L1 Claude major-2 | major | golden の再生成手順が無く、impl 出力からの再生成や glob 0 件で素通りしうる | 採用（形を変えて）: HD-1=y により golden を廃止し CI でも live 比較。件数・版・ハッシュの assert と陽性対照を CI で検査（TC-DIFF-02・05） |
+| R-007 | L1 Codex 高-2 | major | live（0〜19,999）と CI golden（0〜1,999）が分離し、CI で再発を検出できない | 採用: HD-1=y で CI も同範囲の live。HO 未適用の間は E-1 未達扱い（plan「CI での直接比較」） |
+| R-008 | L1 Claude minor-1 | minor | 不可視文字を「コンテナマーカー直前」の独立軸にしていない | 採用: V-B の独立軸に追加（TC-DIFF-08） |
+| R-009 | L1 Claude major-3 | major | コーパスに列 2 以上の `-` / `>` / 番号行が 0 件で、D-1d の誤拒否 0 が空で満たされる | 採用: 誤拒否は V-B の `out_of_scope=False` 側と正常系 TC-NEST-N4〜N6 で測る。コーパスで空であることを plan に明記。retro-phase §2 への入れ子禁止の明記は不採用（スコープ外の規約変更） |
+| R-010 | L1 Codex 高-1 | major | `reference_view` がテスト側の独自実装で自己参照・drift しうる | 採用: impl 非 import の検査、射影規則ごとの手書き期待値テスト、射影側の変異 KILLED 必須。golden を廃止し期待値は毎回参照パーサーから生成（TC-DIFF-06・07） |
+| R-011 | L1 Codex 中 | minor | スコープ膨張（参照パーサー + fuzz + 最小化 + 全履歴コーパス + 変異） | 一部採用: golden・再生成手順・delta debugging 自動化を削除。生成テスト・全履歴コーパス・変異注入は維持（理由は plan「スコープ膨張の指摘の採否」） |
+| R-012 | L1 Claude minor-2 | minor | E-1 の live ログ・seed 範囲・パーサー版を evidence に残していない | 採用: 証跡 4 項目と CI ジョブログ URL を記録（TC-DIFF-09 / todo T-28） |
 
 ### 監査表（追記専用）
 
