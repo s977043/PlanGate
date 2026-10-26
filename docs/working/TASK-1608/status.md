@@ -27,6 +27,7 @@ high-risk（根拠は plan.md「Mode 判定」）。`lite_eligible=false`。auto
 | 2026-10-26 07:06 | verify（V-3） | R7（`ca9a8b33`）で新クラス（列 4〜5 の入れ子の素通り）。Human 決定「検証設計を変える」。R-001〜R-004 を review-external に集約（plan 反映は EH-3 により保留） |
 | 2026-10-26 10:00 | C-3 待ち | **C-3 再承認待ち（plan_hash 変更）**。L1 レビュー（issuecomment-6404932159）を R-005〜R-012 に集約し、HD-1=y / HD-2=y（D-016）と合わせて plan 改訂 3（D-1d・検証モデル）・todo T-23〜T-29 / H-5 / H-6・test-cases TC-NEST-C* / TC-DIFF-* / TC-CORPUS-* に 1 回で確定反映。簡易 C-1 WARN（閾値の根拠・H-6 依存）。HO patch と適用スクリプトを `ho/` に置き dry-run rc=0。既存 c3.json（24a35af0…）は本改訂に無効（未編集） |
 | 2026-10-27 10:00 | C-3 待ち | **C-3 再承認待ち（plan_hash 変更）**。L2 レビュー（issuecomment-6407222034）を R-013〜R-018 に集約し、Human 裁定 D-017（hashFiles ガード・HO を #1611 より先に main へ）と合わせて plan 改訂 4・todo（依存順序の組み直し）・test-cases（TC-DIFF 更新・TC-DIFF-10・TC-HO-*）に 1 回で確定反映。ho/ の patch と適用スクリプトを是正し dry-run rc=0。簡易 C-1 WARN（軸別下限値と時間上限は exec で実測） |
+| 2026-10-27 14:00 | C-3 待ち | **C-3 再承認待ち（M-1 / M-2 限定確認後。plan_hash 変更）**。L3 レビュー（issuecomment-6427012568）を R-019〜R-024 に集約し、Human 裁定 D-018 と合わせて plan 改訂 5（差分テストを別 job `seed-delta-reference` に分離・存在対照 TC-DIFF-11・verify 強化・base 検証）・todo（H-6 位置と依存注記）・test-cases（TC-DIFF-11・TC-HO-04〜07）に 1 回で確定反映。HO dry-run rc=0、スクラッチで新 job 構造と verify の FAIL 3 系統を確認。簡易 C-1 WARN（新 job timeout は T-26 で確定）。根拠: main Test 直近 9 回の job 所要 297〜441 秒 |
 
 ## 残タスク
 
@@ -39,7 +40,8 @@ high-risk（根拠は plan.md「Mode 判定」）。`lite_eligible=false`。auto
 - [x] H-4 改訂 2 の plan の C-3 再承認（Human）
 - [x] T-17〜T-21
 - [x] T-22 敵対レビュー R7（新クラス → 改訂 3 へ）
-- [ ] H-5 改訂 4 の plan の C-3 再承認（Human。plan_hash 変更）
+- [ ] D-018 M-1 / M-2 の是正部分に限った短い確認（オーガナイザー側）
+- [ ] H-5 改訂 5 の plan の C-3 再承認（Human。plan_hash 変更、上記確認の後）
 - [ ] H-6 HO patch（`ho/test-yml.patch`）を feature ブランチ → PR で main に先行 merge（Human、T-26 後）
 - [ ] T-23〜T-29（改訂 3、H-5 後）
 - [ ] T-12 PR を ready にする（T-16 後）

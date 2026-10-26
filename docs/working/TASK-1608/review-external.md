@@ -97,6 +97,12 @@
 | R-016 | L2 Claude F-4（R-006 同型） | major | wheel ハッシュの assert は空振り（pip `--require-hashes` が担う）/ 件数の数え方が未定義 / 未設定時の skip が黙る | 採用: ハッシュ assert を削除し、実行時 assert は参照パーサーの版と準拠 spec 版に限定。件数は 4 値（AGREE / REJECT / FALSE_REJECT / MISMATCH）の合計で 20,000。`SEED_DELTA_REFERENCE` 未設定時は `SKIP` を明示出力 |
 | R-017 | L2 Claude F-5 + Codex 中（50% の根拠不足 / カテゴリ偏り） | minor | 50% 閾値 2 条件は裏表で独立していない。全体比率では生成器の軸別の偏りを検出できない | 採用: 停止条件を軸別の `out_of_scope=False` 最低件数（各軸の各値で ≥ 下限）に置換。全体比率は補助指標として記録のみ。下限値は T-25 で分布を実測して決め status に記録 |
 | R-018 | L2 Claude F-6（新クラス）+ Codex 高（CI 時間未測定） | major | 20,000 件の live 比較の CI 実行時間が未測定（job `timeout-minutes: 10`）。最小化 O(n²) が CI で走りうる | 採用: T-26 でローカル実測時間と既存 `run-tests.sh` の時間を記録し、上限を E-1 に含める。CI は `SEED_DELTA_MINIMIZE=0`（最小化 off・失敗 seed のみ出力）。差分テストは専用 step（`timeout-minutes: 8`、run-tests.sh とは別）に分離。実測が上限を超える場合は H-6 の前に patch を改訂 |
+| R-019 | L3 Claude M-1（新クラス: 時間予算の組み合わせ）+ Codex 高 | major | 差分 step の `timeout-minutes: 8` は job 全体の 10 分に先に負ける。main の Test 直近の job 所要 297〜441 秒で、余地は約 2.65 分（venv / pip も同じ予算） | 採用（D-018）: 差分テストを別 job `seed-delta-reference`（`needs` なし、暫定 job 15 / install 3 / 差分 10）に分離。既存 job の timeout 10 と step は不変。T-26 で差分 step を `max(5, ceil(2t))` に確定。verify で job / step 構造・step 合計 < job timeout を検査 |
+| R-020 | L3 Claude M-2（新クラス: センチネルファイルによる無効化） | major | requirements を削除・改名すると hashFiles ガードで恒常 skip、CI は緑のまま | 採用（D-018）: tests 側に存在対照 TC-DIFF-11（ハーネスがあれば requirements と pin もある。run-tests.sh → ta-116 経由で既存 job が実行）。HO verify も「ハーネスあり・requirements なし」で FAIL（TC-HO-05、スクラッチで rc=1 を確認） |
+| R-021 | L3 Claude m-3（同型） | minor | verify が `continue-on-error` / `\|\| true` / 追加の `pip install` を検出しない | 採用: job / step の `continue-on-error` 不在、`run` の非空行集合を固定値と完全一致、env 完全一致（TC-HO-06、スクラッチで rc=1 を確認） |
+| R-022 | L3 Claude m-4（同型） | minor | apply / rollback が feature ブランチの base を検証しない | 採用: `origin/main` が HEAD の祖先、`git diff --name-only origin/main` が `test.yml` と `ho/` 以外を含まない、`.github` に untracked なし（TC-HO-07） |
+| R-023 | L3 Codex 中 | minor | `--dry-run` / `--verify` は apply / rollback と同じ安全検査をしない | 採用（明記側）: 保証範囲をスクリプト冒頭・dry-run 出力・plan・TC-HO-04 に明記し、適用安全性の証拠にしない |
+| R-024 | L3 Codex 低 | info | H-6 の `depends_on` と順序注記が食い違う（todo.md:57-63） | 採用: H-6 を T-26 の直後へ移し、`depends_on: T-26`（H-5 は推移的）と注記を一致させた |
 
 ### 監査表（追記専用）
 
@@ -122,3 +128,12 @@
 | R-018 | reflected（plan E-1 / T-26 / ho/test-yml.patch） | 同上 | |
 
 追記: R-013〜R-018 の「改訂 4 commit」は `c4a0a6eb`。
+
+| R-NNN | status | reflected_in(commit) | notes |
+|-------|--------|---------------------|-------|
+| R-019 | reflected（plan CI 節・E-1 / ho/ / TC-HO-02） | 改訂 5 commit（下記追記で SHA 確定） | timeout は暫定、T-26 で確定。D-018 の M-1 限定確認の対象 |
+| R-020 | reflected（plan 存在対照 / TC-DIFF-11 / TC-HO-05 / ho/） | 同上 | TC-DIFF-11 の実装は T-23。D-018 の M-2 限定確認の対象 |
+| R-021 | reflected（ho/apply-test-yml.sh / TC-HO-06） | 同上 | |
+| R-022 | reflected（ho/apply-test-yml.sh / TC-HO-07） | 同上 | |
+| R-023 | reflected（plan / ho/ / TC-HO-04） | 同上 | 検査の追加でなく明記で対応 |
+| R-024 | reflected（todo H-6 / 依存注記） | 同上 | |

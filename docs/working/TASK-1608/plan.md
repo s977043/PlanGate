@@ -29,6 +29,7 @@ created_by: orchestrator
   R7 で列 4〜5 の入れ子の素通り（新クラス）が出た。Human 決定（2026-10-26「検証設計を変える」）と HD-1 / HD-2（D-016）を
   **改訂 3**（D-1d・検証モデル V-A〜V-C・停止条件の再定義）として反映した。
   L2 レビュー（R-013〜R-018）と Human 裁定 D-017（HO は hashFiles ガードで #1611 より先に main へ）を **改訂 4** として反映した。
+  L3 レビュー（R-019〜R-024）と Human 裁定 D-018（局所是正 + M-1 / M-2 限定の短い確認後に C-3）を **改訂 5** として反映した。
   **再承認が必要**（plan_hash 変更）
 
 ## 設計を変える根拠（#1574 の 4 ラウンドの事実から）
@@ -194,9 +195,31 @@ created_by: orchestrator
 - skip 中（requirements が無い / HO 未適用）は E-1 未達扱いを維持する。step が skip されたジョブを E-1 の証跡にしない
 - 差分テストは `run-tests.sh` とは別の専用 step にし、`SEED_DELTA_MINIMIZE=0`（CI では最小化 off・失敗 seed の出力のみ）と
   step の `timeout-minutes` を持つ（R-018）。`Run CLI tests` の env は変えない
+- **差分テストは test.yml の別 job `seed-delta-reference` に置く（改訂 5 / R-019 / D-018）**。既存 job `plangate-cli`
+  （`timeout-minutes: 10`・step 不変）とは `needs` で繋がず並列に走り、時間予算を共有しない。
+  理由: main の Test 直近 9 回（success、2026-10-22〜26）の `plangate-cli` job 所要は 297〜441 秒（中央値 331 秒）で、
+  同じ job に載せると差分テストの余地は 10 分 − 441 秒 ≒ 2.65 分しかなく、venv 作成と pip install も同じ予算から引かれる
+  （L3 M-1。job timeout の引き上げは既存テストの暴走検出を弱めるため採らない）
+- 新 job の時間予算（暫定値。T-26 で確定）: job `timeout-minutes: 15`、install step `3`、差分 step `10`。
+  不変条件: **step timeout の合計 < job timeout**（checkout の余地 ≥ 2 分）。T-26 で差分テストのローカル実測時間 t（`SEED_DELTA_MINIMIZE=0`）を測り、
+  差分 step の timeout を `max(5, ceil(2t))` 分（CI ランナーとローカルの速度差の余裕 2 倍）、job timeout を「step 合計 + 2」以上に確定する。
+  `ceil(2t)` が 20 分を超える場合は H-6 の前に停止し、生成件数か job 構成の見直しを Human に提示する。E-1 の時間上限は差分 step の timeout とする
+- 存在対照（改訂 5 / R-020）: hashFiles ガードは requirements の削除・改名で step を恒常的に skip させ、CI は緑のまま残る。
+  これを防ぐため、**#1611 の tests 側**（`scripts/test_improvement_seed_delta.py`。`run-tests.sh` → ta-116 経由で既存 job から呼ばれる）に
+  「参照ハーネス `scripts/test_improvement_seed_delta_reference.py` が存在するなら `tests/requirements-seed-delta-reference.txt` も存在し、
+  markdown-it-py / mdurl の pin を含む」を assert する TC（TC-DIFF-11）を置く。HO verify も「ハーネスあり・requirements なし」を FAIL にする
 - 適用スクリプトは main / master / release/* / detached HEAD では停止し、apply・rollback とも同じ前提検査と dirty 検査を行う。
   適用先は cwd の toplevel に固定し（環境変数による差し替えなし）、スクリプト自身の repo と一致しなければ停止する。
-  verify は PyYAML 必須で `safe_load` の step 構造・`if`・env・timeout を検査し、requirements があれば版と全依存の sha256 を検査する
+  **base 検証（改訂 5 / R-022）**: apply・rollback は `origin/main` が HEAD の祖先であること、`git diff --name-only origin/main` が
+  `test.yml` と `docs/working/TASK-1608/ho/` 以外を含まないこと、`.github` 配下に untracked が無いことを検査する（Human は事前に `git fetch origin`）
+- verify は PyYAML 必須で `safe_load` により次を検査する（改訂 5 / R-019・R-021）: jobs が `plangate-cli` / `seed-delta-reference` の 2 つだけ、
+  `plangate-cli` の timeout 10・step 名列・`Run CLI tests` の run / env が不変、新 job に `needs` / `continue-on-error` / `if` / `strategy` が無い、
+  新 job の step 名列が固定、各 step の `if` が hashFiles ガード・`continue-on-error` 不在・**`run` の非空行集合が固定値と完全一致**（`|| true` や追加の `pip install` を拒否）、
+  install step の env 不在、差分 step の env が `SEED_DELTA_REFERENCE=1` / `SEED_DELTA_MINIMIZE=0` と完全一致、step timeout の合計 < job timeout。
+  requirements があれば版と全依存の sha256 を検査し、ハーネスがあって requirements が無ければ FAIL
+- **`--dry-run` / `--verify` の保証範囲（改訂 5 / R-023）**: `--dry-run` は `git apply --check` のみ、`--verify` は YAML / requirements の構造のみで、
+  ブランチ・base・dirty 検査は行わない。**どちらの成功も「現在のブランチで apply してよい」ことの証拠にしない**（スクリプト冒頭と TC-HO-04 に明記）。
+  適用安全性の検査は apply / rollback の前提検査が担う
 
 #### V-B 生成テスト
 
@@ -214,8 +237,9 @@ created_by: orchestrator
 
 #### 停止条件（改訂 3 / R-004）
 
-- E-1 live（CI とローカル）: MISMATCH 0・FALSE_REJECT 0・件数 assert 成立・**実行時間が上限内**（上限は T-26 のローカル実測と
-  既存 `run-tests.sh` の時間から決め、CI の step `timeout-minutes` 以内。R-018）。CI 側は hashFiles ガードで step が実行されたジョブに限る
+- E-1 live（CI とローカル）: MISMATCH 0・FALSE_REJECT 0・件数 assert 成立・**実行時間が上限内**（上限は別 job `seed-delta-reference` の
+  差分 step の `timeout-minutes`。T-26 のローカル実測 t から `max(5, ceil(2t))` で確定。既存 job の予算とは独立。R-018 / R-019）。
+  CI 側は hashFiles ガードで step が実行されたジョブに限る
 - E-2 コーパス: FALSE_REJECT 0・全件 AGREE
 - E-3 陽性対照: 旧実装 2 本でそれぞれ MISMATCH または FALSE_REJECT ≥ 1
 - E-4 軸別の `out_of_scope=False` かつ AGREE の件数が各軸値で下限以上（R-017。全体比率は補助指標）
@@ -275,7 +299,7 @@ CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実�
 | S10（改訂 2） | 敵対レビュー R7 / R8（入れ子拒否の回避と正常系の破壊） | review-external.md 追記 | 高 | 収束判定 |
 | S11（改訂 3） | 参照パーサー依存（ハッシュ固定）・`reference_view` / `out_of_scope` と単体テスト・4 値判定の差分ハーネス・陽性対照 fixture | `scripts/test_improvement_seed_delta_reference.py` / fixture / requirements | 中 | 陽性対照 2 本で検出 ≥ 1・impl 未 import |
 | S12（改訂 3） | V-B 生成器（R-008 / R-009 の軸）と V-C コーパス fixture。D-1d を実装し TC-NEST-C4〜C7 / N4〜N6 を追加 | 同上 / `improvement_seed_delta.py` | 中 | E-1〜E-4 をローカルで成立 |
-| S13（改訂 3・4） | HO patch（`test.yml`、hashFiles ガード・専用 step・timeout）と適用スクリプトを用意し、T-26 の実測で確定して dry-run の結果を記録。**適用は Human が feature ブランチ → PR で #1611 より先に main へ** | `docs/working/TASK-1608/ho/` | 中 | Human 適用後に #1611 の CI で E-1 成立 |
+| S13（改訂 3・4・5） | HO patch（`test.yml`、別 job `seed-delta-reference`・hashFiles ガード・step / job timeout）と適用スクリプトを用意し、T-26 の実測で確定して dry-run の結果を記録。**適用は Human が feature ブランチ → PR で #1611 より先に main へ** | `docs/working/TASK-1608/ho/` | 中 | Human 適用後に #1611 の CI で E-1 成立 |
 | S14（改訂 3） | 変異注入（E-5）と敵対レビュー R8（検証モデルの穴） | evidence / review-external.md | 高 | 停止条件 E-1〜E-5 |
 
 ## Files / Components to Touch
@@ -286,7 +310,8 @@ CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実�
 - 改訂 3 で追加: `scripts/test_improvement_seed_delta_reference.py`（差分ハーネス）/ `tests/requirements-seed-delta-reference.txt` /
   差分テスト用 fixture（陽性対照の旧実装 2 本・V-C コーパス 8 本・最小化した失敗例）
 - HO パスへの変更: AI は**行わない**。`.github/workflows/test.yml` の patch と適用スクリプトを `docs/working/TASK-1608/ho/` に置き、適用は Human（HD-1）。
-  `tests/extras/ta-116-*.sh` は変更しない（差分ハーネスは CI の専用 step とローカルの直接実行で呼び、`run-tests.sh` には載せない。改訂 4 / R-018）
+  `tests/extras/ta-116-*.sh` は変更しない（差分ハーネスは CI の専用 job `seed-delta-reference` とローカルの直接実行で呼び、`run-tests.sh` には載せない。改訂 4・5 / R-018・R-019。
+  存在対照 TC-DIFF-11 は `scripts/test_improvement_seed_delta.py` に置き、既存 job から ta-116 経由で走る / R-020）
 
 ## Testing Strategy
 
@@ -346,6 +371,7 @@ CI の依存導入（`.github/workflows/*.yml` = HO パス）と standalone 実�
 - **HD-1 = y**: CI でも参照パーサーと直接比較する。workflow は HO のため AI は patch・適用スクリプト・dry-run 手順まで、適用は Human
 - **HD-2 = y**: `markdown-it-py` をテスト用ローカル依存にし、ハッシュ固定（実行時依存にはしない）
 - **D-017（改訂 4）**: F-1 は (b) hashFiles ガード方式。HO patch は Human が feature ブランチ → PR で main に先行 merge し、#1611 は後続。skip 中は E-1 未達扱いを維持
+- **D-018（改訂 5）**: L3 の M-1 / M-2 と minor を改訂 5 で局所是正し、**M-1 / M-2 の是正部分に限った短い確認を 1 本**入れてから C-3 へ進む
 
 ## Questions / Unknowns（決定済み）
 

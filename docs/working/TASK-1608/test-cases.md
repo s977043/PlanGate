@@ -50,7 +50,8 @@
 | TC-DIFF-07 | 差分ハーネスが impl を import していない（参照側モジュールの import グラフ） | impl の import 0 件（positive control: impl を import した疑似モジュールで検出 1） |
 | TC-DIFF-08 | 生成器がコンテナマーカー直前の不可視文字を生成する | 該当ケース ≥ 1 件、すべて REJECT |
 | TC-DIFF-09 | 証跡: seed 範囲・版・spec 版・実行時間をログに出力 | ログに 4 項目 |
-| TC-DIFF-10 | 実行時間（`SEED_DELTA_MINIMIZE=0`）が E-1 の上限内。CI では最小化せず失敗 seed のみ出力（R-018） | 上限内（上限は T-26 で実測して決定、CI step `timeout-minutes` 以内） |
+| TC-DIFF-10 | 実行時間（`SEED_DELTA_MINIMIZE=0`）が E-1 の上限内。CI では最小化せず失敗 seed のみ出力（R-018） | 上限内（上限は別 job `seed-delta-reference` の差分 step `timeout-minutes` = T-26 で `max(5, ceil(2t))` に確定。R-019） |
+| TC-DIFF-11 | 存在対照（`scripts/test_improvement_seed_delta.py` 内、run-tests.sh → ta-116 経由。R-020）: `scripts/test_improvement_seed_delta_reference.py` が存在するなら `tests/requirements-seed-delta-reference.txt` も存在し、`markdown-it-py==4.2.0` / `mdurl==0.1.2` の行を含む | PASS。陽性対照: requirements をスクラッチ複製で削除・改名すると FAIL（変異として E-5 に含める） |
 
 ### コーパス（V-C / R-003）
 
@@ -69,9 +70,13 @@
 
 | ID | 内容 | 期待 |
 |----|------|------|
-| TC-HO-01 | `apply-test-yml.sh --dry-run`（AI 実行） | rc=0、forward apply possible |
-| TC-HO-02 | patch 適用後の test.yml を `yaml.safe_load` で解析（スクラッチ複製で確認） | 2 step に hashFiles ガード、差分 step に env 2 つと `timeout-minutes` |
+| TC-HO-01 | `apply-test-yml.sh --dry-run`（AI 実行） | rc=0、forward apply possible（適用安全性の証拠にはしない。TC-HO-04） |
+| TC-HO-02 | patch 適用後の test.yml を `yaml.safe_load` で解析し `--verify`（スクラッチ複製で確認。改訂 5 / R-019） | jobs = `plangate-cli`（timeout 10・step 不変）+ `seed-delta-reference`（`needs` なし・timeout 15）。新 job の 2 step に hashFiles ガード、step timeout 3 / 10（合計 < job）、差分 step に env 2 つ。verify rc=0 |
 | TC-HO-03 | main 上での apply / rollback（Human の手順確認） | ABORT（feature ブランチ必須） |
+| TC-HO-04 | `--dry-run` / `--verify` の保証範囲（R-023） | スクリプト冒頭と dry-run の出力に「branch/base/dirty 検査なし」を明記 |
+| TC-HO-05 | スクラッチで「ハーネスあり・requirements なし」で `--verify`（R-020） | FAIL・rc=1 |
+| TC-HO-06 | スクラッチで差分 step に `continue-on-error: true` / `run` 末尾に `\|\| true` を注入して `--verify`（R-021） | それぞれ FAIL・rc=1 |
+| TC-HO-07 | base 検証（R-022、Human の手順確認）: origin/main を祖先に含まないブランチ / `test.yml`・`ho/` 以外の差分があるブランチで apply・rollback | ABORT |
 
 ## コンテナ境界（改訂 2026-10-24 / plan D-1b）
 

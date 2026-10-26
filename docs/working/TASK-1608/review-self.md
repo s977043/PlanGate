@@ -2,6 +2,16 @@
 
 > 対象: plan.md / todo.md / test-cases.md（初版、2026-10-24）。実施者は plan 作成者本人（独立レビューではない）。
 
+## 簡易 C-1 再判定（2026-10-27、plan 改訂 5 = L3 R-019〜R-024 / D-018 反映後）: WARN
+
+FAIL 項目なし。新 job の timeout と軸別下限値の確定が exec（T-25 / T-26）に残るため WARN。D-018 により C-3 の前に M-1 / M-2 限定の短い確認を 1 本入れる。
+
+- C1-PLAN-01 / C1-TEST-13: R-019〜R-024 すべてに反映先がある（plan CI 節・E-1 / todo H-6・依存注記 / TC-DIFF-11 / TC-HO-02・04〜07 / ho/）→ PASS
+- C1-PLAN-04 テスト戦略: 差分テストを別 job に分離（既存 job の timeout 10・step 不変を verify で固定）。暫定 job 15 / step 3・10、step 合計 < job を verify で検査。存在対照 TC-DIFF-11 は既存 job（ta-116）で走る → **WARN**: 差分 step の timeout は T-26 の実測 t から `max(5, ceil(2t))` で確定（未確定）
+- C1-PLAN-06 / C1-TODO 依存関係: H-6 を T-26 の直後へ移し `depends_on: T-26` と注記を一致（R-024）。循環なし → PASS
+- C1-SEC-01: apply / rollback に base 検証（origin/main 祖先・差分は test.yml と ho/ のみ・.github に untracked なし）。verify は `continue-on-error` 不在・`run` 行集合の完全一致・env 完全一致。`--dry-run` / `--verify` は適用安全性の証拠にしない旨を明記 → PASS
+- 実測（2026-10-27）: HO dry-run rc=0。スクラッチ（origin/main の test.yml に patch 適用）で `safe_load` → jobs `plangate-cli`（timeout 10・Checkout / Run CLI tests）+ `seed-delta-reference`（timeout 15・step timeout 3 / 10・2 step に hashFiles ガード）。`--verify`: ハーネス・requirements なし rc=0 / ハーネスのみ rc=1 / `continue-on-error` 注入 rc=1 / `|| true` 注入 rc=1。既存 `approvals/c3.json` は本改訂と一致しない（未編集）
+
 ## 簡易 C-1 再判定（2026-10-27、plan 改訂 4 = L2 R-013〜R-018 / D-017 反映後）: WARN
 
 FAIL 項目なし。数値の確定が exec に残るため WARN。

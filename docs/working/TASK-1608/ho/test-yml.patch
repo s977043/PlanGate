@@ -1,15 +1,27 @@
 diff --git a/.github/workflows/test.yml b/.github/workflows/test.yml
 --- a/.github/workflows/test.yml
 +++ b/.github/workflows/test.yml
-@@ -26,3 +26,21 @@ jobs:
+@@ -26,3 +26,33 @@ jobs:
 
        - name: Run CLI tests
          run: sh tests/run-tests.sh
 +
-+      # TASK-1608 HD-1 / D-017: CommonMark reference parser for the seed-delta differential test.
-+      # Skipped until tests/requirements-seed-delta-reference.txt exists on the checked-out ref.
++  # TASK-1608 HD-1 / D-017 / D-018: CommonMark reference parser differential test.
++  # Separate job so its time budget is independent of plangate-cli (timeout 10).
++  # Steps are skipped until tests/requirements-seed-delta-reference.txt exists on the checked-out ref.
++  seed-delta-reference:
++    name: seed-delta reference differential test
++    runs-on: ubuntu-latest
++    timeout-minutes: 15
++    steps:
++      - name: Checkout
++        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
++        with:
++          persist-credentials: false
++
 +      - name: Install seed-delta reference parser (hash-pinned)
 +        if: hashFiles('tests/requirements-seed-delta-reference.txt') != ''
++        timeout-minutes: 3
 +        run: |
 +          python3 -m venv "$RUNNER_TEMP/seed-delta-ref"
 +          "$RUNNER_TEMP/seed-delta-ref/bin/python" -m pip install --require-hashes --no-deps \
@@ -17,7 +29,7 @@ diff --git a/.github/workflows/test.yml b/.github/workflows/test.yml
 +
 +      - name: Run seed-delta differential test
 +        if: hashFiles('tests/requirements-seed-delta-reference.txt') != ''
-+        timeout-minutes: 8
++        timeout-minutes: 10
 +        env:
 +          SEED_DELTA_REFERENCE: "1"
 +          SEED_DELTA_MINIMIZE: "0"
