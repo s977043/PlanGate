@@ -120,3 +120,5 @@
 | R-016 | reflected（plan V-A・CI 節 / TC-DIFF-02・04） | 同上 | |
 | R-017 | reflected（plan 判定節 E-4 / TC-DIFF-03） | 同上 | 下限値は T-25 で実測して決定 |
 | R-018 | reflected（plan E-1 / T-26 / ho/test-yml.patch） | 同上 | |
+
+追記: R-013〜R-018 の「改訂 4 commit」は `c4a0a6eb`。
