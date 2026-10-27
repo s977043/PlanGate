@@ -1,0 +1,150 @@
+# TASK-1608 敵対レビュー（V-3 相当 / review-principles §7-quater）
+
+> 追記専用。レビュアーは独立サブエージェント（読み取り専用、実装者とは別コンテキスト）。
+
+## 回避クラス台帳
+
+| クラス | 代表例（最小再現） | 検出ラウンド | 是正 | 前ラウンドが見つけられなかった理由 |
+|-------|------------------|------------|------|--------------------------------|
+| コンテナ終了がブロックを閉じない | `- item` / 空行 / `  ```` / … / 列 0 の `## seed` | R1（critical） | リスト継続で開いた fence / HTML は、列 0〜1 の行で項目と一緒に閉じる | 初回の状態機械はコンテナのスタックを持たず、ブロックとコンテナを独立に扱った（台帳 R1〜R4 にコンテナ軸のクラスが無かった） |
+| in_list 残存で閉じ fence の許容インデントが緩む | `- note` / 列 0 の ```` ``` ```` / 5 空白の ```` ``` ```` | R1（critical） | 許容幅を「開いた時点でリスト継続だったか」（`block_in_list`）で決める | 同上（開いた時点の文脈を保存していなかった） |
+| 確認値のインライン記法 | `- confirmed_by: <!-- pending -->` / `` `pending` `` / `**pending**` | R1（major） | HTML タグ・コメントとインライン記号を外した表示上の値で判定、未終端コメントは拒否 | 値の検査は前実装の拒否リストを引き継ぎ、構造化の対象外だった |
+| marker の所属を節で区切らない | `## seed` / `## Notes` / `- confirmed_by: x` | R1（major） | seed でない level ≤2 の見出しで帰属を切り、外側の marker は拒否 | 前実装と同じ「次の seed 見出しまで」の範囲定義を引き継いだ |
+| 閉じ `#` 列・末尾空白 | `## 2026-01-01 — A ##` | R1（minor） | 正規形から除外 | 見出し本文を renderer の表示と照合していなかった |
+| 確認値の文字参照・リンク・エスケープ（新クラス） | `- confirmed_by: &#112;ending` / `[pending](x)` / `\-` / `&#x200B;` | R2（major） | 値の層の判定モデルを変更: 表示の再現をやめ、`< > & [ ] \` を含む値は拒否 | R1 の是正は「表示上の値を再現する」方式で、表示を変えるインライン構文を列挙しきれていなかった |
+| （R1 同型）段落直後に開いたリスト内ブロック | `- confirmed_by: x` / 空行なしの `  ```` / 列 0 の seed | R2（critical） | `block_in_list` から「段落中でない」条件を外す | R1 の再現は空行の後で開く経路だけで、段落を割り込んで開く経路を通らなかった |
+| マーカー行で開く fence / HTML（新クラス） | `- ```` / `  x` / `  ```` / `  ## 2026-09-09 — HIDDEN` / `  ```` | R3（major） | マーカー行・blockquote 行で開くブロックは守備範囲外として拒否 | R1・R2 はリスト継続行で開くブロックだけを見ていた。ブロック判定はマーカーを外さない行に対してしか行っていなかった |
+| （R1 同型）否定値の表記ゆれ | `pending.` / `ｐｅｎｄｉｎｇ` | R3（minor） | NFKC 正規化と句読点区切りを追加。区切りの無い和文は残存脅威に明記 | 拒否リスト方式の網羅の限界 |
+| 空行なしの非リストブロックでリストが終わっても in_list が残る（新クラス・未是正） | `- note` / `> q` / `  ```` / 列 0 の seed | R4（critical） | **未是正**（Stop Condition により停止） | R1〜R3 はリストの終了経路として空行・見出しだけを通っていた |
+| 状態判定の入力の不一致（新クラス） | ` - note` / `  ```` / `## 2026-09-09 — HIDDEN` / `- confirmed_by: bob`（EOF、閉じ fence なし） | R5（critical） | `in_list`（skeleton 判定）を撤去し、リスト内判定を境界判定と同じ生の行から求めた `container` に一本化 | R1〜R4 の検査は「どのブロック・コンテナか」の判定内容を突いており、二つの状態変数が別々の字句判定で更新されていること（入力の不一致）は検査モデルに無かった |
+| container 種別の上書き = 入れ子の喪失（新クラス・未是正） | `- a` / `  > b` / 空行 / `  ```` / `## 2026-01-01 — TASK-1` / … | R6（major） | **未是正**（Stop Condition により停止。Human 裁定で入れ子を拒否する plan D-1c へ） | R5 の是正（in_list を container に一本化）が、リストと blockquote の入れ子を単一の値で表すことになった。R5 は二変数の食い違いだけを見ており、一本化した値が深さを失う点は検査対象外だった |
+| 列 4〜5 の入れ子コンテナの素通り（新クラス・未是正） | `- confirmed_by: alice` / `    - x` / 空行 / `        confirmed_by: rejected` | R7（major） | **未是正**（Human 決定で plan 改訂 3 = 検証モデルの変更へ。是正方針は plan D-1d） | R6 の是正と TC は列 2 の入れ子だけを見ており、列の早期分岐が基準列のずれを無視している点が検査モデルの外にあった |
+| （R1 同型）setext 見出しで帰属が切れない | `## seed` / `Notes` + `=====` / `- confirmed_by: x` | R2（major） | setext を独立の種別にし、帰属を切る | R1 の是正は ATX 見出しだけを見ていた |
+
+## R1（head `cf440056`）
+
+- 判定: CHANGES_REQUESTED（critical 2 / major 2 / minor 1）。正常系（現行データ 7 / 5）は誤拒否なし
+- 是正: 上表。各是正に回帰テストを追加し、変異 M16〜M21 で検出力を実証（`evidence/test-runs/t9-mutation.log`）
+
+## R2（head `6a4803fe`）
+
+- 判定: CHANGES_REQUESTED（critical 2 / major 5、うち新クラス 1 = 確認値のインライン構文）。正常系は誤拒否なし
+- 層の分析: ブロック状態機械の層は R1 同型の是正漏れのみ（新クラスなし）。確認値の層は R1・R2 と 2 ラウンド続けて新クラスが出たため、継ぎ当て（表示の再現）をやめて「構文文字を含む値は拒否」へ判定モデルを替えた
+- 新クラスが出たため R3 を実施する（§7-quater の収束判定）
+
+## R3（head `7e358c7f`）
+
+- 判定: CHANGES_REQUESTED（major 1 = 新クラス / minor 1 = 同型）。R2 の是正は回避できず。正常系は誤拒否なし
+- 層の分析: ブロック状態機械の層で新クラス（R1 のコンテナ軸に続く 2 例目）。コンテナのスタックを持たない設計の限界であり、追跡を足さずに「マーカー行で開くブロックは拒否」へ倒した
+- plan の停止条件（同じ層で新クラスが 2 ラウンド連続）には R4 の結果で判定する
+
+## R4（head `a849dcfa`）
+
+- 判定: CHANGES_REQUESTED（critical 1、**未是正**）。R3 の是正は回避できず。正常系は誤拒否なし
+- 指摘: 空行なしの非リストブロック（`> q` / 列 0 の閉じた fence / `***`）でリストが終わっても `in_list` が残る。
+  最小再現: `## 2026-01-01 — A` / `- confirmed_by: alice` / `- note` / `> q` / `  ```` / `## 2026-09-09 — HIDDEN` / `- confirmed_by: bob`（EOF）→ rc=0 で HIDDEN を採用（renderer では EOF まで code）
+- 前ラウンドが見つけられなかった理由: R1〜R3 の再現は、リストが空行・見出しで閉じる経路か、リスト内で開く経路だけで、空行なしの非段落ブロックでリストが閉じる経路を通らなかった
+- **収束判定: 不収束。** ブロック状態機械の層（コンテナ軸）で R3・R4 と 2 ラウンド続けて新クラスが出た。
+  plan の Stop Condition「敵対レビューで同層の新クラスが 2 ラウンド連続 → 停止し設計切り替えを提示」に該当するため、
+  継ぎ当て（R4 の是正）をせずに停止し、Human 判断に戻す（decision-log D-010）
+
+## R5（head `86cf231e`、改訂 plan D-1b 後のループ 1。レビューはオーガナイザー側、全文は PR #1611 コメント）
+
+- 判定: 新クラスあり（critical 1 / major 2 / minor 2）
+- C-1 再現（ワーカー実測）: 閉じ fence を末尾に置く入力（オーガナイザーの試行）は、その閉じ fence 自体が境界規則で拒否され再現しない。
+  閉じ fence を置かない入力（NBSP 版・ZWSP 版）と NBSP + `<div>` 版で rc=0、HIDDEN を unindexed として採用した → 再現
+- 是正: 上表。M-1（M17 は生存変異）→ M17a / M17b に分けて KILLED。M-2 → adv_r1_02 を到達可能な入力（リストの無いトップレベル fence）で復元。
+  m-1 → docstring と handoff に拒否の広さを明記
+
+## R6（head `1c26e9de`、ループ 2。レビューはオーガナイザー側、全文は PR #1611 コメント）
+
+- 判定: 新クラスあり（major 1 / minor 2）。コンテナ軸で R5・R6 と 2 ラウンド連続 → Stop Condition
+- M-1: container 種別の上書き（入れ子の喪失）。R5 是正（D-013）による回帰で、旧 head `86cf231e` では 2 件とも数えていた
+- m-1: リスト項目の内容オフセット 2 固定。m-2: handoff の「61 tests」は誤りで実測は 60 件
+- 対応: 是正せず停止。Human 裁定（2026-10-25）で入れ子をすべて拒否する plan D-1c へ改訂（D-014）。m-1 / m-2 は todo T-19 / T-20
+
+## R7（head `ca9a8b33`、改訂 2 後のループ 1。全文は PR #1611 issuecomment-6403466690）+ 独立 Codex レビュー
+
+- 判定: 新クラスあり（major 1）。改訂 2 後のコンテナ軸では 1 回目だが、改訂前（R4〜R6）から同じ層で新クラスが続いている
+- 台帳追記: 「列 4〜5 の入れ子コンテナの素通り」— `line_shape` が生の列 ≤ 3 でしか quote / list を判定せず、リスト内の基準列のずれ（+2）を見ていない。
+  前ラウンドが見つけられなかった理由: R6 とその是正は列 2 の入れ子だけを再現・TC 化しており、列による早期分岐が生の列で判定している点が検査モデルの外にあった
+- 対応: 継ぎ当てを続けず、Human 決定（2026-10-26「検証設計を変える」）で plan 改訂 3（検証モデルの変更）へ。D-016
+
+## L2（改訂 3 head `56929077`、PR #1611 issuecomment-6407222034）
+
+- Claude 敵対 = REQUEST CHANGES（critical 1 / major 4 / minor 1）、Codex = CONDITIONAL（高 2 / 中 3）。F-1 / F-2 はオーガナイザーが照合済み
+- critical があるため停止し、Human 裁定 D-017（F-1 は hashFiles ガード）を受けて改訂 4 で R-013〜R-018 を反映
+
+### 指摘の集約（R-NNN、追記専用）
+
+| ID | 出典 | severity | 指摘 | 扱い |
+|----|------|---------|------|------|
+| R-001 | R7 M-1 | major | リスト内の列 4〜5 の `> ` / `- ` が入れ子として検出されず、中の段落が indented code 扱いになりマーカー重複検査を回避する（`- confirmed_by: alice` / `    - x` / 空行 / `        confirmed_by: rejected` → ACCEPT） | plan D-1d（list コンテナ内の入れ子は列の上限なしで拒否）+ TC-NEST-C4〜C7 |
+| R-002 | Codex (1) | major | CommonMark 参照パーサーとの差分テストが無い。自作状態機械の食い違いを敵対レビュアーの想像力でしか検出できない | plan V-A（参照パーサー差分テスト）+ TC-DIFF-* |
+| R-003 | Codex (2) | major | 実文書コーパスが現行データ 1 ファイル（HEAD 時点）のみ | plan V-C（seeds / digest の全 git リビジョン）+ TC-CORPUS-* |
+| R-004 | Codex (3) | major | 停止条件「新クラスなし」に探索入力・分類基準・終了判定が定義されていない | plan「停止条件（改訂 3）」で測定可能な終了判定に再定義 |
+| R-005 | L1 Claude major-1 | major | REJECT を無条件合格にしており、常に拒否する実装が停止条件を素通りする | 採用: 参照 AST 由来の `out_of_scope` で FALSE_REJECT を不合格に。REJECT 率上限・「常に拒否」変異の KILLED 必須（plan 検証モデル / TC-DIFF-01・03） |
+| R-006 | L1 Claude major-2 | major | golden の再生成手順が無く、impl 出力からの再生成や glob 0 件で素通りしうる | 採用（形を変えて）: HD-1=y により golden を廃止し CI でも live 比較。件数・版・ハッシュの assert と陽性対照を CI で検査（TC-DIFF-02・05） |
+| R-007 | L1 Codex 高-2 | major | live（0〜19,999）と CI golden（0〜1,999）が分離し、CI で再発を検出できない | 採用: HD-1=y で CI も同範囲の live。HO 未適用の間は E-1 未達扱い（plan「CI での直接比較」） |
+| R-008 | L1 Claude minor-1 | minor | 不可視文字を「コンテナマーカー直前」の独立軸にしていない | 採用: V-B の独立軸に追加（TC-DIFF-08） |
+| R-009 | L1 Claude major-3 | major | コーパスに列 2 以上の `-` / `>` / 番号行が 0 件で、D-1d の誤拒否 0 が空で満たされる | 採用: 誤拒否は V-B の `out_of_scope=False` 側と正常系 TC-NEST-N4〜N6 で測る。コーパスで空であることを plan に明記。retro-phase §2 への入れ子禁止の明記は不採用（スコープ外の規約変更） |
+| R-010 | L1 Codex 高-1 | major | `reference_view` がテスト側の独自実装で自己参照・drift しうる | 採用: impl 非 import の検査、射影規則ごとの手書き期待値テスト、射影側の変異 KILLED 必須。golden を廃止し期待値は毎回参照パーサーから生成（TC-DIFF-06・07） |
+| R-011 | L1 Codex 中 | minor | スコープ膨張（参照パーサー + fuzz + 最小化 + 全履歴コーパス + 変異） | 一部採用: golden・再生成手順・delta debugging 自動化を削除。生成テスト・全履歴コーパス・変異注入は維持（理由は plan「スコープ膨張の指摘の採否」） |
+| R-012 | L1 Claude minor-2 | minor | E-1 の live ログ・seed 範囲・パーサー版を evidence に残していない | 採用: 証跡 4 項目と CI ジョブログ URL を記録（TC-DIFF-09 / todo T-28） |
+| R-013 | L2 Claude F-1（新クラス） | critical | HO 適用順序のデッドロック: verify は requirements 必須だが requirements は #1611（T-23）で入り、#1611 は E-1（HO 適用後）まで ready にならない | 採用（Human 裁定 D-017 = (b)）: patch の参照パーサー step に `if: hashFiles('tests/requirements-seed-delta-reference.txt') != ''`。HO は Human が feature ブランチ → PR で先に main へ。verify は requirements 不在を許容（skip 中は E-1 未達）。todo の depends_on を H-6 → T-26（patch 確定）に組み直し循環を解消 |
+| R-014 | L2 Claude F-2（新クラス）+ Codex 高（verify 素通り）/ 中（rollback 無保護） | major | apply が main 必須で main 直接 commit に誘導 / `--rollback` に前提検査なし / `PLANGATE_APPLY_REPO` で適用先差し替え可 / verify が grep のみで YAML 解析失敗を warn で通す / requirements はハッシュ文字列の有無のみ | 採用: main・master・release/*・detached では die（feature ブランチ必須）、rollback にも同じ前提検査と dirty 検査、`PLANGATE_APPLY_REPO` を廃止し適用先を表示・スクリプト側 toplevel との一致を要求、verify は PyYAML 必須（不在・解析失敗は fail）で `safe_load` の step 構造・`if`・env・timeout を検査、requirements は版（markdown-it-py 4.2.0 / mdurl 0.1.2）と全依存の sha256・余計な依存なしを検査 |
+| R-015 | L2 Claude F-3 | major | `out_of_scope` の過大変異が E-5 に無く、FALSE_REJECT が REJECT に化けて隠れる | 採用: E-5 に `out_of_scope` 変異（常に True / 列 2 以上で True）を追加し KILLED 必須。TC-DIFF-06 に `out_of_scope=False` の手書き期待値を追加 |
+| R-016 | L2 Claude F-4（R-006 同型） | major | wheel ハッシュの assert は空振り（pip `--require-hashes` が担う）/ 件数の数え方が未定義 / 未設定時の skip が黙る | 採用: ハッシュ assert を削除し、実行時 assert は参照パーサーの版と準拠 spec 版に限定。件数は 4 値（AGREE / REJECT / FALSE_REJECT / MISMATCH）の合計で 20,000。`SEED_DELTA_REFERENCE` 未設定時は `SKIP` を明示出力 |
+| R-017 | L2 Claude F-5 + Codex 中（50% の根拠不足 / カテゴリ偏り） | minor | 50% 閾値 2 条件は裏表で独立していない。全体比率では生成器の軸別の偏りを検出できない | 採用: 停止条件を軸別の `out_of_scope=False` 最低件数（各軸の各値で ≥ 下限）に置換。全体比率は補助指標として記録のみ。下限値は T-25 で分布を実測して決め status に記録 |
+| R-018 | L2 Claude F-6（新クラス）+ Codex 高（CI 時間未測定） | major | 20,000 件の live 比較の CI 実行時間が未測定（job `timeout-minutes: 10`）。最小化 O(n²) が CI で走りうる | 採用: T-26 でローカル実測時間と既存 `run-tests.sh` の時間を記録し、上限を E-1 に含める。CI は `SEED_DELTA_MINIMIZE=0`（最小化 off・失敗 seed のみ出力）。差分テストは専用 step（`timeout-minutes: 8`、run-tests.sh とは別）に分離。実測が上限を超える場合は H-6 の前に patch を改訂 |
+| R-019 | L3 Claude M-1（新クラス: 時間予算の組み合わせ）+ Codex 高 | major | 差分 step の `timeout-minutes: 8` は job 全体の 10 分に先に負ける。main の Test 直近の job 所要 297〜441 秒で、余地は約 2.65 分（venv / pip も同じ予算） | 採用（D-018）: 差分テストを別 job `seed-delta-reference`（`needs` なし、暫定 job 15 / install 3 / 差分 10）に分離。既存 job の timeout 10 と step は不変。T-26 で差分 step を `max(5, ceil(2t))` に確定。verify で job / step 構造・step 合計 < job timeout を検査 |
+| R-020 | L3 Claude M-2（新クラス: センチネルファイルによる無効化） | major | requirements を削除・改名すると hashFiles ガードで恒常 skip、CI は緑のまま | 採用（D-018）: tests 側に存在対照 TC-DIFF-11（ハーネスがあれば requirements と pin もある。run-tests.sh → ta-116 経由で既存 job が実行）。HO verify も「ハーネスあり・requirements なし」で FAIL（TC-HO-05、スクラッチで rc=1 を確認） |
+| R-021 | L3 Claude m-3（同型） | minor | verify が `continue-on-error` / `\|\| true` / 追加の `pip install` を検出しない | 採用: job / step の `continue-on-error` 不在、`run` の非空行集合を固定値と完全一致、env 完全一致（TC-HO-06、スクラッチで rc=1 を確認） |
+| R-022 | L3 Claude m-4（同型） | minor | apply / rollback が feature ブランチの base を検証しない | 採用: `origin/main` が HEAD の祖先、`git diff --name-only origin/main` が `test.yml` と `ho/` 以外を含まない、`.github` に untracked なし（TC-HO-07） |
+| R-023 | L3 Codex 中 | minor | `--dry-run` / `--verify` は apply / rollback と同じ安全検査をしない | 採用（明記側）: 保証範囲をスクリプト冒頭・dry-run 出力・plan・TC-HO-04 に明記し、適用安全性の証拠にしない |
+| R-024 | L3 Codex 低 | info | H-6 の `depends_on` と順序注記が食い違う（todo.md:57-63） | 採用: H-6 を T-26 の直後へ移し、`depends_on: T-26`（H-5 は推移的）と注記を一致させた |
+| R-025 | D-018 限定確認（M-2 同型の残存） | major | ハーネスと requirements を同時に削除・改名すると、TC-DIFF-11（条件付き）と HO verify（ho/apply-test-yml.sh:119-120 も条件付き）が両方素通りし、hashFiles ガードで恒常 skip・CI 緑 | 採用: TC-DIFF-11 を「両方が存在し pin を含む」の無条件 assert に変更（置き場所は従来どおり scripts/test_improvement_seed_delta.py）。陽性対照に「両方削除」を追加し E-5 に含める。HO verify の条件分岐は先行 merge 期間（D-017）に限った許容と plan に明記し、#1611 merge 後は TC-DIFF-11 が担保 |
+| R-026 | D-018 限定確認（残存脅威） | minor | main ruleset の required status check は `Markdown lint` のみ（`plangate-cli` も非 required）。新 job の失敗は merge を機械的に止めない | 採用（明記側）: plan の E-1 に残存脅威として明記。required 化は Human 判断事項 H-7（本 PBI の完了条件外）。併せて install step timeout 3 分を T-26 の再測定対象に追加（minor） |
+
+### 監査表（追記専用）
+
+| R-NNN | status | reflected_in(commit) | notes |
+|-------|--------|---------------------|-------|
+| R-001 | reflected（plan D-1d） | `2692ab93` | 実装は C-3 再承認後の exec |
+| R-002 | reflected（plan V-A） | `2692ab93` | CI 入手方法は HD-1=y（D-016） |
+| R-003 | reflected（plan V-C） | `2692ab93` | |
+| R-004 | reflected（plan 停止条件 E-1〜E-5） | `2692ab93` | |
+| R-005 | reflected | `2692ab93` | |
+| R-006 | reflected（golden 廃止に置換） | `2692ab93` | |
+| R-007 | reflected | `2692ab93` | CI 適用は Human（H-6） |
+| R-008 | reflected | `2692ab93` | |
+| R-009 | reflected（retro-phase §2 明記は不採用） | `2692ab93` | |
+| R-010 | reflected | `2692ab93` | |
+| R-011 | partially adopted | `2692ab93` | 採否と理由は plan「スコープ膨張の指摘の採否」 |
+| R-012 | reflected | `2692ab93` | |
+| R-013 | reflected（plan 改訂 4 / D-017 / ho/） | 改訂 4 commit（下記追記で SHA 確定） | 適用は Human（H-6、#1611 より先に main へ） |
+| R-014 | reflected（ho/apply-test-yml.sh） | 同上 | dry-run rc=0（2026-10-27） |
+| R-015 | reflected（plan E-5 / TC-DIFF-06・10） | 同上 | |
+| R-016 | reflected（plan V-A・CI 節 / TC-DIFF-02・04） | 同上 | |
+| R-017 | reflected（plan 判定節 E-4 / TC-DIFF-03） | 同上 | 下限値は T-25 で実測して決定 |
+| R-018 | reflected（plan E-1 / T-26 / ho/test-yml.patch） | 同上 | |
+
+追記: R-013〜R-018 の「改訂 4 commit」は `c4a0a6eb`。
+
+| R-NNN | status | reflected_in(commit) | notes |
+|-------|--------|---------------------|-------|
+| R-019 | reflected（plan CI 節・E-1 / ho/ / TC-HO-02） | 改訂 5 commit（下記追記で SHA 確定） | timeout は暫定、T-26 で確定。D-018 の M-1 限定確認の対象 |
+| R-020 | reflected（plan 存在対照 / TC-DIFF-11 / TC-HO-05 / ho/） | 同上 | TC-DIFF-11 の実装は T-23。D-018 の M-2 限定確認の対象 |
+| R-021 | reflected（ho/apply-test-yml.sh / TC-HO-06） | 同上 | |
+| R-022 | reflected（ho/apply-test-yml.sh / TC-HO-07） | 同上 | |
+| R-023 | reflected（plan / ho/ / TC-HO-04） | 同上 | 検査の追加でなく明記で対応 |
+| R-024 | reflected（todo H-6 / 依存注記） | 同上 | |
+
+追記: R-019〜R-024 の「改訂 5 commit」は `ab25d92d`。
+
+| R-NNN | status | reflected_in(commit) | notes |
+|-------|--------|---------------------|-------|
+| R-025 | reflected（plan 存在対照・E-5 / TC-DIFF-11 / E-5 変異） | 改訂 5.1 commit（下記追記で SHA 確定） | ho/ は無変更（条件分岐の許容範囲を plan に明記） |
+| R-026 | reflected（plan E-1 残存脅威 / todo H-7・T-26） | 同上 | required 化は Human 判断・完了条件外 |
+
+追記: R-025 / R-026 の「改訂 5.1 commit」は `634bc10c`。
