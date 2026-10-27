@@ -323,3 +323,4 @@ D-6 の exec BLOCKED 条件のうち「PF-5 合意」と「module 位置」は�
 | R-NNN | status | reflected_in | notes |
 |---|---|---|---|
 | R-064 | open | — | Human 決定 2026-10-28（AskUserQuestion）: ref / identifier / fingerprint の文字列は sha256 形の ASCII に限り、文字種の正本は #1391 が決める。TASK-1393 は Revision 2.8（TASK-1393 review-external R-089）で前提として参照済み。**TASK-1391 plan への反映は未** |
+| R-064 | reflected | 本 PR（docs/1393-plan-rev28-ref-charset） | plan §Decisions D-15: 形は `^sha256:[0-9a-f]{64}$`（ASCII、長さ 71）、形式外は拒否。Human 決定 2026-10-28（AskUserQuestion） |

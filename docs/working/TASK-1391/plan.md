@@ -33,6 +33,7 @@ Formal JSON Schema: DEFERRED (D-4)
 - D-12: D-9 で無効化した要件（EV-28b / EV-28f）の有効化は、#1395 の producer ができた後に #1391 の plan 改訂 + 再 C-3 で行う（skip marker による自動有効化はしない）
 - D-13: decision の `artifact_ref` が必須なのは `MERGE_READY` の decision だけで、EV-28g の比較対象はそれとする。他の decision では任意で、あれば形式（sha256 ref）を検査する。`delivery_runtime.py` L118 / L162 と ta-87 L107 / L197 を Files に加える（D-10 の decision 側「必須」を本決定で狭める。convergence の `observed_artifact_ref` 必須は D-10 のまま）
 - D-14: ratchet に `evidence_status ∈ {ready, terminal_unready, partial}` の受理検査を足し、不正値を拒否する RED を置く。これで PJ-23 と mutation 28 に検出力を持たせる。`ratchet.py` を Files に加える
+- D-15（Human / 2026-10-28、R-064）: ref / identifier / fingerprint（本 plan の「sha256 ref」を含む）の形は `sha256:` + 小文字 hex 64 桁の ASCII 文字列（正規表現 `^sha256:[0-9a-f]{64}$`、長さ 71）。形式外（非 ASCII・大文字 hex・桁数違い・接頭辞なし）は拒否する。文字種の正本は本 plan で、#1393 の `MAX_REF_CHARS` はこの長さ 71 に従う
 
 ## Mode判定
 
