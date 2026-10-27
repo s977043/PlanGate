@@ -61,7 +61,8 @@ case "${br}" in
   HEAD|main|master|release/*) die "feature ブランチで実行すること（現在: ${br}）" ;;
 esac
 
-# base 検証。事前に `git fetch origin` を実行しておくこと
+# base 検証。origin/main を最新にしてから分岐元を確かめる
+git fetch -q origin || die "origin の fetch に失敗"
 git merge-base --is-ancestor origin/main HEAD || die "origin/main から分岐していない"
 
 # 未コミット変更。**対象ファイル自身は除外する**（下記の落とし穴 2）
