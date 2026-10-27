@@ -317,3 +317,9 @@ reflected_in の commit は本 PR の反映 commit（`Refs: R-062..R-063`）。
 | decision の後ろ 3 キー名（plan L172-173）は PF-5 で確定 | PF-5-4 で本 plan の名前を採用 | 名前の変更なし → plan L285 の再 C-3 条件には該当しない |
 
 D-6 の exec BLOCKED 条件のうち「PF-5 合意」と「module 位置」は満たされた。#1391 の exec 可否は他の前提（#1392 / #1422 等）と併せて Human が判断する。
+
+## ref 文字種の委譲（追記専用 / 2026-10-28、Human 決定）
+
+| R-NNN | status | reflected_in | notes |
+|---|---|---|---|
+| R-064 | open | — | Human 決定 2026-10-28（AskUserQuestion）: ref / identifier / fingerprint の文字列は sha256 形の ASCII に限り、文字種の正本は #1391 が決める。TASK-1393 は Revision 2.8（TASK-1393 review-external R-089）で前提として参照済み。**TASK-1391 plan への反映は未** |

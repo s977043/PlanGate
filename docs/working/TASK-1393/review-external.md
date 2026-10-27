@@ -297,3 +297,4 @@ PF-5（`decision_made` のキー対応と I-11 上限の #1391 / #1392 との合
 | R-084 | open（exec で対応） | — | exec 時要件（plan 本体は不変）。RT-03 の注入方法（fixture フィールド）と `DecisionInputError` → `ERROR` の明示 assert |
 | Codex「make_decision_input が main に無い」 | rejected | — | plan.md:141 で #1393 exec が新設する API と定義済み |
 | R-085〜R-088 | reflected（Revision 2.7、PF-5 Human 決定 2026-10-22） | 本 PR（docs/1393-pf5-limits） | I-11 / Payload size / limits.py / キー対応表 / PF-5 合意済み。再 C-3 待ち |
+| R-089 | reflected（Revision 2.8、Human 決定 2026-10-28 AskUserQuestion） | 本 PR（docs/1393-plan-rev28-ref-charset） | ref / identifier / fingerprint は sha256 形の ASCII に限る（文字種の正本は #1391）。I-11 に形式検査と DecisionInputError、`MAX_REF_CHARS` を形式長に、Rev2.7 の例「64 KiB」を削除（旧上限で 256 × 256 = 65536 B と 1 リストだけで超える）し worst-case event の canonical encoding から算出・fixture 固定。再 C-3 待ち |
