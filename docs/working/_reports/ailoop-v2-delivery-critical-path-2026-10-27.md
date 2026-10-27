@@ -7,7 +7,7 @@
 ## 結論
 
 - **Delivery First Release は BLOCKED。** owner 実装（#1391 Phase 1B / #1392 モデル B / #1393 core）は 3 本とも main に入っていない。main にある `scripts/ai-loop-v2/*.py` は #1402 由来の暫定実装と fixture で、owner-backed E2E（#1395）の証拠にならない。
-- **`limits.py` の循環依存は文書上成立している。** #1391 の exec は「`limits.py` が main にあること」を前提にしている。`limits.py` は #1393 の exec で作る。その #1393 の exec は「#1391 event contract consumable」を待っている。このままではどちらも着手できない。
+- **`limits.py` の循環依存は条件付きで成立する。** #1391 の exec は「`limits.py` が main にあること」を前提にしている（TASK-1391/status.md:44。承認対象の plan.md では :180 の import による含意のみ）。`limits.py` は TASK-1393/todo.md「Preflight」:35 で作る。その節には「#1391 event contract consumable」（:30）も並ぶ。:35 が :30 の後の exec ステップなら閉路になり、Preflight 内の順序なし項目なら閉路にならない。どちらかは一次ソースで確定できない（§3.2）。
 - **C-3 の状態（記録上）**: TASK-1392 は現行 plan と承認記録の hash が一致する。TASK-1393 は Rev 2.7 が未承認で、TASK-1391 は C-3 を実施していない。
 - **Human に最初に決めてほしいこと**は、循環をどの案で切るか（§3 の判断 H-1）。推奨は案 1（`limits.py` を先行して独立 PR にする）だが、決めるのは Human。
 
@@ -54,28 +54,33 @@ TASK-1392 の補足:
 
 | # | 出典（記号アンカー / 行） | 内容 |
 |---|---|---|
-| a | TASK-1391/plan.md「Current verdict」:9 | `Exec: BLOCKED until #1393 PF-5 agreement fixes MAX_* values + the module that defines them (D-6)` |
+| a | TASK-1391/plan.md「Current verdict」:9 | `Exec: BLOCKED until #1393 PF-5 agreement fixes MAX_* values + the module that defines them (D-6)`。**この条件は充足済み**: PF-5 は 2026-10-22 に合意（TASK-1393/todo.md:33 が `[x]`、TASK-1391/status.md:37「D-6 の exec BLOCKED 条件のうち『PF-5 合意』と『module 位置』は満たされた」）。plan:9 自体は「`limits.py` が main にあること」を要求していない |
 | b | TASK-1391/plan.md「P1B-7 decision_made」:180 | 「`MAX_INPUT_REFS` / `MAX_DECISION_EVENT_BYTES` を #1393 から import し、`validate_append` の append-only 層で再検査する。#1391 は値を定義しない」 |
 | c | TASK-1391/status.md「#1393 PF-5 の合意」:24 | 「R-086（PF-5-2）: 定数は新設 `scripts/ai-loop-v2/limits.py`（葉 module、所有者 #1393）」 |
 | d | TASK-1391/status.md「R-034 の前提の照合」:35 | 「ただし `limits.py` は main に未作成（#1393 の exec で作る）」 |
-| e | TASK-1391/status.md「残タスク」:44 | 「exec 前提: #1329 preflight 記録 / reviewed_at_sha 記録 / `limits.py` が main にあること」 |
+| e | TASK-1391/status.md「残タスク」:44 | 「exec 前提: #1329 preflight 記録 / reviewed_at_sha 記録 / `limits.py` が main にあること」。**「`limits.py` が main にあること」を明記する一次ソースはこの行だけ**。status.md は C-3 の承認対象（plan_hash）に入らない |
 | f | TASK-1393/plan.md「APIs」内の **Limits module (R-086 / R-087)**:337 | 「defined in a new leaf module `scripts/ai-loop-v2/limits.py` (no imports from other ai-loop-v2 modules; owner #1393) … The file is created at exec, not in this plan revision.」 |
-| g | TASK-1393/todo.md「Preflight」:35 | 「exec: `scripts/ai-loop-v2/limits.py`（葉 module）を作成し仮値を fixture 固定（R-086 / R-087）」 |
-| h | TASK-1393/todo.md「Preflight」:30 | 「#1391 event contract consumable」（未チェック） |
+| g | TASK-1393/todo.md「Preflight」:35 | 「exec: `scripts/ai-loop-v2/limits.py`（葉 module）を作成し仮値を fixture 固定（R-086 / R-087）」。「exec:」の接頭辞はあるが、置き場所は「RED/GREEN」節ではなく「Preflight」節のチェックボックス |
+| h | TASK-1393/todo.md「Preflight」:30 | 「#1391 event contract consumable」（未チェック）。:35 と同じ「Preflight」節にあり、節内の順序（前提か並列か）は明記されていない |
 | i | TASK-1393/plan.md「Preflight before exec」PF-2 / PF-3 / PF-7 / PF-8 | #1391 の event（`failure_recorded.verification_ref` / `pr_convergence_recorded.observed_artifact_ref` / 値域検査 / `plan_contract_bound`）が前提 |
 | j | TASK-1393/INDEX.md「現在のフェーズ」 | 「blocker: exec 前依存（#1391 / #1392 / #1422 の owner 実装、PF-2〜PF-8）が未解消」 |
 | k | TASK-1392/INDEX.md:16 | 「blocker: #1391 が consumable でない・`scripts/ai-loop-v2/limits.py` が main に無い・#1329 preflight が未通過」 |
 
-### 3.2 判定: 循環は成立する
+### 3.2 判定: 循環は条件付きで成立する
 
 ```text
-#1391 exec ──requires──> limits.py on main            (e, b)
+#1391 exec ──requires──> limits.py on main            (e。b は含意のみ)
 limits.py  ──created by─> #1393 exec                   (d, f, g)
 #1393 exec ──requires──> #1391 event contract consumable (h, i, j)
 #1392 exec ──requires──> #1391 consumable AND limits.py   (k)
 ```
 
-`#1391 → limits.py → #1393 → #1391` で閉路になる。#1392 はこの閉路の下流にあり、どちらか一方が解けない限り着手できない。
+辺の根拠と条件:
+
+- **辺 1（#1391 → `limits.py`）**: 明記は TASK-1391/status.md:44（出典 e）だけで、plan.md では :180 の「#1393 から import」からの含意にとどまる（出典 b）。plan.md:9（出典 a）の条件は PF-5 合意で、すでに満たされている。つまりこの辺は **C-3 の承認対象外である status.md の記録に依存している**。
+- **辺 3（`limits.py` 作成 → #1391 consumable の後）**: TASK-1393/todo.md:35 の位置づけで決まる。:35 が同じ「Preflight」節の :30（#1391 consumable）より後に実行する exec ステップなら閉路になる。Preflight 内の順序のない項目（:30 を待たずに作ってよい）なら閉路にならない。todo には節内の順序が書かれておらず、一次ソースだけではどちらか確定できない。
+
+したがって、**:35 が :30 の後の exec ステップと解釈される場合に限り** `#1391 → limits.py → #1393 → #1391` で閉路になる。この場合 #1392 は閉路の下流にあり、どちらか一方が解けない限り着手できない。解釈の確定は Human に委ねる（H-2 の判断項目）。
 
 循環が生まれた経緯: TASK-1383/dependency-matrix.md「Gate B」の DAG は `#1391 ─> #1393` の一方向だった。そこへ PF-5 の Human 決定（2026-10-22, R-086）で「#1393 所有・exec で作成」の定数 module を #1391 が import する形になり、逆向きの辺が加わった。決定のどれかが誤っていたわけではなく、**所有者と作成タイミングの組み合わせ**で閉路ができている。
 
@@ -86,7 +91,7 @@ limits.py  ──created by─> #1393 exec                   (d, f, g)
 | 案 | 内容 | 必要な手続き | 利点 | 欠点 / リスク |
 |---|---|---|---|---|
 | **案 1** `limits.py` だけを先に独立 PR にする（所有者は #1393 のまま） | 仮値（256 / 16 / 256、バイト上限は算出値の切上げ）と DI-46 相当の fixture テストだけを入れる | スコープ変更（Human 判断）。TASK-1393 の exec 範囲の一部を前倒しすることになるので、**TASK-1393 の re-C3 が要るかどうか**を Human が決める。HO パスには当たらないが、V2 実行系の変更なので #1329 の semantic invalidation 候補になる | 所有境界（D-3 / R-086）を変えない。#1391・#1392 の plan を改訂せずに閉路が解ける。葉 module なので差分は小さく、ロールバックも容易 | Rev 2.7 は未承認のまま。どの plan の承認でこの PR を作るのかを明示する必要がある（候補: Rev 2.7 を再承認してから、その exec の最初の 1 commit として出す）。仮値が後で変わると #1391 / #1392 の fixture も追従が要る |
-| **案 2** #1391 の plan から `limits.py` 依存を外す | #1391 は MAX_* の再検査を exec 範囲から外す、または定数を注入可能にする（後で `limits.py` に配線する） | TASK-1391 plan の改訂 → 簡易 C-1 → C-3。#1391 は**まだ C-3 を実施していない**ので、再承認のやり直しは発生しない | 改訂コストが低い。#1391 を先に consumable にできる | D-3 / D-6（Human 決定 2026-10-22）を弱める。append 時の上限検査が後回しになり、その間の残存脅威（上限の無い event が accept される）を明記する必要がある。後で配線する作業が増え、#1392 の terminal reserve の保証（「`limits.py` が main にあり reserve fixture がそこから導出されてから主張」）も遅れる |
+| **案 2** #1391 の plan から `limits.py` 依存を外す | #1391 は MAX_* の再検査を exec 範囲から外す、または定数を注入可能にする（後で `limits.py` に配線する） | TASK-1391 plan の改訂 → 簡易 C-1 → C-3。#1391 は**まだ C-3 を実施していない**ので、再承認のやり直しは発生しない | 改訂コストが低い。#1391 を先に consumable にできる。plan.md:9 は不変のまま、status.md:44 の exec 前提を見直すだけで成立し得る（「`limits.py` が main にあること」を明記しているのは status.md:44 のみ。§3.2） | D-3 / D-6（Human 決定 2026-10-22）を弱める。append 時の上限検査が後回しになり、その間の残存脅威（上限の無い event が accept される）を明記する必要がある。後で配線する作業が増え、#1392 の terminal reserve の保証（「`limits.py` が main にあり reserve fixture がそこから導出されてから主張」）も遅れる |
 | **案 3** `limits.py` の所有者を中立にする（例: #1391 または共有の葉 module に移す） | 所有者と作成タイミングを #1391 の exec 側に移す | PF-5-2（R-086）の Human 決定を変更する。TASK-1391 / TASK-1393 の両方の plan を改訂し、TASK-1393 は re-C3（TASK-1392 も plan に出典を書いているので影響を確認する） | 閉路が構造ごとなくなる | 決定済みの所有境界を動かすので手続きが最も重い。TASK-1392 の承認済み plan の記述（出典 = `limits.py`、owner #1393）に波及する可能性がある |
 | 案 4（参考）#1391 と #1393 を 1 PR で同時に exec | 2 本の exec を統合する | 両方の C-3 と、統合レビュー | 順序の問題が消える | high-risk 同士を束ねるので、レビュー単位が巨大になる。§7-quater のラウンド設計が重くなる。推奨しない |
 
@@ -94,9 +99,9 @@ limits.py  ──created by─> #1393 exec                   (d, f, g)
 
 1. 要件適合: Human 決定 D-3 / D-6 / R-086 を一つも弱めない。
 2. 安全性: #1391 の append 時の上限検査を先送りしないので、案 2 の残存脅威が生まれない。
-3. コスト: 変更は葉 module 1 つと fixture だけ。承認済みの TASK-1392 plan にも影響しない。
+3. コスト: 変更は葉 module 1 つと fixture だけ。承認済みの TASK-1392 plan にも影響しない。根拠: TASK-1392/plan.md:293 は定数を `limits.py` から import すると書くだけで、`MAX_INPUT_REFS` 等の値を本文に持たない（「provisional values fixed by fixture」）。また保証の主張は「`limits.py` が main に fixture 固定値つきで存在してから」と条件づけられている。案 1 で値が R-087 の仮値どおりに入る限り plan_hash は動かない。
 
-案 1 を選ぶ場合に Human が決めること: (a) TASK-1393 Rev 2.7 を先に再承認して「exec の最初の 1 commit」として出すか、(b) `limits.py` だけを別 PBI として C-3 にかけるか（H-2）。
+案 1 を選ぶ場合に Human が決めること: (a) TASK-1393 Rev 2.7 を先に再承認して「exec の最初の 1 commit」として出すか、(b) `limits.py` だけを別 PBI として C-3 にかけるか（H-2）。(a) の「承認 1 回で済む」は、**Preflight（:30 #1391 consumable ほか）が未完のまま `limits.py` だけを exec する部分例外を Human が明示許可すること**が前提になる。この許可が無ければ (a) では閉路が解けない。また #1329 preflight をこの PR に課すかも別に決める（H-8）。
 
 ## 4. main にある `scripts/ai-loop-v2/*.py` の分類（#1402 由来の暫定実装）
 
@@ -151,12 +156,14 @@ TASK-1392 (C-3 記録上有効) ── limits.py + #1391 ──> #1392 model B e
 | ID | 問い | 選択肢 | 推奨 | 影響 |
 |---|---|---|---|---|
 | H-1 | `limits.py` の循環をどう解くか | 1 = 先行の独立 PR（所有者 #1393）/ 2 = #1391 plan から依存を外す / 3 = 所有者を移す / 4 = 同時 exec | **1** | 1 は所有境界を変えない。2 は D-3 / D-6 を弱める。3 は R-086 を変更し、TASK-1392 にも波及しうる |
-| H-2 | （H-1 = 1 の場合）`limits.py` をどの承認で作るか | a = TASK-1393 Rev 2.7 を re-C3 し、その exec の最初の commit とする / b = `limits.py` 単独の PBI を C-3 にかける | **a** | a は承認を 1 回で済ませられる。b は小さいが PBI が増える |
-| H-3 | TASK-1393 Rev 2.7（`404c432a…`）を承認するか | y / n | 判断材料: C-1 は PASS（review-self.md C1-PLAN-03〜05） | 承認しなければ H-2 = a は取れない |
+| H-2 | （H-1 = 1 の場合）`limits.py` をどの承認で作るか | a = TASK-1393 Rev 2.7 を re-C3 し、その exec の最初の commit とする / b = `limits.py` 単独の PBI を C-3 にかける。あわせて、todo:35 を Preflight 未完（:30 ほか）のまま exec する**部分例外を明示許可するか**（y / n） | **a**（部分例外 y が前提） | a が承認 1 回で済むのは部分例外を許可した場合だけ。許可しなければ a では閉路が解けない（§3.2）。b は小さいが PBI が増える |
+| H-3 | TASK-1393 Rev 2.7（`404c432a…`）を承認するか | y / n | 判断材料: Revision 2.7 に対する簡易 C-1 は **PASS（Unknowns / 依存 WARN）**（review-self.md:158〜170「2026-10-22 10:03」追記） | 承認しなければ H-2 = a は取れない |
 | H-4 | TASK-1391 Rev 2.4（`d4f69f26…`）を C-3 にかけるか | y / n | — | B-8 / B-13 の gap は TASK-1391 の C-3 でしか閉じない |
 | H-5 | TASK-1392 の c3.json の実物が `f02d69cf…` か照合するか | y（Human が承認に使った worktree を確認する）/ n | **y** | 記録上は一致している。exec 前の確認として必要 |
 | H-6 | `ratchet.py` / `scope_observer.py` の位置づけ（§4 で「不明」とした 2 つ） | 1 = 正式採用 / 2 = 暫定（移行・レビュー対象）/ 3 = 保留 | — | #1395 で consume するときの扱いが決まる |
 | H-7 | TASK-1392 INDEX.md:18 の古い記述（再承認が必要）を直すか | y / n | y | INDEX の鮮度契約（L0 の誤読を防ぐ） |
+| H-8 | （H-1 = 1 の場合）`limits.py` 先行 PR に #1329 preflight を課すか。課すなら誰が記録するか | y（記録者: #1393 担当 / Human）/ n | — | #1391 / #1392 の exec は #1329 preflight 未通過で blocked（TASK-1392 INDEX.md:16、TASK-1391 status.md:44）。V2 実行系の変更は #1329 の semantic invalidation 候補（TASK-1393 todo.md:40）なので、課さない場合はその理由を記録する必要がある |
+| H-9 | TASK-1393/todo.md:27「Revision 2.6 に対する c3.json を Human が再発行」が未チェックのまま。チェックするか | y / n | y | review-self.md:156 では Rev 2.6 は 2026-10-21 に APPROVED。todo の更新漏れとみられる。Rev 2.7 の再発行（todo:34）と混同しないため |
 
 ## 7. Delivery First Release の判定
 
