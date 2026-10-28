@@ -26,7 +26,7 @@ Application-owned telemetry + access controls
   -> post-deployment external observation (not retroactive RunEvent mutation)
 ```
 
-Daily batch cadence is a **triggering opportunity**, not evidence of an issue or a grant of execution permission. An application problem is not automatically a Harness evolution candidate.
+Daily batch cadence is a **triggering opportunity**, not evidence of an issue or a grant of execution permission. An application problem is not automatically a Harness evolution candidate. The V2 North Star explicitly forbids connecting Evolution to Production feedback before Delivery is stable; an offline intake experiment neither proves Delivery stability nor authorizes the production-feedback-to-Evolution connection.
 
 ## 2. Ownership / duplication audit
 
