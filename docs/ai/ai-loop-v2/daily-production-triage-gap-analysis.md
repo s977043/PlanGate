@@ -70,7 +70,7 @@ The table is a reporting checklist only. If any item already exists in a canonic
 2. First isolate sensitive or irreversible failures (auth/authz, security, payment, data loss). Their escalation floor must not be canceled by low frequency or an unknown denominator.
 3. Among otherwise comparable failures, rank using a documented severity policy and a *measured* affected population or frequency; break ties deterministically by sanitized fingerprint and deployment reference. Never use arrival order or an invented weighted impact score.
 4. If cohorts, time windows, versions, or sampling differ, mark comparisons `inconclusive` rather than ranking on a false common basis.
-5. Stable source IDs and fingerprint plus explicit observation-window boundaries are required for deduplication. Cross-day recurring issues link to the existing work, not one fresh PBI per daily run.
+5. Keep three identities separate: provider event ID for transport retry deduplication, sanitized failure fingerprint for candidate incident grouping, and `[start,end)` for a daily aggregate snapshot. A new daily window is **not** a new incident identity. Cross-day recurrence links to existing work through the existing materializer; do not derive a new PBI solely from the date.
 6. An empty or unavailable collection is `no_evidence / incomplete`, not `zero incidents`. The daily report is optional when the provider is unavailable.
 
 ## 4. Security and authority contract
