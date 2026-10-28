@@ -44,7 +44,7 @@ Daily batch cadence is a **triggering opportunity**, not evidence of an issue or
 
 ## 3. Read-only candidate information contract (illustrative, not persisted schema)
 
-An initial daily report may show at most five proposals selected by explicitly defined policy, with all missing values preserved as unknown. The output reuses source references rather than copying raw telemetry.
+An initial daily report may show at most five *ordinary ranked proposals* selected by explicitly defined policy, with all missing values preserved as unknown. **Critical security, authorization, payment, and data-loss alerts must not be silently hidden by this presentation cap**: show a separate safe critical-alert count and explicit escalation to the existing operator/incident channel, including overflow or source incompleteness. The output reuses source references rather than copying raw telemetry; the summary is not itself a safety alerting system.
 
 | Field | Meaning / invariant |
 | --- | --- |
