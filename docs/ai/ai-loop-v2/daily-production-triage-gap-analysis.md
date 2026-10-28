@@ -90,7 +90,7 @@ A candidate is eligible for test authoring only after a reviewer confirms the in
 
 1. Fix the expected behavior / acceptance criteria by the existing PlanGate authority path. Do not let the generator rewrite WHAT to make a test pass.
 2. Choose the cheapest valid test layer: Unit (pure logic), Integration/Contract (API or DB boundaries), deterministic E2E (critical user journey), or investigation-only when observations are insufficient.
-3. Confirm the regression test actually **fails on the defective pre-fix revision** for the claimed reason (RED), then succeeds on the fixed revision (GREEN), and retains the same oracle.
+3. Confirm the regression test actually **fails on the defective pre-fix revision** for the claimed reason (RED), then succeeds on the fixed revision (GREEN), using equivalent test setup and the same oracle. A failure caused only by environment drift or flaky infrastructure is not RED evidence; if the pre-fix revision cannot be tested, keep the candidate investigation-only.
 4. Capture code revision, test command and environment, exit code, evidence references, and limitations. A generated test file without actual execution is a proposal only.
 5. River Review evaluates the approved change evidence in its existing Review Artifact; only Human-confirmed incident/revert cases with reviewer-visible pre-fix context enter #2701 paired replay.
 6. Keep post-deployment recovery telemetry as external follow-up; do not mutate a terminal Run's evidence stream.
