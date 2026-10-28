@@ -49,7 +49,7 @@ An initial daily report may show at most five proposals selected by explicitly d
 | Field | Meaning / invariant |
 | --- | --- |
 | `window_start`, `window_end` | UTC/RFC3339, `[start,end)` interval and observation timezone; no sliding ambiguity or invented timestamp. |
-| `source_ref`, `source_digest` | Access-controlled or sanitized immutable reference; digest proves content binding, **not** provider/actor authenticity. |
+| `source_ref`, `source_digest` | Repository-visible reference must be sanitized and opaque; raw provider URLs or access tokens stay behind provider access controls. Digest proves content binding, **not** provider/actor authenticity. |
 | `provider`, `captured_at` | Origin/collection metadata, independent of any AI-written narrative. |
 | `fingerprint`, `deployment_ref` | Candidate grouping / app version, not root cause. Unknown versions are not folded into a proven deployment correlation. |
 | `events_observed` | Count of matching recorded events, with collection completeness / sampling declared. |
