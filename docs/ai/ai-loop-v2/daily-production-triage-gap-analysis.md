@@ -54,7 +54,7 @@ An initial daily report may show at most five proposals selected by explicitly d
 | `fingerprint`, `deployment_ref` | Candidate grouping / app version, not root cause. Unknown versions are not folded into a proven deployment correlation. |
 | `events_observed` | Count of matching recorded events, with collection completeness / sampling declared. |
 | `affected_sessions` | Provider-side aggregate count **only if actually measured**; never expose session identifiers. |
-| `affected_users` | Provider-side privacy-safe aggregate, where authorized; `null` if unavailable. Session count is not a user-count surrogate. |
+| `affected_users` | Provider-side privacy-safe aggregate only when authorized and safe to release (including small-cohort suppression); `null` if unavailable or withheld. Session count is not a user-count surrogate. |
 | `eligible_population`, `coverage` | Explicit cohort/denominator and sampling completeness. No rate with unknown or zero denominator. |
 | `severity`, `materiality` | Separately attributed operational severity and unverified prioritization hypothesis. Security/data-loss hard floors are not averaged away. |
 | `observed_failure`, `cause_hypothesis` | Distinct evidence classes. Reported provider assertion is not automatically independently observed. |
