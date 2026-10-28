@@ -68,7 +68,7 @@ The table is a reporting checklist only. If any item already exists in a canonic
 
 1. Separate **observed** event counts from deduced risk/impact and independently verified root causes.
 2. First isolate sensitive or irreversible failures (auth/authz, security, payment, data loss). Their escalation floor must not be canceled by low frequency or an unknown denominator.
-3. Among otherwise comparable failures, rank using a documented severity policy and a *measured* affected population or frequency, with a deterministic tie-breaker. Do not invent exact weighted impact scores.
+3. Among otherwise comparable failures, rank using a documented severity policy and a *measured* affected population or frequency; break ties deterministically by sanitized fingerprint and deployment reference. Never use arrival order or an invented weighted impact score.
 4. If cohorts, time windows, versions, or sampling differ, mark comparisons `inconclusive` rather than ranking on a false common basis.
 5. Stable source IDs and fingerprint plus explicit observation-window boundaries are required for deduplication. Cross-day recurring issues link to the existing work, not one fresh PBI per daily run.
 6. An empty or unavailable collection is `no_evidence / incomplete`, not `zero incidents`. The daily report is optional when the provider is unavailable.
