@@ -1,5 +1,7 @@
 # TEST CASES — TASK-1393 / #1393
 
+> Revision 2.8 (R-089 / R-090 / Human decision 2026-10-29, R-091), matching plan Revision 2.9: `MAX_REF_CHARS == 71` (DI-46 changed); the byte bound (`MAX_DECISION_EVENT_BYTES` / `DECISION_FIXED_OVERHEAD` / `ENVELOPE_OVERHEAD`) is moved to a follow-up task (DI-45 / DC-13 moved); ref form checks added (DI-48〜DI-50).
+
 > Revision 2.7 (2026-10-22), matching plan Revision 2.7: whole-event byte bound with `ENVELOPE_OVERHEAD` (R-085; DI-45 / DC-13 changed), `limits.py` values (R-086 / R-087; DI-46 added), #1391 key names (R-088; DI-47 added).
 
 > Revision 2 (2026-09-25), matching plan Revision 2. IDs are new; Revision 1 IDs are not reused.
@@ -49,8 +51,11 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DI-36 | DIAGNOSING, ProgressAssessment whose current_verdicts = {D: pass} while the input gives D verdict fail | `DecisionInputError` (P-3) |
 | DI-43 | results + FailureRecords + policy verdicts = `MAX_INPUT_REFS` + 1 | `DecisionInputError` (I-11); exactly `MAX_INPUT_REFS` is accepted |
 | DI-44 | `required_verifiers` = `MAX_REQUIRED_VERIFIERS` + 1 / a verifier_id or fingerprint of `MAX_REF_CHARS` + 1 characters | `DecisionInputError` (I-11) |
-| DI-45 | counts within limits but the input-derived payload part + `DECISION_FIXED_OVERHEAD` + `ENVELOPE_OVERHEAD` = `MAX_DECISION_EVENT_BYTES` + 1 byte | `DecisionInputError` (I-11); exactly the maximum is accepted |
-| DI-46 | `limits.py` fixture (R-086 / R-087) | `MAX_INPUT_REFS == 256`, `MAX_REQUIRED_VERIFIERS == 16`, `MAX_REF_CHARS == 256`; `MAX_DECISION_EVENT_BYTES` >= the computed worst-case whole event at these limits; `limits.py` imports no other ai-loop-v2 module |
+| DI-45 | moved in Revision 2.8 to a follow-up task (the byte bound, R-091) | — |
+| DI-46 | `limits.py` fixture (R-086 / R-087 / R-090 / R-091) | `MAX_INPUT_REFS == 256`, `MAX_REQUIRED_VERIFIERS == 16`, `MAX_REF_CHARS == 71`; `limits.py` defines no byte constant (moved to a follow-up task, R-091); `limits.py` imports no other ai-loop-v2 module |
+| DI-48 | a verifier_id, fingerprint or ref containing a non-ASCII character (e.g. `sha256:` + 63 hex + `é`) | `DecisionInputError` (I-11, R-089) |
+| DI-49 | a verifier_id, fingerprint or ref of 71 ASCII characters that is not in the form `^sha256:[0-9a-f]{64}$` (uppercase hex / other prefix) | `DecisionInputError` (I-11, R-089); a string in the form is accepted |
+| DI-50 | a verifier_id, fingerprint or ref of `sha256:` + 65 lowercase hex (72 characters) | `DecisionInputError` (I-11, R-089 / R-090) |
 | DI-47 | `decision_to_event_draft` key names (R-088) | the event uses `artifact_ref`, `verdicts`, `failure_fingerprints`; `current_artifact_ref` / `artifact_verdicts` do not appear as event keys |
 | DI-12 | policy verdict `ALLOW` / unknown | `DecisionInputError` |
 | DI-13 | DIAGNOSING, FR whose verification_ref points to a stale D FAIL (plus a fresh D FAIL with its own FR) | `DecisionInputError` |
@@ -182,7 +187,7 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DC-10 | full repository suite | PASS |
 | DC-11 | a `progress_assessed` event with `no_progress=true` and a `repair_attempted` event with empty `evidence_delta` and a non-empty `resolved_blockers` exist in the stream; the DecisionInput is built with `assess_progress` giving `no_progress=false` | decision follows `assess_progress` (no API reads the event values) |
 | DC-12 | DC-09 positive controls: plant one forbidden import per category in a copy of the module — `subprocess`, `socket`, `time`, `pathlib` / `open`, `os`, the #1392 storage module, a GitHub / merge client (7 cases) | the module import allowlist test fails for each |
-| DC-13 | for inputs at every I-11 bound, `decision_to_event_draft(decide(input))` | canonical encoded size of the whole event (envelope and binding keys included, R-085) `<= MAX_DECISION_EVENT_BYTES` |
+| DC-13 | moved in Revision 2.8 to a follow-up task (the whole-event byte bound, R-085 / R-091) | — |
 
 ## RT — Ratchet / TA-92 caller migration (PF-1, R-081; Revision 2.6)
 
