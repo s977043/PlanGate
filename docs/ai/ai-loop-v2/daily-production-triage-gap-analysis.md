@@ -39,7 +39,7 @@ Daily batch cadence is a **triggering opportunity**, not evidence of an issue or
 | PBI admission / deduplication | `pbi_materializer.py` / #1442: `materialize / no_action / discover_more` and `update_existing / link_only / create_new` | **No second materializer**; any proposal references this decision owner. |
 | Real-data rollout | #1465: eligible actual Run, independent Admission oracle, and Human decision required | Synthetic fixture cannot be counted as live. Until valid real cases exist, rollout quality is `unknown`. |
 | Test selection and repair boundary | #1430 / existing testing and Human C-3/C-4 | Recommend smallest sufficient layer; no automatic change to requirement, expected outcome, security behavior, or test oracle. |
-| Reviewer evidence and benchmark | River Review #2701, #1574 / #2615 and `paired-replay` | Incident/revert cases only after separate human confirmation of pre-fix oracle. A UX complaint alone is not a reviewer false negative. |
+| Reviewer evidence and benchmark | River Review #2701 (Incident/Revert-grounded Reviewer Benchmark; `paired-replay` is the evaluation method named in that Issue, not PlanGate `fx-09-paired-replay.json` of #874). River Review-side eval infrastructure it builds on (River Review #1574 / #2615) is out of this document's scope; PlanGate #1574 (growth-harness seed→digest delta) is unrelated | Incident/revert cases only after separate human confirmation of pre-fix oracle. A UX complaint alone is not a reviewer false negative. |
 | Scheduled execution | External host / optional Claude Code scheduler | Out of first slice. Operator-owned auth, cost ceiling, fail-closed behavior, and explicit activation decision required. |
 
 ## 3. Read-only candidate information contract (illustrative, not persisted schema)
@@ -113,6 +113,9 @@ A candidate is eligible for test authoring only after a reviewer confirms the in
 | Test oracle changes during repair | Return to the existing requirement/approval boundary. |
 | E2E test proposed for a pure calculation | Prefer unit unless an independently justified journey concern remains. |
 | Incident not visible to reviewer at pre-fix PR revision | Not a reviewer miss in River Review #2701. |
+| Small-cohort suppression defeated by subtracting overlapping windows or segments | Subtraction cannot recover the suppressed cohort; unavailable aggregates stay withheld, not zero. |
+| Empty or failed collector output | `no_evidence / incomplete`; never reported as zero incidents. |
+| Critical alerts exceeding the top-five presentation cap | Separate critical-alert count and explicit escalation; no silent truncation. |
 
 ## 6. Bounded rollout plan and stop/rollback
 
@@ -120,11 +123,20 @@ A candidate is eligible for test authoring only after a reviewer confirms the in
 | --- | --- | --- |
 | 0 — present PR | This docs-only gap analysis and evidence boundary; existing code unchanged | Validate documentation quality and external reviewer of assumptions; Human C-4 approval before merge. |
 | 1 — separate proposed PR | Optional offline deterministic grouping/report over synthetic sanitized fixtures, **only if gap proven** | Baseline comparison, negative controls above, exact-head CI, C-3/Human authorization; no live collection. |
-| 2 — operator decision | Authorized application-side instrumentation and limited real-data shadow; no raw telemetry in PlanGate | Measure false candidates, privacy leakage, denominators, human usefulness, execution cost, and source completeness. Keep #1465 live run classification intact. |
+| 2 — operator decision | Authorized application-side instrumentation and limited real-data shadow; no raw telemetry in PlanGate | **Delivery V2 release boundary passed** (`production-feedback-loop.md` Slice B / `north-star.md` §17); otherwise intake validation stays fixture/offline. Measure false candidates, privacy leakage, denominators, human usefulness, execution cost, and source completeness. Keep #1465 live run classification intact. |
 | 3 — bounded integration | Candidate → existing PBI path; approval before RED/GREEN tests; River Review case eligibility as separate opt-in | North Star Delivery-stability prerequisite demonstrated before any Production-feedback-to-Evolution wiring; independent evidence review, pre-fix RED and post-fix GREEN where eligible, human review. |
-| 4 — optional scheduling | Host-owned daily task with tool-level enforced read-only credentials, scoped repository/provider access, retry/cooldown, budget and kill switch | Activated only on explicit decision; a prompt saying 'read only' is insufficient. Disable on breach, increased false positives, unexpected writes/cost, or unverifiable Evidence. |
+| 4 — optional scheduling | Host-owned daily task with tool-level enforced read-only credentials, scoped repository/provider access, retry/cooldown, budget and kill switch | Requires the Delivery V2 release boundary to have passed (Slice B). Activated only on explicit decision; a prompt saying 'read only' is insufficient. Disable on breach, increased false positives, unexpected writes/cost, or unverifiable Evidence. |
 
 Suggested initial success criteria for a later real-data experiment: every actionable suggestion has retrievable permitted provenance, no raw sensitive identifier leaks, all denominators retain their collection windows, no unauthorized mutation, and baseline/after values for operator usefulness, false positive burden, and actual cost are measured. These are **eligibility criteria**, not assertions that they are already met.
+
+Measurable acceptance carried over from the Issue #1620 comment (checked against synthetic negative controls in §5; none is met yet):
+
+- 0 unauthorized raw logs or identifiers stored in the repository or sent to an LLM.
+- 0 duplicate proposals from the same transport event; 0 cross-day PBI proliferation for the same incident.
+- 0 false 0% rates computed from an unknown denominator.
+- 0 critical alerts left unnotified because of the top-five truncation.
+- Baseline behavior of the existing R0 ingress / PBI materializer unchanged (exact-head regression).
+- Without real data and independent review, the rollout claim stays `INCONCLUSIVE`.
 
 Stop on untrusted promotion, semantic test-oracle drift, source scope breach, new unapproved cost, budget exhaustion, or missing exact-head verification. Rollback for Phase 0 is reverting this documentation PR; Phase 1 would require an explicit disabled-by-default path and tests confirming default behavior is unchanged. Any external task must have its own operator-owned kill switch.
 
@@ -149,5 +161,6 @@ The following are five bounded **author self-review passes of the proposal**, no
 3. Decide whether a reproducible gap truly remains in existing R0 ingress/Admission. If not, close the feature slice with documentation only rather than creating infrastructure.
 4. Only after authorized real evidence exists, revisit the #1465 quality decision and the independent #1468/#1473 runtime proof separately.
 5. For River Review #2701, obtain eligible human-verified pre-fix incidents; do not promote speculative UX incidents to reviewer ground truth.
+6. Decide how to treat the Issue #1620 acceptance item of iterative five-perspective review: only author self-review has been performed, and the independent five-role review (architecture / security / evaluation / operations / cross-repo) is **not yet executed**. Run it, or explicitly accept the criterion as unmet, before treating Phase 0 as complete.
 
 **References:** [Runtime Evidence RFC](../../rfc/runtime-evidence-feedback-loop.md), [Production Feedback Guide](./production-feedback-loop.md), [V2 North Star](./north-star.md), [Issue #1620](https://github.com/s977043/PlanGate/issues/1620), [River Review #2701](https://github.com/s977043/river-review/issues/2701).
