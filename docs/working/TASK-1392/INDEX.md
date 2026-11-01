@@ -13,7 +13,9 @@ V2 RunState の revision CAS と accepted RunEvent の durable commit を、1 �
 
 BLOCKED
 
-> **2026-10-23 追記（C-3 APPROVED）**: Human が `bin/plangate approve` で C-3 を承認した（`approvals/c3.json`、2026-10-23T00:19:01Z、`plan_hash` = `sha256:f02d69cf…`。照合済みで、plan Rev は PR #1606 の merge 後の版）。c3.json は承認に使った worktree に untracked で保管されている。exec は blocker 待ち（`blocker`: #1391 が consumable でない・`scripts/ai-loop-v2/limits.py` が main に無い・#1329 preflight が未通過 / `owner`: #1391・#1393 の担当と Human / `unblock_condition`: todo Preflight の条件をすべて満たす）
+> **2026-10-23 追記（C-3 APPROVED）**: Human が `bin/plangate approve` で C-3 を承認した（`approvals/c3.json`、2026-10-23T00:19:01Z、`plan_hash` = `sha256:f02d69cf…`。照合済みで、plan Rev は PR #1606 の merge 後の版）。c3.json は承認に使った worktree に untracked で保管されている。exec は blocker 待ち（`blocker`: #1391 が consumable でない・#1329 preflight が未通過 / `owner`: #1391・#1393 の担当と Human / `unblock_condition`: todo Preflight の条件をすべて満たす）
+
+> **2026-11-02 追記（事実更新）**: `scripts/ai-loop-v2/limits.py` は PR #1622（merge commit `46685615`、2026-10-29T16:19:12Z）で main に入った。上記 blocker のうち「`limits.py` が main に無い」は解消
 
 > **2026-10-23 追記（#1393 PF-5 への追従、R-105〜R-108）**: PF-5 の Human 決定（2026-10-22、TASK-1393 R-085〜R-088）に合わせ、plan「Size and cost bound」の terminal reserve を event 全体基準・`TERMINAL_RESERVE >= 1 event かつ >= MAX_DECISION_EVENT_BYTES`（envelope overhead 0）・定数の出典 `limits.py` に改めた。**plan が変わったので plan_hash が変わり、C-3 の再承認（Human による `approvals/c3.json` の発行）が必要**。簡易 C-1 は **PASS with WARN**
 
