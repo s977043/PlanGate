@@ -29,6 +29,29 @@ sh install.sh --dry-run             # 変更内容を確認（実行しない）
 
 ### Claude Code へのインストール
 
+#### 方法 A: Marketplace 経由（推奨）
+
+root の [README.md](../../README.md) の Option A と同じ手順です。
+
+セッション内スラッシュコマンド:
+
+```text
+/plugin marketplace add s977043/PlanGate
+/plugin install plangate
+```
+
+CLI から:
+
+```bash
+claude plugin marketplace add s977043/PlanGate
+claude plugin install plangate
+```
+
+> **注意（併用による二重配置）**: Marketplace 経由で plugin を有効化しているプロジェクトで
+> `install.sh`（方法 C）を実行すると、同じ agents / commands / rules が `.claude/agents/` /
+> `.claude/commands/` / `.claude/rules/`（および `plangate-manifest.json`）にも配置され、
+> plugin 版と二重になります。plugin を使う場合は `install.sh` を実行しないでください。
+
 #### 前提条件
 
 - Claude Code CLI（最新版推奨）
@@ -54,7 +77,7 @@ sh install.sh --dry-run             # 変更内容を確認（実行しない）
     grep -rl 'bin/plangate' .
     ```
 
-#### 方法 A: プラグインパスを直接指定（推奨）
+#### 方法 B: プラグインパスを直接指定
 
 ```bash
 # 1. リポジトリをクローン（またはサブモジュールとして追加）
@@ -72,7 +95,7 @@ git clone https://github.com/s977043/plangate.git /path/to/plangate
 }
 ```
 
-#### 方法 B: ファイルを手動コピー
+#### 方法 C: ファイルを手動コピー
 
 ```bash
 # 1. リポジトリをクローン（ホームディレクトリ等に）
