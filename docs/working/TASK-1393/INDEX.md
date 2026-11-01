@@ -1,6 +1,6 @@
 # TASK-1393 INDEX
 
-> 最終更新: 2026-11-02（C-3 APPROVED 2026-10-29T10:09:18Z を反映。PR #1619 / #1622 merge 済み）
+> 最終更新: 2026-11-02 07:45（C-3 APPROVED 2026-10-29T10:09:18Z を反映。PR #1619 / #1622 merge 済み）
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従い、
 > plan 完了時に生成し、**以降はフェーズ遷移のたびに更新する**
 > （C-3 承認 / plan 確定反映・再編集 / exec 完了 / V-1 判定確定 / WF-05 発行 / BLOCKED 化・解除）。
@@ -13,7 +13,8 @@ V2 の immutable VerificationResult / FailureRecord と、観測済みの事実�
 
 exec
 
-> C-3 Gate: APPROVED（Human、`bin/plangate approve`、2026-10-29T10:09:18Z、`plan_hash` `sha256:ed637f48…`。origin/main `46685615` の plan.md の sha256 と一致することを照合済み）。c3.json は承認に使った worktree に untracked で保管されている。plan Revision 2.8 は PR #1619（`62b9a5df`）、exec 第 1 歩の `limits.py` は PR #1622（`46685615`）で main に merge 済み。下記 exec 前依存は引き続き残る。
+> C-3 Gate: APPROVED（Human、`bin/plangate approve`、2026-10-29T10:09:18Z、`plan_hash` `sha256:ed637f48…`。origin/main `46685615` の plan.md の sha256 と一致することを照合済み）。c3.json は承認に使った worktree に untracked で保管されている。plan Revision 2.8 は PR #1619（`62b9a5df`）、exec 第 1 歩の `limits.py` は PR #1622（`46685615`）で main に merge 済み。
+> exec 開始済み（第 1 歩 = #1622 merge）。以降のタスク（records / progress assessment / decision / event draft adapter / caller migration 等）は PF-1〜PF-8・#1391 event contract consumable・#1392 RunState input shape frozen・#1422 B-8 / B-13 の語彙決定待ち（todo.md「Preflight」、status.md「残タスク」の BLOCKED 行）。
 > 以下は 2026-10-22 時点の記述（履歴）。
 > Revision 2.7（PF-5 Human 決定 R-085〜R-088、2026-10-22）を確定反映。改訂後 plan の sha256 は `404c432a60157932cda967b4c3d90c77979c6d00df874a295828bfd8b0af35b3` で、既存 c3.json（Revision 2.6、`ec2a0db8…`）とは一致しない＝Human の c3.json 再発行待ち。再承認後も下記 exec 前依存が残る。
 > 前回 C-3 Gate: APPROVED（Human、2026-10-21T09:15:23Z = JST 18:15、Revision 2.6、`plan_hash` `sha256:ec2a0db8…`）。Mode = high-risk。
