@@ -1,6 +1,6 @@
 # TASK-1391 作業ステータス
 
-> 最終更新: 2026-11-02 00:00
+> 最終更新: 2026-11-02 07:26
 > 現在フェーズ: BLOCKED
 > モード: high-risk（plan.md「Mode判定」）
 > 発行時点 SHA (issued_at_commit): 該当なし（完了資産ではない。照合基準は `origin/main` `742f63f6`）
