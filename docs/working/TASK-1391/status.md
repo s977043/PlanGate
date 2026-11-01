@@ -1,7 +1,7 @@
 # TASK-1391 作業ステータス
 
-> 最終更新: 2026-10-23 10:00
-> 現在フェーズ: C-3 待ち
+> 最終更新: 2026-11-02 07:26
+> 現在フェーズ: BLOCKED
 > モード: high-risk（plan.md「Mode判定」）
 > 発行時点 SHA (issued_at_commit): 該当なし（完了資産ではない。照合基準は `origin/main` `742f63f6`）
 
@@ -17,6 +17,8 @@
 | 2026-10-22 09:07 | plan / C-1 / C-2 | Phase 1B 差分計画へ改訂（#1602 / `69387d32`、Revision 2.4）。C-2 R1〜R3 と R3 後スコープ検証を反映、簡易 C-1 PASS（WARN 2 件） |
 | 2026-10-22 17:55 | C-3 待ち | #1393 PF-5 の Human 決定を review-external に記録（#1605 / `742f63f6`）。本 plan は変更なし |
 | 2026-10-23 10:00 | C-3 待ち | 本 status.md を新設。`approvals/` 無し = C-3 未実施 |
+| 2026-10-29 19:09 | C-3 | C-3 Gate: APPROVED（Human、`bin/plangate approve`、`approved_at` 2026-10-29T10:09:24Z、`plan_hash` `sha256:d4641124…`。c3.json は承認に使った worktree に untracked で保管。origin/main の plan.md の sha256 と一致を照合済み） |
+| 2026-10-30 00:58 | BLOCKED | plan を変更した PR #1619（`62b9a5df`）が main に merge。plan_hash は上記と一致のまま。exec は下記「残タスク」の前提待ち（`blocker`: #1329 preflight 記録 / reviewed_at_sha 記録 / `owner`: Human / `unblock_condition`: 残タスクの exec 前提をすべて満たす） |
 
 ## #1393 PF-5 の合意（2026-10-22、Human 決定 / TASK-1393 R-085〜R-088）
 
@@ -40,8 +42,8 @@ D-6 の exec BLOCKED 条件のうち「PF-5 合意」と「module 位置」は�
 
 ## 残タスク
 
-- [ ] Human C-3（`approvals/c3.json` の発行）
-- [ ] exec 前提: #1329 preflight 記録 / reviewed_at_sha 記録 / `limits.py` が main にあること
+- [x] Human C-3（`approvals/c3.json` の発行、2026-10-29 19:09）
+- [ ] exec 前提: #1329 preflight 記録 / reviewed_at_sha 記録（`limits.py` は PR #1622 / `46685615` で main に入り充足）
 
 ## 計画からの変更点
 
