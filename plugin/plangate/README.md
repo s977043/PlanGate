@@ -48,9 +48,10 @@ claude plugin install plangate
 ```
 
 > **注意（併用による二重配置）**: Marketplace 経由で plugin を有効化しているプロジェクトで
-> `install.sh`（方法 C）を実行すると、同じ agents / commands / rules が `.claude/agents/` /
+> `install.sh`（冒頭のワンコマンドインストール、および方法 C の `install.sh --claude`）を実行すると、
+> 同じ agents / skills / commands / rules が `.claude/agents/` / `.claude/skills/` /
 > `.claude/commands/` / `.claude/rules/`（および `plangate-manifest.json`）にも配置され、
-> plugin 版と二重になります。plugin を使う場合は `install.sh` を実行しないでください。
+> plugin 版と二重になります。デュアル運用は技術的に可能ですが、併用は推奨しません。
 
 #### 前提条件
 
