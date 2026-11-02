@@ -6,87 +6,52 @@
     "plugin/plangate/README.md": "12b36d82534cddfbe5daf1f44cecdcf89b92a555",
     "install.sh": "6f5433b70cd4b05574226e55d9109bfb48f76587"
   },
-  "final_readme_blob": "f80b0a1bdc0f3fc32bd04d868c3116a728483ea3",
+  "five_loop_readme_blob": "f80b0a1bdc0f3fc32bd04d868c3116a728483ea3",
   "rounds": [
     {
       "round": 1,
       "before": {
         "sha256": "c959fdcb96d9de95635c96df7a128ec36ac35c008834e7ff5b78a85285899462",
-        "exit_code": 1,
-        "passed": 1,
-        "total": 4,
+        "exit_code": 1, "passed": 1, "total": 4,
         "failed_checks": ["codex-marketplace-followed-by-plugin-add", "codex-installed-state-check", "remove-obsolete-marketplace-list-claim"]
       },
-      "after": {
-        "sha256": "d7310dba6ecae41a815cc31dd79dbaa17a3b8cd541111c6368a0edb1698d6a29",
-        "exit_code": 0,
-        "passed": 4,
-        "total": 4
-      }
+      "after": {"sha256": "d7310dba6ecae41a815cc31dd79dbaa17a3b8cd541111c6368a0edb1698d6a29", "exit_code": 0, "passed": 4, "total": 4}
     },
     {
       "round": 2,
       "before": {
         "sha256": "d7310dba6ecae41a815cc31dd79dbaa17a3b8cd541111c6368a0edb1698d6a29",
-        "exit_code": 1,
-        "passed": 5,
-        "total": 9,
+        "exit_code": 1, "passed": 5, "total": 9,
         "failed_checks": ["recommended-path-first", "qualified-claude-install", "legacy-install-not-presented-as-one-command", "legacy-anchor-preserved"]
       },
-      "after": {
-        "sha256": "100fb0e116533bc53091bc7842e3505177bb8444f2d46cc0806b3e46fe75f385",
-        "exit_code": 0,
-        "passed": 9,
-        "total": 9
-      }
+      "after": {"sha256": "100fb0e116533bc53091bc7842e3505177bb8444f2d46cc0806b3e46fe75f385", "exit_code": 0, "passed": 9, "total": 9}
     },
     {
       "round": 3,
       "before": {
         "sha256": "100fb0e116533bc53091bc7842e3505177bb8444f2d46cc0806b3e46fe75f385",
-        "exit_code": 1,
-        "passed": 9,
-        "total": 15,
+        "exit_code": 1, "passed": 9, "total": 15,
         "failed_checks": ["matching-uninstall-scope", "codex-uninstall-command", "residual-files-warning", "no-settings-plugins-array", "documented-session-local-plugin-dir", "no-broad-directory-delete-advice"]
       },
-      "after": {
-        "sha256": "ce84c39c9cad6b62fc44bce52d5fc4729e2e642b59cc8a3ce806597b3d774acf",
-        "exit_code": 0,
-        "passed": 15,
-        "total": 15
-      }
+      "after": {"sha256": "ce84c39c9cad6b62fc44bce52d5fc4729e2e642b59cc8a3ce806597b3d774acf", "exit_code": 0, "passed": 15, "total": 15}
     },
     {
       "round": 4,
       "before": {
         "sha256": "ce84c39c9cad6b62fc44bce52d5fc4729e2e642b59cc8a3ce806597b3d774acf",
-        "exit_code": 1,
-        "passed": 15,
-        "total": 20,
+        "exit_code": 1, "passed": 15, "total": 20,
         "failed_checks": ["plan-human-gate-exec-order", "expected-plan-artifacts", "plan-only-first-success", "no-auto-enforcement-claim", "approval-is-not-missing-from-english"]
       },
-      "after": {
-        "sha256": "d72c759ef52bc12908dd1b680df21374353282881a86609cc9664e2e967993f3",
-        "exit_code": 0,
-        "passed": 20,
-        "total": 20
-      }
+      "after": {"sha256": "d72c759ef52bc12908dd1b680df21374353282881a86609cc9664e2e967993f3", "exit_code": 0, "passed": 20, "total": 20}
     },
     {
       "round": 5,
       "before": {
         "sha256": "d72c759ef52bc12908dd1b680df21374353282881a86609cc9664e2e967993f3",
-        "exit_code": 1,
-        "passed": 25,
-        "total": 27,
+        "exit_code": 1, "passed": 25, "total": 27,
         "failed_checks": ["one-h1", "official-cli-sources"]
       },
-      "after": {
-        "sha256": "59c2a034591a0f97c65892f1050d05fc55973c3e5eac6e866b0d58a1327b3bf3",
-        "exit_code": 0,
-        "passed": 27,
-        "total": 27
-      }
+      "after": {"sha256": "59c2a034591a0f97c65892f1050d05fc55973c3e5eac6e866b0d58a1327b3bf3", "exit_code": 0, "passed": 27, "total": 27}
     }
   ],
   "round5_checker_correction": "Do not count shell comments inside fenced code as H1 headings; extra-H1 mutation still fails. Earlier stage1-4 predicates are unchanged.",
@@ -117,7 +82,7 @@
   ],
   "unexecuted": [
     "Claude Code / Codex plugin actual install, plan generation and uninstall",
-    "Repository full test suite / full link check / full Markdown linter",
+    "Repository full test suite / full link check / full Markdown linter in the local environment",
     "Independent reviewer, Human C-4, merge"
   ],
   "output_retention": "Raw subprocess data intentionally omitted; retain assertions, baseline hashes and exit codes only.",
@@ -127,6 +92,16 @@
     "run_id": 41530152643,
     "initial_result": "failure",
     "cause": "Forbidden raw subprocess data fields in results.json",
-    "remediation": "Remove raw subprocess data from stored evidence and reproducer output; no hook, workflow or exception changes."
+    "remediation": "Remove raw subprocess data from stored evidence and reproducer output; no hook, workflow or exception changes.",
+    "verified_fix_head": "acdf39ab81256f48088dd64d67828c99e7e00beb",
+    "verified_fix_run_id": 41530829154,
+    "verified_fix_result": "success"
+  },
+  "post_pr_document_review": {
+    "readme_blob": "a05ad915f2fa5ff18c46565f3b2709a69c23f602",
+    "readme_sha256": "9e7fe8ca2dcd2e8b08a19fc10d20d22d8dd0cbf6b4ada9370bf78f3bd766eb55",
+    "checker_blob": "e21c01d3283a3f756b221ad6ef7e9dd01fe5b4e4",
+    "passed": 27, "total": 27, "exit_code": 0,
+    "change": "Clarify installation checks for Marketplace, session-local plugin loading and directly copied definitions separately."
   }
 }
