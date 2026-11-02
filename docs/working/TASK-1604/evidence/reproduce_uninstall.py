@@ -40,7 +40,8 @@ def main() -> int:
         observations = []
         def run(*options: str) -> subprocess.CompletedProcess[str]:
             proc = subprocess.run(['sh', str(installer), *options, '--target', str(target)], cwd=root, env=env, text=True, capture_output=True, timeout=10)
-            observations.append({'options': list(options), 'exit_code': proc.returncode, 'stdout': proc.stdout.replace(str(root), '<fixture>'), 'stderr': proc.stderr.replace(str(root), '<fixture>')})
+            # Do not persist raw subprocess data (metrics-privacy section 4).
+            observations.append({'options': list(options), 'exit_code': proc.returncode})
             proc.check_returncode()
             return proc
         run('--claude')
