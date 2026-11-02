@@ -51,7 +51,7 @@ __doc__ = """gh_exec.py — gh / git を実行する **唯一の境界**（TASK-
 ⚠️ **回避不能なギャップ（AC-5 の scope 明示）**: in-process allowlist は
 **この Python プロセス経由の作用しか守らない**。同一セッションの Bash や別
 プロセスからの `gh pr merge` は塞がらず、トークン権限でも分離できない
-（merge も comment も同じ `pull_requests:write` スコープ）。したがって
+（merge は `Contents: write`、comment は `Pull requests: write` だが、PR head への push にも `Contents: write` が要るため、push を許すトークンでは merge だけを禁止できない）。したがって
 **AC-5 の scope は「Executor 経路のみを守る」**。プロセス外は既存の規範層
 （`.claude/rules/`）+ C-4 Human レビューに残る。
 
