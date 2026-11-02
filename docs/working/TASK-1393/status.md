@@ -1,11 +1,23 @@
 # TASK-1393 作業ステータス
 
-> 最終更新: 2026-10-21 18:40
-> 現在フェーズ: BLOCKED
+> 最終更新: 2026-11-03
+> 現在フェーズ: exec
 > モード: high-risk
 > 発行時点 SHA (issued_at_commit): 該当なし（完了資産ではない。plan Revision 2.6 の反映コミットは `03bae6aa`）
 >
 > 現在フェーズの値域は `INDEX.md` と共通（正本: `.claude/rules/working-context.md`）。
+
+## 現在の要点（2026-11-03）
+
+`INDEX.md`（#1626反映済み）と現行`plan.md`へ同期した。Planの最新改訂はRevision 2.10で、C-3は2026-10-29T10:09:18Z・plan_hash `sha256:ed637f48…`と記録されている。
+#1622で件数・文字数3定数、#1624でTA-118のCI配線がmainに入っている。**execは定数部分のみで、core本体は依存待ち。**
+
+今回C-3実物は取得できておらず、記録上の承認を実行許可へ読み替えない。現在のblockerと実行順序は[current-state.md](current-state.md)、局所検証と未実行範囲は[検証記録](evidence/verification-2026-11-03.md)を参照する。
+byte系3定数は#1623で未実装。`limits.py`が存在するだけでbyte検査・terminal reserveの前提が満たされたとは扱わない。
+
+今回の局所検証はI0自己レビューのみであり、独立レビューやV-1〜V-4の完了を示さない。
+
+以下のフェーズ履歴・過去のC-3・PR表は当時の記録として残す。現在の承認対象・PR状態を表すものではない。
 
 ## フェーズ履歴
 
@@ -20,14 +32,14 @@
 | 2026-10-21 18:40 | BLOCKED | exec 前依存（#1391/#1392/#1422 owner, PF-2〜PF-8）未解消 |
 | 2026-10-22 10:03 | C-3 待ち | Human 決定 PF-5（R-085〜R-088）を Revision 2.7 として確定反映、簡易 C-1 PASS（Unknowns WARN）。**既存 c3.json の `plan_hash`（`ec2a0db8…`）は改訂後 plan（`404c432a60157932cda967b4c3d90c77979c6d00df874a295828bfd8b0af35b3`）と一致しない＝Human の再発行待ち** |
 
-## C-3 Gate: APPROVED
+## 履歴：Revision 2.6 の C-3 Gate: APPROVED
 
 - 承認: Human（`approvals/c3.json`、`approved_at` 2026-10-21T09:15:23Z = JST 18:15、`source` cli）
 - 対象: plan Revision 2.6、`plan_hash` `sha256:ec2a0db8358c53f089f652f4671e36c5366dbffa4df5dbf9d6a15129d237ec60`
 - C-3 承認は BLOCKED 解消を意味しない。exec 前依存は下記「残タスク」の BLOCKED 行
 - 承認後に出た R-083（major）/ R-084（minor）は plan 本体を変えず exec 時要件として扱う（review-external.md）
 
-## 全体構成（PR 一覧）
+## 履歴：当時のPR一覧
 
 | PR | ブランチ | 状態 |
 |----|---------|------|
@@ -41,7 +53,7 @@
 - [ ] PF-1〜PF-8（PF-1 は ratchet.py / TA-92 を含む）
 - [ ] exec 時要件 R-083: ratchet.py で `pr_convergence.scope` を `changed_paths` × `allowed_scope` から導出し、`test_negative_control_failing_on_baseline_is_inconclusive` を RT-04 の名指し回帰にする
 - [ ] exec 時要件 R-084: RT-03 の注入方法（fixture フィールド）と `DecisionInputError` → `ERROR` の明示 assert
-- [ ] #1422 B-8 / B-13 の語彙決定（#1391 plan の C-3）— blocker: event 未定義 / owner: #1391 / unblock_condition: #1391 plan の C-3
+- [ ] #1422 B-8 / B-13 の語彙・適用時点・runtime実装の照合 — owner: #1391 / #1395。#1391のC-3承認記録だけでbinding invariantをPASSにしない。
 
 ## 計画からの変更点
 
