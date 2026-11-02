@@ -1,0 +1,138 @@
+{
+  "base_commit": "0d8d9468b815ed7068b31b1a5742667d745ad202",
+  "independence": "I0: same assistant; no independent subagent review",
+  "scope": "Targeted documentation assertions and disposable installer fixture, not a full checkout or runtime plugin E2E",
+  "source_blobs": {
+    "plugin/plangate/README.md": "12b36d82534cddfbe5daf1f44cecdcf89b92a555",
+    "install.sh": "6f5433b70cd4b05574226e55d9109bfb48f76587"
+  },
+  "final_readme_blob": "f80b0a1bdc0f3fc32bd04d868c3116a728483ea3",
+  "rounds": [
+    {
+      "round": 1,
+      "before": {
+        "sha256": "c959fdcb96d9de95635c96df7a128ec36ac35c008834e7ff5b78a85285899462",
+        "exit_code": 1,
+        "passed": 1,
+        "total": 4,
+        "failed_checks": ["codex-marketplace-followed-by-plugin-add", "codex-installed-state-check", "remove-obsolete-marketplace-list-claim"]
+      },
+      "after": {
+        "sha256": "d7310dba6ecae41a815cc31dd79dbaa17a3b8cd541111c6368a0edb1698d6a29",
+        "exit_code": 0,
+        "passed": 4,
+        "total": 4
+      }
+    },
+    {
+      "round": 2,
+      "before": {
+        "sha256": "d7310dba6ecae41a815cc31dd79dbaa17a3b8cd541111c6368a0edb1698d6a29",
+        "exit_code": 1,
+        "passed": 5,
+        "total": 9,
+        "failed_checks": ["recommended-path-first", "qualified-claude-install", "legacy-install-not-presented-as-one-command", "legacy-anchor-preserved"]
+      },
+      "after": {
+        "sha256": "100fb0e116533bc53091bc7842e3505177bb8444f2d46cc0806b3e46fe75f385",
+        "exit_code": 0,
+        "passed": 9,
+        "total": 9
+      }
+    },
+    {
+      "round": 3,
+      "before": {
+        "sha256": "100fb0e116533bc53091bc7842e3505177bb8444f2d46cc0806b3e46fe75f385",
+        "exit_code": 1,
+        "passed": 9,
+        "total": 15,
+        "failed_checks": ["matching-uninstall-scope", "codex-uninstall-command", "residual-files-warning", "no-settings-plugins-array", "documented-session-local-plugin-dir", "no-broad-directory-delete-advice"]
+      },
+      "after": {
+        "sha256": "ce84c39c9cad6b62fc44bce52d5fc4729e2e642b59cc8a3ce806597b3d774acf",
+        "exit_code": 0,
+        "passed": 15,
+        "total": 15
+      }
+    },
+    {
+      "round": 4,
+      "before": {
+        "sha256": "ce84c39c9cad6b62fc44bce52d5fc4729e2e642b59cc8a3ce806597b3d774acf",
+        "exit_code": 1,
+        "passed": 15,
+        "total": 20,
+        "failed_checks": ["plan-human-gate-exec-order", "expected-plan-artifacts", "plan-only-first-success", "no-auto-enforcement-claim", "approval-is-not-missing-from-english"]
+      },
+      "after": {
+        "sha256": "d72c759ef52bc12908dd1b680df21374353282881a86609cc9664e2e967993f3",
+        "exit_code": 0,
+        "passed": 20,
+        "total": 20
+      }
+    },
+    {
+      "round": 5,
+      "before": {
+        "sha256": "d72c759ef52bc12908dd1b680df21374353282881a86609cc9664e2e967993f3",
+        "exit_code": 1,
+        "passed": 25,
+        "total": 27,
+        "failed_checks": ["one-h1", "official-cli-sources"]
+      },
+      "after": {
+        "sha256": "59c2a034591a0f97c65892f1050d05fc55973c3e5eac6e866b0d58a1327b3bf3",
+        "exit_code": 0,
+        "passed": 27,
+        "total": 27
+      }
+    }
+  ],
+  "round5_checker_correction": "Do not count shell comments inside fenced code as H1 headings; extra-H1 mutation still fails. Earlier stage1-4 predicates are unchanged.",
+  "negative_mutations": [
+    {"mutation": "missing_codex_plugin_add", "detected": true, "failed_checks": ["codex-marketplace-followed-by-plugin-add", "poc-install-example-fixed"]},
+    {"mutation": "wrong_uninstall_scope", "detected": true, "failed_checks": ["matching-uninstall-scope"]},
+    {"mutation": "missing_c3_in_usage", "detected": true, "failed_checks": ["plan-human-gate-exec-order"]},
+    {"mutation": "extra_h1", "detected": true, "failed_checks": ["one-h1"]}
+  ],
+  "installer_reproduction": {
+    "baseline_blob": "6f5433b70cd4b05574226e55d9109bfb48f76587",
+    "fixture_only": true,
+    "preexisting_file_preserved_on_install": true,
+    "preexisting_file_wrongly_recorded": true,
+    "dry_run_preserves_file": true,
+    "dry_run_lists_preexisting_for_deletion": true,
+    "preexisting_file_deleted_on_uninstall": true,
+    "bug_reproduced": true,
+    "commands": [
+      {
+        "options": ["--claude"],
+        "exit_code": 0,
+        "stdout": "\u001b[1;32m[plangate]\u001b[0m Claude Code: <fixture>/source/plugin/plangate → <fixture>/project/.claude (v8.24.0)\n\u001b[0;90m[plangate]\u001b[0m skip (exists): agents/example.md\n[plangate] manifest: <fixture>/project/.claude/plangate-manifest.json (1 files)\n\u001b[1;32m[plangate]\u001b[0m 完了: installed=0, skipped=1 (--force で上書き可)\n",
+        "stderr": ""
+      },
+      {
+        "options": ["--uninstall", "--dry-run"],
+        "exit_code": 0,
+        "stdout": "[dry-run]  WOULD DELETE: <fixture>/project/.claude/agents/example.md\n",
+        "stderr": ""
+      },
+      {
+        "options": ["--uninstall"],
+        "exit_code": 0,
+        "stdout": "[plangate] deleted: <fixture>/project/.claude/agents/example.md\n[plangate] removed manifest: <fixture>/project/.claude/plangate-manifest.json\n[plangate] removed empty dir: <fixture>/project/.claude/agents\n",
+        "stderr": ""
+      }
+    ]
+  },
+  "other_commands": [
+    {"command": "python -m py_compile verify_readme.py reproduce_uninstall.py", "exit_code": 0},
+    {"command": "git diff --check (partial local snapshot)", "exit_code": 0}
+  ],
+  "unexecuted": [
+    "Claude Code / Codex plugin actual install, plan generation and uninstall",
+    "Repository full test suite / full link check / full Markdown linter",
+    "Independent reviewer, Human C-4, merge"
+  ]
+}
