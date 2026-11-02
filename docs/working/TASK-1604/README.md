@@ -2,7 +2,7 @@
 
 ## 状態と範囲
 
-2026-11-03 JST。Refs #1604 / #1636。plugin README の文書修正と検証記録です。#1604 全体の完了、実機導入成功、C-3/C-4 承認、merge-ready を宣言する記録ではありません。
+2026-11-03 JST。Refs #1604 / #1636、PR #1637。plugin README の文書修正と検証記録です。#1604 全体の完了、実機導入成功、C-3/C-4 承認、merge-ready を宣言する記録ではありません。
 
 - 基準 main: `0d8d9468b815ed7068b31b1a5742667d745ad202`
 - ブランチ: `docs/TASK-1604-onboarding-20261103`
@@ -47,9 +47,23 @@ root README には既に Codex の `marketplace add` と `plugin add` があり�
 | 4 | plan と exec が同じブロックで連続し承認が不明瞭 | 最小成果物の確認→Human C-3→別操作の exec、日英で境界を明記 | 20/20、exit 0 |
 | 5 | 公式出典の不足、検査器がコード内の shell コメントを H1 と誤認 | 出典・前提を追加、検査器はコードフェンス外だけを数えるよう是正。#1636 と初回導線へのリンク追加 | 27/27、exit 0 |
 
-最終版に対する負例は、Codex plugin add の削除、uninstall scope の取り違え、利用例の C-3 の削除、H1 の重複追加の 4 種をすべて検出しました。文書の安全性全般を網羅するテストではありません。
+5 回終了時の本文に対する負例は、Codex plugin add の削除、uninstall scope の取り違え、利用例の C-3 の削除、H1 の重複追加の 4 種をすべて検出しました。文書の安全性全般を網羅するテストではありません。
 
-実行結果と各回の文書 SHA-256 は [evidence/results.json](evidence/results.json) に保存しています。途中の全文 snapshot はコミットしていないため、保存済み checker で再実行できるのは最終版と手元で用意した負例です。履歴のハッシュから中間本文を復元できるとは主張しません。
+実行結果と各回の文書 SHA-256 は [evidence/results.json](evidence/results.json) に保存しています。途中の全文 snapshot はコミットしていないため、保存済み checker で再実行できるのは取得可能な本文と手元で用意した負例です。履歴のハッシュから中間本文を復元できるとは主張しません。
+
+## PR 作成後の追加検証と修正
+
+初期 head `8a07f71c5ad217e9cd6c2f279b36d9ed036dc9fd` の Metrics Privacy Check（run `41530152643`）が、生のプロセス出力を保存した禁止フィールドで失敗しました。結果 JSON と再現スクリプトから生出力を除き、固定 fixture の判定結果・終了コード・source hash だけを残しました。hook・CI・例外設定は変更していません。
+
+さらに、インストール確認を Marketplace / セッション限定読み込み / 直接展開ごとに分離しました。直接展開版に plugin 一覧や名前空間付きコマンドを要求しないよう補正しています。
+
+- 再検証した plugin README blob: `a05ad915f2fa5ff18c46565f3b2709a69c23f602`
+- 同 SHA-256: `9e7fe8ca2dcd2e8b08a19fc10d20d22d8dd0cbf6b4ada9370bf78f3bd766eb55`
+- 文書チェック: 27/27、exit 0。Python 構文検査と局所差分の whitespace 検査も exit 0。
+- 生出力を除いた再現スクリプトを再実行し、#1636 の同じ欠陥と JSON の判定値一致を確認。
+- head `acdf39ab81256f48088dd64d67828c99e7e00beb` の Privacy run `41530829154` は success。同時点で CI / Schema / sync-plugin / Issue Link も success、Test / CodeQL は実行中でした。
+
+この CI スナップショットは記載 head の結果です。以降の記録更新を含む最終 head の判定へ流用せず、PR の現在の head に対する結果を別途確認します。
 
 ## 再現方法
 
@@ -76,10 +90,10 @@ rm -- "$baseline"
 
 - plugin README の基準 blob: `12b36d82534cddfbe5daf1f44cecdcf89b92a555`
 - `install.sh` の基準 blob: `6f5433b70cd4b05574226e55d9109bfb48f76587`（9435 bytes）
-- 修正 README blob: `f80b0a1bdc0f3fc32bd04d868c3116a728483ea3`
-- 修正 README SHA-256: `59c2a034591a0f97c65892f1050d05fc55973c3e5eac6e866b0d58a1327b3bf3`
+- 5 回終了時の README blob: `f80b0a1bdc0f3fc32bd04d868c3116a728483ea3`
+- 5 回終了時の README SHA-256: `59c2a034591a0f97c65892f1050d05fc55973c3e5eac6e866b0d58a1327b3bf3`
 
-GitHub connector で取得したソースを局所再構成し、変更前の Git blob SHA1 を照合しました。環境の git clone は GitHub の DNS 解決で失敗しました。従って完全 checkout ではなく、全体テスト・全リンク検証・既存 Markdown linter は未実行です。Claude Code / Codex 実行バイナリもなく、Marketplace 導入・計画生成・撤去の実機 E2E は未実施です。
+GitHub connector で取得したソースを局所再構成し、変更前の Git blob SHA1 を照合しました。環境の git clone は GitHub の DNS 解決で失敗しました。従って完全 checkout ではなく、ローカルでの全体テスト・全リンク検証・既存 Markdown linter は未実行です。Claude Code / Codex 実行バイナリもなく、Marketplace 導入・計画生成・撤去の実機 E2E は未実施です。GitHub Actions の結果とローカルで実施できなかった検査は区別します。
 
 `install.sh` はソース全体の hash 一致後、最小配布 fixture で実行しました。既存ファイルが導入時にスキップされるのに manifest に入り、撤去時に消えることを再現し、#1636 に切り出しています。製品全体の導入試験ではありません。
 
