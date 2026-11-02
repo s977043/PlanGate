@@ -54,6 +54,19 @@ _ai_dev_map_file=""
 _ai_dev_spec_file=""
 trap 'rm -f "${_tmp_norm:-}" "${_ai_loop_map_file:-}" "${_tmp_rewritten:-}" "${_tmp_ho:-}" "${_ai_dev_map_file:-}" "${_ai_dev_spec_file:-}"' EXIT INT TERM
 
+# ref map（TSV）への 1 行追記。TAB / 改行を含む名前は列が切れて期待ファイルが
+# stale 側（削除）に倒れるため、書き込み前に拒否して停止する（#1609）。
+_map_append() {
+  # $1=map file / $2=basename / $3=source path
+  case "$2$3" in
+    *'	'*|*'
+'*)
+      _warn "ERROR: ref map に TAB / 改行を含む名前は書けません — $2 <- $3（正本ファイル名を変更してください）"
+      exit 1 ;;
+  esac
+  printf '%s\t%s\n' "$2" "$3" >> "$1"
+}
+
 # mass-delete safety guard の共通判定（#861 / #877 / #914）。
 # 判定 + 警告 + guard_fired フラグ立てのみを担う（呼び出し元の制御脱出は含めない
 # — sync_dir は関数 return / 経路1 はループ内 skip / 経路2 はトップレベル if と
@@ -350,7 +363,7 @@ if [ -d "$AI_LOOP_WORKFLOWS_DIR" ]; then
     _b="$(basename "$_f")"
     _ai_loop_expected_refs="$_ai_loop_expected_refs $_b"
     _ai_loop_ref_base_count=$((_ai_loop_ref_base_count + 1))
-    printf '%s\t%s\n' "$_b" "$_f" >> "$_ai_loop_map_file"
+    _map_append "$_ai_loop_map_file" "$_b" "$_f"
   done
 fi
 if [ -d "$AI_LOOP_SPEC_DIR" ]; then
@@ -358,12 +371,12 @@ if [ -d "$AI_LOOP_SPEC_DIR" ]; then
     [ -f "$AI_LOOP_SPEC_DIR/$_name" ] || continue
     _ai_loop_expected_refs="$_ai_loop_expected_refs $_name"
     _ai_loop_ref_base_count=$((_ai_loop_ref_base_count + 1))
-    printf '%s\t%s\n' "$_name" "$AI_LOOP_SPEC_DIR/$_name" >> "$_ai_loop_map_file"
+    _map_append "$_ai_loop_map_file" "$_name" "$AI_LOOP_SPEC_DIR/$_name"
   done
   if [ -f "$AI_LOOP_SPEC_DIR/ho-paths.md" ]; then
     _ai_loop_expected_refs="$_ai_loop_expected_refs ho-paths.md"
     _ai_loop_ref_base_count=$((_ai_loop_ref_base_count + 1))
-    printf '%s\t%s\n' "ho-paths.md" "$AI_LOOP_SPEC_DIR/ho-paths.md" >> "$_ai_loop_map_file"
+    _map_append "$_ai_loop_map_file" "ho-paths.md" "$AI_LOOP_SPEC_DIR/ho-paths.md"
   fi
 fi
 
@@ -672,7 +685,7 @@ for _ad_skill in $AI_DEV_SKILLS; do
       continue
     fi
     _ad_expected="$_ad_expected $_ad_base"
-    printf '%s\t%s\n' "$_ad_base" "$REPO_ROOT/$_ad_src" >> "$_ai_dev_map_file"
+    _map_append "$_ai_dev_map_file" "$_ad_base" "$REPO_ROOT/$_ad_src"
   done < "$_ai_dev_spec_file"
 
   while read -r _ad_base _ad_src; do

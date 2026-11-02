@@ -39,6 +39,8 @@ Design
 >
 > これらは `#544/#551` の Loop 安全制御（Phase1 検出）と連動し、
 > C-3 承認不可の strict Gate（Phase2）へ接続する（`docs/ai/review-gate-decision-mapping.md` §5 参照）。
+>
+> 補足4（#1599）: `done_check` では、各成功条件・期待値が**変更前のコードでも満たされてしまわないか**を確認する。満たされる場合は変更を検証していないため `needs_clarification` とし、変更前後の差分比較（出力の一致 / 不一致）など、変更によってのみ結果が変わる条件への置き換えを `next_actions` に出す。
 
 ## 入力
 
