@@ -106,24 +106,9 @@
     "preexisting_file_deleted_on_uninstall": true,
     "bug_reproduced": true,
     "commands": [
-      {
-        "options": ["--claude"],
-        "exit_code": 0,
-        "stdout": "\u001b[1;32m[plangate]\u001b[0m Claude Code: <fixture>/source/plugin/plangate → <fixture>/project/.claude (v8.24.0)\n\u001b[0;90m[plangate]\u001b[0m skip (exists): agents/example.md\n[plangate] manifest: <fixture>/project/.claude/plangate-manifest.json (1 files)\n\u001b[1;32m[plangate]\u001b[0m 完了: installed=0, skipped=1 (--force で上書き可)\n",
-        "stderr": ""
-      },
-      {
-        "options": ["--uninstall", "--dry-run"],
-        "exit_code": 0,
-        "stdout": "[dry-run]  WOULD DELETE: <fixture>/project/.claude/agents/example.md\n",
-        "stderr": ""
-      },
-      {
-        "options": ["--uninstall"],
-        "exit_code": 0,
-        "stdout": "[plangate] deleted: <fixture>/project/.claude/agents/example.md\n[plangate] removed manifest: <fixture>/project/.claude/plangate-manifest.json\n[plangate] removed empty dir: <fixture>/project/.claude/agents\n",
-        "stderr": ""
-      }
+      {"options": ["--claude"], "exit_code": 0},
+      {"options": ["--uninstall", "--dry-run"], "exit_code": 0},
+      {"options": ["--uninstall"], "exit_code": 0}
     ]
   },
   "other_commands": [
@@ -134,5 +119,14 @@
     "Claude Code / Codex plugin actual install, plan generation and uninstall",
     "Repository full test suite / full link check / full Markdown linter",
     "Independent reviewer, Human C-4, merge"
-  ]
+  ],
+  "output_retention": "Raw subprocess data intentionally omitted; retain assertions, baseline hashes and exit codes only.",
+  "post_pr_validation": {
+    "head": "8a07f71c5ad217e9cd6c2f279b36d9ed036dc9fd",
+    "workflow": "Metrics Privacy Check",
+    "run_id": 41530152643,
+    "initial_result": "failure",
+    "cause": "Forbidden raw subprocess data fields in results.json",
+    "remediation": "Remove raw subprocess data from stored evidence and reproducer output; no hook, workflow or exception changes."
+  }
 }
