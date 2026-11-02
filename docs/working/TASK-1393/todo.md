@@ -31,8 +31,9 @@
 - [ ] #1392 RunState input shape frozen
 - [ ] #1392 derives the transition from (state, action) (request on PR #1406) or this plan's Transition ownership is revisited
 - [x] #1391 decision_made payload keys and I-11 limits agreed (plan PF-5, Human decision 2026-10-22, R-085〜R-088, Revision 2.7)
-- [ ] Revision 2.7 に対する c3.json を Human が再発行（AI は発行しない）
-- [ ] exec: `scripts/ai-loop-v2/limits.py`（葉 module）を作成し仮値を fixture 固定（R-086 / R-087）
+- [ ] Revision 2.10 に対する c3.json を Human が再発行（AI は発行しない、R-092）
+- [ ] exec: `scripts/ai-loop-v2/limits.py`（葉 module）を作成し `MAX_INPUT_REFS = 256` / `MAX_REQUIRED_VERIFIERS = 16` / `MAX_REF_CHARS = 71` の 3 定数を fixture 固定（R-086 / R-087 / R-091）
+- [ ] follow-up #1623: byte 系 3 定数（`MAX_DECISION_EVENT_BYTES` / `DECISION_FIXED_OVERHEAD` / `ENVELOPE_OVERHEAD`）と I-11 の byte 検査（DI-45 / DC-13）を V2 `decision_made` 構造の確定後に実装（R-091）
 - [ ] #1395 budget 確定時に `MAX_INPUT_REFS >= budget 最大件数` を検証（R-087）
 - [ ] plan "Preflight before exec" PF-1〜PF-8（plan.md の PF-7 / PF-8 を含む。INDEX.md / current-state.md / dependency-reconciliation.md と同じ範囲）
 - [ ] #1395 budget requirement recorded (release condition)
