@@ -114,9 +114,11 @@ cp -r ~/plangate/plugin/plangate/rules/*    /your-project/.claude/rules/
 
 #### インストール確認
 
-Claude Code の `/plugin` の Installed 一覧、または `claude plugin list` で導入状態を確認します。
-セッションで `/` を入力し、`/plangate:` で始まるコマンドが表示されるか確認してください。
-再読み込みを求められた場合は、CLI の案内に従います。
+方法 A は `/plugin` の Installed 一覧、または `claude plugin list` で導入状態を確認します。
+方法 A / B は、そのプラグインを読み込んだセッションで `/` を入力し、`/plangate:` のコマンド表示を確認します。
+方法 B はセッション限定なので、永続インストール済みであることは要求しません。
+方法 C は plugin の一覧ではなく、導入先の `.claude/commands/` 等の配置と、`/working-context` などローカル定義の表示を確認します。
+直接展開版と plugin 版では名前空間が異なります。再読み込みを求められた場合は、CLI の案内に従います。
 
 ---
 
