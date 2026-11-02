@@ -61,6 +61,7 @@ WF-05 Verify & Handoff
 ### Iron Law との関係
 
 - **Iron Law #3 (NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE)**: 本 Skill の判定は必ず実行ログ / コマンド出力 / evidence ファイルに紐付ける。「PASS と思われる」「動いているはず」は禁止。
+  - 根拠ログは、CI が実際に呼ぶコマンド（package.json の scripts / Makefile / CI 定義の step など）経由のものとする。ツールを直接実行した場合は CI 経路との差を併記し、差を説明できないログは根拠にしない（#1598）
 - **Iron Law #4 (NO HIDING FAILURES OR UNCERTAINTY)**: 失敗・未実行・未検証の AC は「不足 / 保留」として明示し、verification honesty FAIL を避ける。
 
 ## 入力
@@ -102,7 +103,7 @@ WF-05 Verify & Handoff
 |------|------|
 | **PASS** | AC を満たすことを示す evidence（テストログ / 動作確認 / 出力例）が存在 |
 | **FAIL** | AC を満たさない / evidence なし / 未実装 |
-| **WARN** | 部分的に満たすが、scope の範囲で許容（理由を明記）|
+| **WARN** | 部分的に満たすが、scope の範囲で許容（理由を明記）/ 期待値が変更前のコードでも満たされる（変更を検証していない。#1599）|
 
 **禁止**:
 

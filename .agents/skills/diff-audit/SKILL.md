@@ -212,8 +212,8 @@ review-gate の**追加観点レーン**（#794 で棚卸し・#795 で実装: �
 
 プロジェクト固有のテスト・lint・型チェックコマンドを実行し、変更がCIパイプラインでエラーにならないことを確認する。
 
-- **lint / typecheck / test / build は、CI と同じ script 名経由で実行する（必須）**。
-  `package.json` の scripts（例: `pnpm run typecheck`）や CI 定義の step を使い、
+- **lint / typecheck / test / build は、CI が実際に呼ぶコマンド経由で実行する（必須）**。
+  package.json の scripts / Makefile / CI 定義の step など（例: `pnpm run typecheck`）を使い、
   ツール（`tsc` / `eslint` 等）を直接実行して PASS としない。script 側に前処理
   （コード生成等）があると、直接実行はそれを飛ばすため「通った」の根拠にならない
 - やむを得ずツールを直接実行した場合は、**その旨と CI 経路との差**（飛ばした前処理・
