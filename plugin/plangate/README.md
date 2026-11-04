@@ -8,7 +8,13 @@ Provides Intent/Mode classification, a 4-Gate approval system, and an agent cont
 
 ## Install
 
-### ワンコマンドインストール（推奨）
+推奨の導入経路は Marketplace 経由です（Claude Code は下記
+[方法 A](#方法-a-marketplace-経由推奨)、Codex は [Codex の方法 A](#方法-a-marketplace-経由推奨-1)。
+root の [README.md](../../README.md) の Option A と同じ）。
+以下の `install.sh` は root README の Option B に相当する代替経路です。
+Marketplace 版と併用すると資産が二重に配置されます（方法 A の注意を参照）。
+
+### ワンコマンドインストール（install.sh）
 
 ```bash
 git clone https://github.com/s977043/plangate.git
