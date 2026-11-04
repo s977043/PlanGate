@@ -107,12 +107,12 @@ mode 別の適用範囲は `.claude/rules/mode-classification.md`（fallback `<p
 以下は本節の既存条件の早見表であり、承認・検証の省略経路ではない。
 導入先の正本が追加条件を要求する場合はそちらを優先する。正本と本節が
 矛盾する場合は未解決・degrade として記録し、完了扱いにせず判断を求める。
-CLI を使わない指定がある場合も、矛盾を理由に CLI を導入・実行しない。
+本節は CLI 実行を強制しないが、正本の「clone が必要な旨を告げて停止」は省略しない。
 
 | 作業対象・配布状態 | settings タスクロックの扱い | handoff に残す証拠 |
 | --- | --- | --- |
 | 上流リポジトリ | `doctor --check-settings` PASS が前提。CLI 不在でも `N/A` へ降格しない | 実行結果。実行できなければ未検証・完了保留 |
-| Plugin 導入先で hook 非配布を確認済み | `N/A（hook 非配布）`。この条件を満たす Plugin-only 運用に CLI の追加導入を要求しない | 配布状態の確認と、下記「CLI 不在時のフォールバック」に従った plan_hash 突合結果 |
+| Plugin 導入先（CLI・hook 非配布） | 上流リポジトリの clone が必要な旨を告げて停止する。clone しない場合は status.md に degrade（doctor 未検証）として記録し、PASS 扱いにしない。完了扱いにするかは Human 判断 | status.md への degrade（doctor 未検証）記録と、下記「CLI 不在時のフォールバック」に従った plan_hash 突合結果 |
 | 導入先の配布・配線状態が不明、または独自 hook あり | 非配布を推測せず、導入先の正本と同梱契約で確認 | 確認範囲・未検証事項。未確認を PASS / 自動強制済みと記録しない |
 
 `N/A` は PASS ではなく、登録・skill 発見も hook 発火の証拠ではない。
@@ -137,9 +137,10 @@ plan.md 単体の hash 一致で代替せず、検証できなければ V-1 を 
 > **hook 本体（`scripts/hooks/*.sh`）も plugin に含まれない**（`plugin/plangate/hooks/` は
 > `.gitkeep` のみ）ため、導入先の `hooks.PreToolUse` がこれらを指すことは構造上ありえず、
 > 是正手段の `scripts/apply-claude-settings.sh` も配布されない。したがって導入先では
-> settings タスクロックを **`N/A（hook 非配布）`** と handoff.md に明記し、その代替として
+> clone が必要な旨を告げて停止し、clone しない場合は settings タスクロックを
+> **degrade（doctor 未検証）** として status.md に記録したうえで、
 > **「CLI 不在時のフォールバック」の plan_hash 突合を必須**とする（実施結果を handoff.md に
-> 記載）。**`N/A` を「PASS」と書き換えてはならない**。上流リポジトリで作業している場合は
+> 記載）。完了扱いにするかは Human 判断。**degrade を「PASS」と書き換えてはならない**。上流リポジトリで作業している場合は
 > 従来どおり `doctor --check-settings` PASS が前提条件として生きる（`N/A` に落とせない）。
 
 ## handoff.md 発行（必須・Rule 5）
