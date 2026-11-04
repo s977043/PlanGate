@@ -166,10 +166,9 @@ ls -d /path/to/plangate/plugin/plangate/skills/*/ | wc -l
 
 Codex UI を開き、スキル選択ペインで PlanGate スキル（例: `ai-dev-plan`, `brainstorming` など）が表示されることを確認。
 
-Marketplace 経由では、配布元の存在とプラグインの導入状態を分けて確認します。
+Marketplace 経由では、Marketplace の登録（`codex plugin marketplace add`）とプラグインの導入（`codex plugin add`）を分けて考え、導入状態を確認します。
 
 ```bash
-codex plugin marketplace list
 codex plugin list --json
 ```
 
