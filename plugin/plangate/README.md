@@ -1,7 +1,14 @@
 # plangate — Claude Code plugin
 
-PlanGate — a governance OS for AI-assisted coding.
-Provides Intent/Mode classification, a 4-Gate approval system, and an agent control layer as a Claude Code plugin.
+**AI に実装を任せる前に、何を変更し、何を検証し、誰が承認するかを揃えるプラグインです。**
+
+例えば「説明文を直して」という依頼を、変更範囲・受入条件を持つ計画へ整理し、人間が確認してから実装へ進めます。
+これは利用イメージであり、実行結果の報告ではありません。まずは検証用プロジェクトで、導入状態の確認から試してください。
+
+English: A lightweight governance harness for AI coding agents. Start by checking installation; planning, approval, and hook enforcement are separate steps.
+
+**導入しただけでは hook 強制は有効になりません。** 配布するのは agent / skill / command / rule の定義です。
+ゲートの機械的な保護は別途設定・検証が必要です。設定を変える前に [Hooks の設定について](#hooks-の設定について) を確認してください。
 
 - **Version**: v8.24.0
 - **Source**: <https://github.com/s977043/plangate>
@@ -11,27 +18,8 @@ Provides Intent/Mode classification, a 4-Gate approval system, and an agent cont
 推奨の導入経路は Marketplace 経由です（Claude Code は下記
 [方法 A](#方法-a-marketplace-経由推奨)、Codex は [Codex の方法 A](#方法-a-marketplace-経由推奨-1)。
 root の [README.md](../../README.md) の Option A と同じ）。
-以下の `install.sh` は root README の Option B に相当する代替経路です。
+初回は利用する CLI の方法 A を一つ選んでください。`install.sh` は root README の Option B に相当する代替経路です。
 Marketplace 版と併用すると資産が二重に配置されます（方法 A の注意を参照）。
-
-### ワンコマンドインストール（install.sh）
-
-```bash
-git clone https://github.com/s977043/plangate.git
-cd plangate
-sh install.sh          # .claude/ と .codex/ を自動検出してインストール
-```
-
-オプション:
-
-```bash
-sh install.sh --claude              # Claude Code のみ
-sh install.sh --codex               # Codex のみ
-sh install.sh --target /path/to/dir # インストール先を指定
-sh install.sh --dry-run             # 変更内容を確認（実行しない）
-```
-
-### 手動インストール
 
 ### Claude Code へのインストール
 
@@ -39,22 +27,29 @@ sh install.sh --dry-run             # 変更内容を確認（実行しない）
 
 root の [README.md](../../README.md) の Option A と同じ手順です。
 
-セッション内スラッシュコマンド:
+前提: Claude Code と git が利用可能であること。検証用プロジェクトで Claude Code を開きます。
+
+セッション内スラッシュコマンド（インストール画面では、このプロジェクトだけに適用する local scope を選択）:
 
 ```text
 /plugin marketplace add s977043/PlanGate
-/plugin install plangate
+/plugin install plangate@plangate
 ```
 
 CLI から:
 
 ```bash
 claude plugin marketplace add s977043/PlanGate
-claude plugin install plangate
+claude plugin install plangate@plangate --scope local
+claude plugin list
 ```
 
+**最初の成功確認**: `claude plugin list` で `plangate@plangate` の導入先 scope と有効状態を確認します。
+プラグイン一覧への表示は、計画生成や hook の動作を検証したことにはなりません。
+次は [最初の計画を作る](#start-a-workflow) へ進みます。試す前に [やめ方と残るもの](#やめ方と残るもの) も確認できます。
+
 > **注意（併用による二重配置）**: Marketplace 経由で plugin を有効化しているプロジェクトで
-> `install.sh`（冒頭のワンコマンドインストール、および方法 C の `install.sh --claude`）を実行すると、
+> `install.sh`（代替経路、および方法 C の `install.sh --claude`）を実行すると、
 > 同じ agents / skills / commands / rules が `.claude/agents/` / `.claude/skills/` /
 > `.claude/commands/` / `.claude/rules/`（および `plangate-manifest.json`）にも配置され、
 > plugin 版と二重になります。デュアル運用は技術的に可能ですが、併用は推奨しません。
@@ -86,21 +81,16 @@ claude plugin install plangate
 
 #### 方法 B: プラグインパスを直接指定
 
+作者向けの一時検証では、セッション限定の読み込みを使えます。Marketplace 導入とは別経路です。
+
 ```bash
-# 1. リポジトリをクローン（またはサブモジュールとして追加）
 git clone https://github.com/s977043/plangate.git /path/to/plangate
-
-# 2. プロジェクトの .claude/settings.json にプラグインパスを追加
-# （手動で settings.json を編集する）
+cd /path/to/your-project
+claude --plugin-dir /path/to/plangate/plugin/plangate
 ```
 
-`プロジェクト/.claude/settings.json` に以下を追加:
-
-```json
-{
-  "plugins": ["/path/to/plangate/plugin/plangate"]
-}
-```
+終了後、`--plugin-dir` を付けずに起動すればこの読み込み指定はなくなります。
+セッション中に作成したファイルは残ります。組織の管理ポリシーで使用できない場合は、回避せず管理者へ確認してください。
 
 #### 方法 C: ファイルを手動コピー
 
@@ -124,13 +114,11 @@ cp -r ~/plangate/plugin/plangate/rules/*    /your-project/.claude/rules/
 
 #### インストール確認
 
-Claude Code セッション内で以下を実行:
-
-```text
-/subagent-team-design
-```
-
-エージェント一覧と利用可能スキルが表示されれば成功。
+方法 A は `/plugin` の Installed 一覧、または `claude plugin list` で導入状態を確認します。
+方法 A / B は、そのプラグインを読み込んだセッションで `/` を入力し、`/plangate:` のコマンド表示を確認します。
+方法 B はセッション限定なので、永続インストール済みであることは要求しません。
+方法 C は plugin の一覧ではなく、導入先の `.claude/commands/` 等の配置と、`/working-context` などローカル定義の表示を確認します。
+直接展開版と plugin 版では名前空間が異なります。再読み込みを求められた場合は、CLI の案内に従います。
 
 ---
 
@@ -147,9 +135,11 @@ Claude Code セッション内で以下を実行:
 ```bash
 # marketplace を登録（出力に Installed marketplace root が表示される）
 codex plugin marketplace add s977043/PlanGate
+codex plugin add plangate@plangate
 ```
 
-> Codex には `plugin install` サブコマンドはありません。`marketplace add` で登録が完了します。
+> `marketplace add` は配布元の登録です。続けて `plugin add` でプラグインを導入します。
+> Codex の導入サブコマンドは `install` ではなく `add` です。
 
 #### 方法 B: スクリプトで .codex/skills/ に直接展開
 
@@ -176,9 +166,15 @@ ls -d /path/to/plangate/plugin/plangate/skills/*/ | wc -l
 
 Codex UI を開き、スキル選択ペインで PlanGate スキル（例: `ai-dev-plan`, `brainstorming` など）が表示されることを確認。
 
-> **確認の注意**: `codex plugin marketplace list` は現行 Codex CLI では未実装（`unrecognized subcommand`）です。
-> Marketplace 登録の確認は、`codex plugin marketplace add` 実行時の出力 `Installed marketplace root: <path>` と、
-> その root 配下 `plugin/plangate/.claude-plugin/plugin.json` の `version` を参照してください。
+Marketplace 経由では、Marketplace の登録（`codex plugin marketplace add`）とプラグインの導入（`codex plugin add`）を分けて考え、導入状態を確認します。
+
+```bash
+codex plugin list --json
+```
+
+`installed` 配列の PlanGate エントリを確認し、その `installed` と `enabled` が true であることを確かめます。
+Marketplace の一覧やキャッシュディレクトリがあるだけでは、プラグインが利用可能になった証拠にはなりません。
+コマンドが見つからない場合は `codex --version` と `codex plugin --help` を確認し、対応する CLI を用意してから進めてください。
 
 #### アップデート
 
@@ -210,6 +206,77 @@ sh plugin/plangate/scripts/install-plangate-skills.sh --force
 環境変数 `PLANGATE_SKILLS_DIR` でもソースディレクトリを指定できます。
 
 ---
+
+<a id="手動インストール"></a>
+
+<a id="ワンコマンドインストールinstallsh"></a>
+
+### 代替経路: install.sh で直接展開
+
+```bash
+git clone https://github.com/s977043/plangate.git /path/to/plangate
+cd /path/to/your-project
+sh /path/to/plangate/install.sh --claude --dry-run
+# 展開先と変更内容を確認してから --dry-run を外します
+```
+
+オプション:
+
+```bash
+sh install.sh --claude              # Claude Code のみ
+sh install.sh --codex               # Codex のみ
+sh install.sh --target /path/to/dir # インストール先を指定
+sh install.sh --dry-run             # 変更内容を確認（実行しない）
+```
+
+この経路はローカルコピーを直接管理したい場合の代替です。Marketplace 版と同じプロジェクトに重ねて導入しないでください。
+`install.sh` の manifest 生成・撤去には Python 3 が必要です。
+
+## やめ方と残るもの
+
+まず実行中の作業を終え、必要な成果物・設定差分を確認してください。導入経路ごとに撤去方法が異なります。
+
+### Marketplace 版
+
+Claude Code の方法 A で local scope に導入した場合は、同じ検証用プロジェクトから実行します。
+一時停止だけなら disable を使います。uninstall は保存済みのオプション等を削除する場合があるため、必要な記録を先に保全してください。
+
+```bash
+claude plugin disable plangate@plangate --scope local
+# 撤去する場合。--keep-data はプラグインの永続データを保持します。
+claude plugin uninstall plangate@plangate --scope local --keep-data
+claude plugin list
+```
+
+user / project scope に導入した場合は、その導入先 scope を指定してください。
+共有設定を変更する project scope の撤去は、影響を確認してから行います。
+
+Codex の方法 A の撤去:
+
+```bash
+codex plugin remove plangate@plangate
+codex plugin list --json
+```
+
+marketplace 登録とプラグインの導入は別です。登録元を消す操作は、同じ配布元を使う他のプラグインへの影響もあるため、この手順には含めません。
+
+### スクリプト・手動コピー版
+
+Marketplace の uninstall / remove では、直接配置したファイルは撤去されません。
+root の `install.sh --uninstall` は Claude Code 側の manifest を使う処理で、Codex の直接展開版の撤去コマンドではありません。
+まず導入先のバックアップ・manifest・変更差分を確認します。
+
+```bash
+cd /path/to/your-project
+sh /path/to/plangate/install.sh --uninstall --dry-run
+```
+
+**dry-run の削除候補に導入前からあるファイルや編集済みファイルが含まれる場合は、実行を止めてください。**
+manifest があるだけで安全に元へ戻せるとは限りません（既存ファイルが削除対象になる再現済みの問題: [#1636](https://github.com/s977043/PlanGate/issues/1636)）。手動コピー版と Codex の直接展開版は、導入前との差分から PlanGate 由来と確認できたものだけを個別に撤去します。
+`.claude/` や `.codex/` 全体を削除しないでください。
+
+**残るもの**: 作業中に作成した `docs/working/` の成果物、手動で追加した hook 設定、PATH の追記などは、プラグインの撤去だけでは自動では戻りません。
+設定ファイル全体を置換せず、導入前の記録と比較して必要な箇所だけを戻してください。
 
 ## Contents
 
@@ -303,11 +370,35 @@ commit `86d05f7` 時点の測定結果:
 
 ### Start a workflow
 
+以下は **Claude Code の Marketplace 版**の例です。検証用プロジェクトで、利用中の番号と重ならない `TASK-XXXX` を選びます。
+CLI と参照資料の前提条件を確認し、まず作業コンテキストを作成します。
+
 ```text
-/working-context TASK-XXXX
-/ai-dev-workflow TASK-XXXX plan
-/ai-dev-workflow TASK-XXXX exec
+/plangate:working-context TASK-XXXX
 ```
+
+作成先の `docs/working/TASK-XXXX/pbi-input.md` または対話入力に、目的・変更する範囲・受入条件を記入します。
+次に計画を生成します（これは実装の承認ではありません）。
+
+```text
+/plangate:ai-dev-workflow TASK-XXXX plan
+```
+
+**初回体験は計画の確認まで**で止めます。`docs/working/TASK-XXXX/` の `plan.md`、`todo.md`、`test-cases.md` を開き、
+依頼した範囲と受入条件が反映されているかを確認してください。ファイルの存在だけでは成功と判定しません。
+参照資料・テンプレート・外部レビュー手段を利用できない場合は、その不足を明記し、検証済みや承認済みとは扱いません。
+コマンドが認識されない場合は `/plugin` の Installed と、名前空間付きコマンドの表示を確認します。
+
+**C-3: 人間の計画レビューと承認が完了してから**、別の操作として実装へ進みます。
+この README の実行例は承認記録の代わりになりません。
+
+```text
+/plangate:ai-dev-workflow TASK-XXXX exec
+```
+
+English: Stop after planning for the first trial. Inspect the scope and acceptance criteria in the generated artifacts.
+Execution requires human review and approval at C-3; an installed plugin or generated plan is not approval.
+PR の C-4 レビューとマージの責務は変更しません。詳細は [Core Contract](../../docs/ai/core-contract.md) を参照してください。
 
 ### Invoke skills explicitly
 
@@ -381,7 +472,7 @@ EH-1/2/3/6/9 などの Hook を使用するには、別途手動設定が必要�
 
 - The plugin and a legacy `.claude/` setup can coexist (dual-mode operation)
 - Use the explicit `plangate:` prefix to target the plugin side
-- To fully separate, temporarily rename or remove files in `.claude/`
+- Do not delete the entire `.claude/` directory. Review installation records and local changes, then follow [やめ方と残るもの](#やめ方と残るもの).
 
 ### Using an agent not bundled in this plugin (e.g. `backend-specialist`)
 
@@ -443,6 +534,7 @@ resources** 方式（skill ディレクトリ内に `references/` + `scripts/` �
 ```bash
 # marketplace 経由でインストール済みの場合、上記一式は自動的に含まれます
 codex plugin marketplace add s977043/PlanGate
+codex plugin add plangate@plangate
 # または方法 B（スクリプト展開）/ 手動コピーでも同様に含まれます
 ```
 
@@ -487,6 +579,13 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/ai-loop-cycle/scripts/arbiter.py" --input 
 - **Hooks 実装**: `plugin/plangate/hooks/` に EH-1/2/3/6/9 を同梱し、インストールスクリプトで自動配線
 
 ## References
+
+CLI の導入・撤去・名前空間は公式仕様で確認します（2026-11-03 照合）。この README は各端末での実機試験結果ではありません。
+使っている版でコマンドが認識されない場合は、`claude --version` / `codex --version` と各 `plugin --help` を確認し、別構文を推測して続行しないでください。
+
+- Claude Code plugin CLI: <https://code.claude.com/docs/en/plugins/cli-reference>
+- Claude Code plugin discovery and scope: <https://code.claude.com/docs/en/discover-plugins>
+- Codex CLI plugin and marketplace commands: <https://learn.chatgpt.com/docs/cli/reference>
 
 - Migration guide: [docs/plangate-plugin-migration.md](../../docs/plangate-plugin-migration.md)
 - Orchestrator Mode spec: [docs/orchestrator-mode.md](../../docs/orchestrator-mode.md)
