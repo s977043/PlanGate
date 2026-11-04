@@ -130,3 +130,7 @@ sh tests/extras/ta-118-ai-loop-v2-limits.sh
 
 出典は同じbaseの`INDEX.md`、`plan.md`、`status.md`、#1395、#1623、#1329と上記4ファイル。
 Currentの同期はprojectionのみで、Plan hashや承認artifactを変更しない。
+
+## 追記（2026-11-05 01:58）
+
+本記録の根拠（完全stdout・再現runner）は repo 外の検証bundleにあり、repo 内では再現不能（bundle は repo 外）。本ファイルの終了コード表は独立検証済みの証跡ではない。

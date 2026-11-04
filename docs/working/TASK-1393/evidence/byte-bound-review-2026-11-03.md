@@ -140,3 +140,7 @@ python3 run_probe_reviews.py
 
 合意済み文字種を狭めたり、byte guardを省略したりしてこの診断をgreenにしない。
 #1635の独立レビュー・必要なC-4は未完了。Delivery First ReleaseはBLOCKEDで、残タスクゼロではない。
+
+## 追記（2026-11-05 01:58）
+
+本記録の根拠（診断コード・結果JSON・生ログ・失敗ログ）は repo 外の bundle にあり、repo 内では再現不能（bundle は repo 外）。

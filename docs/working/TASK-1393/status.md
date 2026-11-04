@@ -1,9 +1,9 @@
 # TASK-1393 作業ステータス
 
-> 最終更新: 2026-11-03
+> 最終更新: 2026-11-05 01:58
 > 現在フェーズ: exec
 > モード: high-risk
-> 発行時点 SHA (issued_at_commit): 該当なし（完了資産ではない。plan Revision 2.6 の反映コミットは `03bae6aa`）
+> 発行時点 SHA (issued_at_commit): 該当なし（完了資産ではない。現行 plan は Revision 2.10・plan_hash `sha256:ed637f48…`（C-3 APPROVED 2026-10-29）。旧 Revision 2.6 の反映コミットは `03bae6aa`）
 >
 > 現在フェーズの値域は `INDEX.md` と共通（正本: `.claude/rules/working-context.md`）。
 
@@ -31,8 +31,12 @@ byte系3定数は#1623で未実装。`limits.py`が存在するだけでbyte検�
 | 2026-10-21 18:15 | C-3 | C-3 Gate: APPROVED（Revision 2.6, plan_hash ec2a0db8…） |
 | 2026-10-21 18:40 | BLOCKED | exec 前依存（#1391/#1392/#1422 owner, PF-2〜PF-8）未解消 |
 | 2026-10-22 10:03 | C-3 待ち | Human 決定 PF-5（R-085〜R-088）を Revision 2.7 として確定反映、簡易 C-1 PASS（Unknowns WARN）。**既存 c3.json の `plan_hash`（`ec2a0db8…`）は改訂後 plan（`404c432a60157932cda967b4c3d90c77979c6d00df874a295828bfd8b0af35b3`）と一致しない＝Human の再発行待ち** |
+| 2026-10-29 19:09 | C-3 | C-3 Gate: APPROVED（Human、`bin/plangate approve`、2026-10-29T10:09:18Z、Revision 2.10、plan_hash `sha256:ed637f48…`。出典 INDEX.md） |
+| 2026-10-30 01:19 | exec | exec 開始（第 1 歩 = #1622 `46685615` merge、commit 日時から実測）。後続タスクは依存待ち |
 
-## 履歴：Revision 2.6 の C-3 Gate: APPROVED
+## C-3 Gate: APPROVED
+
+> Rev2.6 時点の記録。現行承認は Rev2.10（plan_hash `sha256:ed637f48…`、2026-10-29。現行 plan.md の sha256 `ed637f48bdf91d7c…` と一致を実測）。見出しは `scripts/ai-dev-common.sh` の exec ゲート判定（`^## C-3 Gate: APPROVED$`）が参照するため変更しない。
 
 - 承認: Human（`approvals/c3.json`、`approved_at` 2026-10-21T09:15:23Z = JST 18:15、`source` cli）
 - 対象: plan Revision 2.6、`plan_hash` `sha256:ec2a0db8358c53f089f652f4671e36c5366dbffa4df5dbf9d6a15129d237ec60`
