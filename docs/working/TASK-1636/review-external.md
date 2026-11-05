@@ -43,13 +43,13 @@ created_by: orchestrator
 
 | R-NNN | status | reflected_in(commit) | notes |
 |---|---|---|---|
-| R-001 | reflected | （次の記録 commit で記入） | 下書き「導入結果の表示と案内」、TC-15。修正案が生む引用の穴は H-11 で塞ぐ |
-| R-002 | reflected | （次の記録 commit で記入） | 下書き D-A、Task 4、TC-24。修正案が生む文字コードの穴は H-10、TC-23 で塞ぐ |
-| R-003 | reflected | （次の記録 commit で記入） | 下書きの移行手順 Step 3、5、6、TC-14、TC-22 |
-| R-004 | reflected | （次の記録 commit で記入） | TC-04(a)、MU-4 |
-| R-005 | reflected | （次の記録 commit で記入） | 下書き Q-2。Human 判断は未確定 |
-| R-006 | reflected | （次の記録 commit で記入） | 下書き Q-5。従来の Q-5（検証の限界）は問いではないので別記に移した。Human 判断は未確定 |
-| R-007 | reflected | （次の記録 commit で記入） | 下書き「exec の前提」、`todo.md` の H-00、T-00、H-01、`INDEX.md` |
+| R-001 | reflected | `49a47842` | 下書き「導入結果の表示と案内」、TC-15。修正案が生む引用の穴は H-11 で塞ぐ |
+| R-002 | reflected | `49a47842` | 下書き D-A、Task 4、TC-24。修正案が生む文字コードの穴は H-10、TC-23 で塞ぐ |
+| R-003 | reflected | `49a47842` | 下書きの移行手順 Step 3、5、6、TC-14、TC-22 |
+| R-004 | reflected | `49a47842` | TC-04(a)、MU-4 |
+| R-005 | reflected | `49a47842` | 下書き Q-2。Human 判断は未確定 |
+| R-006 | reflected | `49a47842` | 下書き Q-5。従来の Q-5（検証の限界）は問いではないので別記に移した。Human 判断は未確定 |
+| R-007 | reflected | `49a47842` | 下書き「exec の前提」、`todo.md` の H-00、T-00、H-01、`INDEX.md` |
 
 ## 修正案の追加検証（R-002 / R-003）
 
