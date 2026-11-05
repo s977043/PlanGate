@@ -6,7 +6,7 @@
 #   sh install.sh --claude          # Claude Code のみ
 #   sh install.sh --codex           # Codex のみ
 #   sh install.sh --target DIR      # インストール先を指定
-#   sh install.sh --force           # 既存ファイルを強制上書き
+#   sh install.sh --force           # 管理済み・未編集ファイルを更新
 #   sh install.sh --uninstall       # アンインストール（manifest から）
 #   sh install.sh --version         # インストール済みバージョン表示
 #   sh install.sh --dry-run         # 変更内容を確認（実行しない）
@@ -64,7 +64,7 @@ while [ $# -gt 0 ]; do
       printf '  --claude        Claude Code のみインストール\n'
       printf '  --codex         Codex のみインストール\n'
       printf '  --target DIR    インストール先を指定\n'
-      printf '  --force         既存ファイルを強制上書き\n'
+      printf '  --force         管理済み・未編集ファイルを更新\n'
       printf '  --uninstall     アンインストール\n'
       printf '  --version       インストール済みバージョン表示\n'
       printf '  --dry-run       変更内容を確認（実行しない）\n'
@@ -77,7 +77,8 @@ done
 if [ "$SHOW_VERSION" = "1" ]; then
   printf 'PlanGate v%s\n' "$PLUGIN_VERSION"
   DEST="${TARGET_DIR:-$(pwd)/.claude}"
-  MANIFEST="$DEST/$MANIFEST_NAME"
+  MANIFEST="$DEST/plangate-owned-v2.json"
+  [ -f "$MANIFEST" ] || MANIFEST="$DEST/$MANIFEST_NAME"
   if [ -f "$MANIFEST" ]; then
     _require_python3
     installed=$(python3 - "$MANIFEST" << 'PYEOF'
@@ -96,117 +97,196 @@ PYEOF
   exit 0
 fi
 
-# ===== Claude Code インストール =====
-install_claude() {
-  DEST="${TARGET_DIR:-$(pwd)/.claude}"
-  _log "Claude Code: $PLUGIN_DIR → $DEST (v$PLUGIN_VERSION)"
-
-  installed=0; skipped=0
-  for dir in agents skills commands rules; do
-    src="$PLUGIN_DIR/$dir"
-    dst="$DEST/$dir"
-    [ -d "$src" ] || continue
-    [ "$DRY_RUN" = "1" ] || mkdir -p "$dst"
-    for f in "$src"/*; do
-      [ -e "$f" ] || continue
-      base="$(basename "$f")"
-      if [ "$FORCE" = "0" ] && [ -e "$dst/$base" ]; then
-        _skip "$dir/$base"
-        skipped=$((skipped + 1))
-        continue
-      fi
-      if [ -L "$f" ]; then
-        _warn "SKIP symlink: $dir/$base (symlinks are skipped for security)"
-        skipped=$((skipped + 1))
-        continue
-      fi
-      if [ "$DRY_RUN" = "1" ]; then
-        _dry "WOULD COPY: $dir/$base"
-      else
-        cp -r "$f" "$dst/$base"
-        installed=$((installed + 1))
-      fi
-    done
-  done
-
-  if [ "$DRY_RUN" = "0" ]; then
-    _write_manifest "$DEST"
-    _log "完了: installed=$installed, skipped=$skipped (--force で上書き可)"
-    _print_caveats "$DEST"
-  else
-    _log "dry-run 完了（実際の変更なし）"
-  fi
-}
-
-# アンインストール
-uninstall_claude() {
-  DEST="${TARGET_DIR:-$(pwd)/.claude}"
-  MANIFEST="$DEST/$MANIFEST_NAME"
-  if [ ! -f "$MANIFEST" ]; then
-    _warn "manifest が見つかりません: $MANIFEST"
-    _warn "手動で $DEST/agents/ $DEST/skills/ $DEST/commands/ $DEST/rules/ を確認してください"
-    exit 1
-  fi
+# Claude direct-install ownership is tracked per regular file. Legacy manifests
+# cannot prove ownership and are deliberately left untouched.
+_claude_files() {
   _require_python3
-  python3 - "$MANIFEST" "$DRY_RUN" << 'PYEOF'
-import json, os, sys, shutil
-manifest_path, dry = sys.argv[1], sys.argv[2] == '1'
-with open(manifest_path, encoding='utf-8') as fh:
-    d = json.load(fh)
-for f in d.get('files', []):
-    if os.path.lexists(f):
-        if dry:
-            print(f'[dry-run]  WOULD DELETE: {f}')
-        else:
-            if os.path.isdir(f) and not os.path.islink(f):
-                shutil.rmtree(f)
-            else:
-                os.remove(f)
-            print(f'[plangate] deleted: {f}')
-if not dry:
-    os.remove(manifest_path)
-    print(f'[plangate] removed manifest: {manifest_path}')
-    # 空になった agents/skills/commands/rules ディレクトリを best-effort で除去
-    import os.path as _p
-    base = _p.dirname(manifest_path)
-    for _sub in ('agents', 'skills', 'commands', 'rules'):
-        _d = _p.join(base, _sub)
-        if os.path.isdir(_d) and not os.listdir(_d):
-            try:
-                os.rmdir(_d)
-                print(f'[plangate] removed empty dir: {_d}')
-            except OSError:
-                pass
-PYEOF
-}
-
-# manifest 生成
-_write_manifest() {
-  dest="$1"
-  manifest="$dest/$MANIFEST_NAME"
-  _require_python3
-  python3 - "$dest" "$PLUGIN_DIR" "$PLUGIN_VERSION" "$manifest" << 'PYEOF'
-import json, os, sys
+  python3 - "$1" "${TARGET_DIR:-$(pwd)/.claude}" "$PLUGIN_DIR" "$PLUGIN_VERSION" "$DRY_RUN" "$FORCE" <<'PYEOF'
+import hashlib
+import json
+import os
+from pathlib import Path, PurePosixPath
+import shutil
+import stat
+import sys
+import tempfile
 from datetime import datetime, timezone
-dest, plugin_dir, version, manifest_path = sys.argv[1:5]
-files = []
-for d in ['agents', 'skills', 'commands', 'rules']:
-    src = os.path.join(plugin_dir, d)
-    if not os.path.isdir(src): continue
-    for f in os.listdir(src):
-        dst_f = os.path.join(dest, d, f)
-        if os.path.exists(dst_f):
-            files.append(dst_f)
-data = {
-    'version': version,
-    'installed_at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-    'files': sorted(files),
-}
-with open(manifest_path, 'w', encoding='utf-8') as fh:
-    json.dump(data, fh, indent=2, ensure_ascii=False)
-    fh.write('\n')
-print(f'[plangate] manifest: {manifest_path} ({len(files)} files)')
+
+operation, target, source, version, dry, force = sys.argv[1:]
+dry, force = dry == '1', force == '1'
+root = Path(os.path.abspath(target))
+src = Path(source)
+manifest = root / 'plangate-owned-v2.json'
+legacy = root / 'plangate-manifest.json'
+allowed = {'agents', 'skills', 'commands', 'rules'}
+
+def fail(message):
+    print('[plangate] ERROR: ' + message, file=sys.stderr)
+    sys.exit(1)
+
+def safe_rel(value):
+    if not isinstance(value, str) or not value or '\\' in value:
+        return False
+    p = PurePosixPath(value)
+    return (not p.is_absolute() and len(p.parts) >= 2 and p.parts[0] in allowed
+            and all(x not in ('', '.', '..') for x in value.split('/')))
+
+def no_symlinks(path, include_leaf=True):
+    # Also inspect ancestors of the target itself, without resolving symlinks.
+    parts = path.parts if include_leaf else path.parts[:-1]
+    p = Path(parts[0])
+    for part in parts[1:]:
+        p = p / part
+        if p.is_symlink():
+            return False
+    return True
+
+def digest(path):
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for block in iter(lambda: f.read(1024 * 1024), b''):
+            h.update(block)
+    return h.hexdigest()
+
+def receipt(path):
+    st = os.lstat(path)
+    if not stat.S_ISREG(st.st_mode):
+        raise ValueError('not a regular file')
+    return {'sha256': digest(path), 'dev': st.st_dev, 'ino': st.st_ino,
+            'ctime_ns': st.st_ctime_ns, 'mode': stat.S_IMODE(st.st_mode)}
+
+def matches(path, expected):
+    try:
+        return no_symlinks(path) and receipt(path) == expected
+    except (OSError, ValueError):
+        return False
+
+def read_records():
+    if not no_symlinks(manifest):
+        fail('symlink in manifest path')
+    if not manifest.exists():
+        return {}
+    try:
+        data = json.loads(manifest.read_text(encoding='utf-8'))
+        if not isinstance(data, dict) or data.get('format') != 2 or not isinstance(data.get('files'), dict):
+            raise ValueError('unsupported manifest format')
+        files = data['files']
+        for name, checksum in files.items():
+            if (not safe_rel(name) or not isinstance(checksum, dict) or set(checksum) != {'sha256', 'dev', 'ino', 'ctime_ns', 'mode'} or not isinstance(checksum['sha256'], str) or len(checksum['sha256']) != 64 or any(c not in '0123456789abcdef' for c in checksum['sha256']) or any(type(checksum[k]) is not int or checksum[k] < 0 for k in ('dev', 'ino', 'ctime_ns', 'mode'))):
+                raise ValueError('invalid manifest entry')
+        return files
+    except (OSError, ValueError, TypeError) as exc:
+        fail('invalid ownership manifest: ' + str(exc))
+
+def save(files):
+    data = {'format': 2, 'version': version,
+            'updated_at': datetime.now(timezone.utc).isoformat(), 'files': files}
+    fd, tmp = tempfile.mkstemp(prefix='.plangate-owned-', dir=root)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as out:
+            json.dump(data, out, ensure_ascii=False, indent=2, sort_keys=True)
+            out.write('\n')
+        os.replace(tmp, manifest)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+if not no_symlinks(root):
+    fail('symlink in target path')
+records = read_records()
+if legacy.exists() or legacy.is_symlink():
+    print('[plangate] legacy manifest retained; do not use an older installer to uninstall')
+
+if operation == 'install':
+    # A missing file loses ownership as soon as its absence is observed.
+    for rel in list(records):
+        dest = root / rel
+        if no_symlinks(dest) and not os.path.lexists(dest):
+            if not dry:
+                del records[rel]
+                save(records)
+    # No destination writes occur in dry-run, including directory creation.
+    for category in sorted(allowed):
+        base = src / category
+        if base.is_symlink() or not base.is_dir():
+            continue
+        for folder, dirs, files in os.walk(base, followlinks=False):
+            dirs[:] = sorted(d for d in dirs if not (Path(folder) / d).is_symlink())
+            for name in sorted(files):
+                origin = Path(folder) / name
+                if origin.is_symlink() or not origin.is_file():
+                    continue
+                rel = origin.relative_to(src).as_posix()
+                dest = root / rel
+                if not no_symlinks(dest):
+                    print('[plangate] protected symlink: ' + rel)
+                    continue
+                present = os.path.lexists(dest)
+                if present:
+                    if not (force and rel in records and matches(dest, records[rel])):
+                        print('[plangate] protected existing: ' + rel)
+                        continue
+                    # Avoid overwriting anything changed by the user.
+                    print(('[dry-run] WOULD UPDATE: ' if dry else '[plangate] update: ') + rel)
+                    if not dry:
+                        fd, tmp = tempfile.mkstemp(prefix='.plangate-copy-', dir=dest.parent)
+                        try:
+                            with open(origin, 'rb') as inp, os.fdopen(fd, 'wb') as out:
+                                shutil.copyfileobj(inp, out)
+                            shutil.copymode(origin, tmp)
+                            if not matches(dest, records[rel]):
+                                fail('file changed during update: ' + rel)
+                            # A failure before saving the new receipt leaves it unowned.
+                            os.replace(tmp, dest)
+                            records[rel] = receipt(dest)
+                            save(records)
+                        finally:
+                            if os.path.exists(tmp):
+                                os.unlink(tmp)
+                    continue
+                print(('[dry-run] WOULD COPY: ' if dry else '[plangate] copy: ') + rel)
+                if not dry:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    # Exclusive creation prevents claiming an existing file.
+                    with open(origin, 'rb') as inp, open(dest, 'xb') as out:
+                        shutil.copyfileobj(inp, out)
+                    shutil.copymode(origin, dest)
+                    records[rel] = receipt(dest)
+                    save(records)
+elif operation == 'uninstall':
+    if not manifest.exists():
+        print('[plangate] no verified ownership manifest; all files retained')
+        sys.exit(0)
+    for rel, expected in sorted(records.items()):
+        dest = root / rel
+        if no_symlinks(dest) and not os.path.lexists(dest):
+            print('[plangate] missing; ownership expired: ' + rel)
+            if not dry:
+                del records[rel]
+                save(records)
+            continue
+        if not matches(dest, expected):
+            print('[plangate] retained (modified or unsafe): ' + rel)
+            continue
+        print(('[dry-run] WOULD DELETE: ' if dry else '[plangate] deleted: ') + rel)
+        if not dry:
+            # Forget ownership before unlinking; a failure leaves an unowned file.
+            del records[rel]
+            save(records)
+            os.unlink(dest)
+    # Retain the manifest and directories, including records for modified files.
+else:
+    fail('unknown operation')
 PYEOF
+}
+
+install_claude() {
+  _log "Claude Code: $PLUGIN_DIR → ${TARGET_DIR:-$(pwd)/.claude} (v$PLUGIN_VERSION)"
+  _claude_files install
+}
+
+uninstall_claude() {
+  _claude_files uninstall
 }
 
 # インストール後案内（caveats）
