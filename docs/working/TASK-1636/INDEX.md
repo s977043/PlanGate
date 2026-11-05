@@ -1,6 +1,6 @@
 # TASK-1636 INDEX
 
-> 最終更新: 2026-11-05 19:18
+> 最終更新: 2026-11-06 02:38
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従う。
 
 ## チケット概要（1-2文）
@@ -15,13 +15,14 @@ BLOCKED
 - owner: human
 - unblock_condition: `PLANGATE_HOOK_TASK=TASK-1636` を付けて起動したセッションで `plan.md` を配置する。その後フェーズを `C-3 待ち` に更新する
 
-C-1 判定: PASS（`review-self.md`。WARN は `C1-B1B2-16` の 1 件）。C-2 は未実施（`plan.md` Q-3）。
+C-1 判定: PASS（簡易 C-1 再実行後。`review-self.md`。WARN は `C1-B1B2-16` の 1 件）。C-2 判定: WARN（`review-external.md`。R-001〜R-007 を計画へ反映済み。担当エージェントは unavailable で代替実施）。
 
 ## 次のアクション
 
-1. `PLANGATE_HOOK_TASK=TASK-1636` 付きで再起動し、`plan.md` を配置する。
-2. Human が C-3 を判断する（`pbi-input.md` の確認と `plan.md` Q-1〜Q-4）。
-3. 承認後に `bin/plangate approve TASK-1636` を実行してから exec に入る。c3.json は未発行。
+1. Human が `PLANGATE_HOOK_TASK=TASK-1636` 付きで再起動する。
+2. Agent が `plan.md` を配置し、下書きとの一致を確認する。
+3. Human が C-3 を判断し（`pbi-input.md` の確認と `plan.md` Q-1〜Q-5）、`bin/plangate approve TASK-1636` を実行する。c3.json は未発行。
+4. exec に入る。
 
 ## ファイルマップ（読み込み優先度）
 
@@ -32,6 +33,7 @@ C-1 判定: PASS（`review-self.md`。WARN は `C1-B1B2-16` の 1 件）。C-2 �
 | todo.md | exec | タスク一覧 |
 | test-cases.md | exec, review | テストケース定義 |
 | review-self.md | C-3, review | C-1 結果 |
+| review-external.md | C-3, review | C-2 結果と R-NNN の監査表 |
 | current-state.md | status, 復旧 | 現在状態 |
 | installer-ownership-review.md | review | PR #1639 時点のレビュー記録（exec で更新） |
 

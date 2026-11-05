@@ -15,8 +15,8 @@
 | AC-03: 表記と向け替え | TC-06, TC-07 | |
 | AC-04: 解決できない symlink | TC-08, TC-09 | |
 | AC-05: v1 のみの導入 | TC-10, TC-11, TC-12, TC-E02 | |
-| AC-06: v1 を根拠にしない / 移行 | TC-13, TC-14 | |
-| AC-07: 案内 | TC-15 | |
+| AC-06: v1 を根拠にしない / 移行 | TC-13, TC-14, TC-22 | |
+| AC-07: 結果表示と案内 | TC-15, TC-23, TC-24 | |
 | AC-08: テストの弱さ | TC-16, TC-17, TC-18 | |
 | AC-09: 残存脅威の明記 | TC-19 | |
 | AC-10: 検出力 | TC-20, TC-21 | |
@@ -32,6 +32,10 @@
 | Regression | REG-01: major-1 | PR #1639 コメント / `plan.md` P-01〜03 | TC-01, TC-02 |
 | Regression | REG-02: major-2 | PR #1639 コメント / P-05, P-06 | TC-10, TC-11 |
 | Conditional | CR-01: Security（dangling の追従） | `plan.md` P-08 | TC-08 |
+| Regression | R-001: 印字コマンドが auto モードで効かない | `review-external.md` | TC-15 |
+| Regression | R-002: 更新 0 件でも完了と出る | `review-external.md` | TC-24 |
+| Regression | R-003: 移行手順をたどれない | `review-external.md` | TC-14, TC-22 |
+| Conditional | H-10: 案内の出力エラーが書き込み後に rc=1 にする | `plan.md` P-18 | TC-23 |
 
 ## テストケース一覧
 
@@ -62,9 +66,9 @@
 ### TC-04: symlink の root + 配下の親 / ファイル symlink への削除
 
 - 対応 AC: AC-02 / Trace ID: INV-01 / 種別: integration / RED: FAIL（導入が拒否される）
-- 前提条件: symlink の root に導入後、(a) `agents` を外部ディレクトリへの symlink に置換、(b) `agents/new.md` を外部ファイルへの symlink に置換
+- 前提条件: symlink の root に導入後、(a) `agents` を外部へ rename し、`agents` をその移動先への symlink にする（inode と ctime が保たれ、`no_symlinks` だけが守る形。R-004）、(b) `agents/new.md` を外部ファイルへの symlink に置換
 - 入力: `--uninstall --target <symlink root>`
-- 期待出力: rc=0。`retained (modified or unsafe): agents/new.md`。外部ファイルの内容が不変
+- 期待出力: rc=0。`retained (modified or unsafe): agents/new.md`。(a) の移動先の `new.md` と (b) の外部ファイルの内容が不変
 - 期待値の出所: 既存実装（`tests/test_installer_ownership.py:213-232` の期待を symlink の root へ拡張）
 
 ### TC-05: manifest が symlink
@@ -141,17 +145,41 @@
 
 - 対応 AC: AC-06 / Trace ID: AC-06 / 種別: integration / RED: **FAIL**
 - 前提条件: v1 manifest に PlanGate のファイル `agents/new.md` と利用者のファイル `agents/existing.md` が載っている
-- 入力: `new.md` を手で削除 → v1 を `.bak` へ改名 → `--claude` → `--uninstall`
-- 期待出力: 導入 rc=0、`protected existing: agents/existing.md`。撤去後 `new.md` なし、`existing.md` と `.bak` が残る
+- 前提条件（追加）: 配布元は tag `v<version>` を持つ使い捨ての git repo。`files` に利用者のファイルを含むディレクトリも載せる
+- 入力: 文書の `git show ... | cmp -` で比較 → 一致した `new.md` だけを削除 → v1 を `.bak` へ改名 → `--claude --target <dest>` → `--uninstall --target <dest>`
+- 期待出力: 比較で `existing.md` と、ディレクトリ内の利用者のファイルは一致しない。tag がないときは一致扱いにしない。導入 rc=0、`protected existing: agents/existing.md`。撤去後 `new.md` なし、`existing.md`、ディレクトリ内の利用者のファイル、`.bak` が残る
 - 期待値の出所: 規約（`plan.md` の移行手順）。Convention Evidence を参照
 - 備考: 手順の節が文書にあることは `grep -c "Migrating from a v1 manifest" docs/plangate-plugin-migration.md` が 1 以上で確認する
 
 ### TC-15: 導入後の案内
 
 - 対応 AC: AC-07 / Trace ID: AC-07 / 種別: integration / RED: **FAIL**（呼び出し元がない）
-- 入力: `PLANGATE_SETUP_HINT` 未設定で `--claude`、`=0` で `--claude`、未設定で `--claude --dry-run`
-- 期待出力: 1 番目のみ `インストール完了` を表示し、更新コマンドは `git -C` と `install.sh --force` を含み、`cd` で repo へ移動しない。2、3 番目は表示しない
-- 期待値の出所: `origin/main:install.sh`（`install_claude` の `_print_caveats` 呼び出し）
+- 前提条件: repo と target のパスに空白と `'` を含む。target は symlink 経由の相対パス
+- 入力: (1) `PLANGATE_SETUP_HINT` 未設定で `--claude`、(2) `=0` で `--claude`、(3) 未設定で `--claude --dry-run`。(1) の出力の更新コマンドと撤去コマンドを、`.claude` のない別の cwd で `sh -c` により実行する
+- 期待出力: (1) のみ `インストール完了` を表示。更新コマンドは `--claude --force --target` を含み、実行すると rc=0 で導入先が新しい内容になり、cwd に `.claude` を作らない。撤去コマンドは rc=0 で削除する。(2)、(3) は案内なしで summary あり
+- 期待値の出所: `origin/main:install.sh`（案内の存在）、`plan.md` P-19（実行可能性）
+
+### TC-22: 全件保持の移行
+
+- 対応 AC: AC-06 / Trace ID: R-003 / 種別: integration / RED: FAIL（summary がない）
+- 前提条件: v1 を `.bak` へ改名済み。`agents/` の全ファイルを利用者が残している（配布物と異なる内容）
+- 入力: `--claude --force --target <dest>`、続いて `--uninstall --target <dest>`
+- 期待出力: 導入 rc=0、`copied=0 updated=0`、案内なし、v2 なし。撤去 rc=0 で全ファイルが残る
+- 期待値の出所: 既存実装（`plan.md` P-21）
+
+### TC-23: ASCII の stdout
+
+- 対応 AC: AC-07 / Trace ID: H-10 / 種別: integration / 分類: 異常系 / RED: PASS（案内がないため。MU-14 で FAIL）
+- 入力: `PYTHONIOENCODING=ascii`、`PLANGATE_SETUP_HINT` 未設定で `--claude --target <dest>`
+- 期待出力: rc=0。traceback なし。v2 に導入済みのファイルが記録されている
+- 期待値の出所: 既存実装（`plan.md` P-18）
+
+### TC-24: 変更がなければ完了案内を出さない
+
+- 対応 AC: AC-07 / Trace ID: R-002 / 種別: integration / RED: FAIL（summary がない）
+- 入力: (a) 導入済みに再度 `--claude`、(b) 全件編集後に `--claude --force`、(c) 壊れた v2 manifest で `--claude`
+- 期待出力: (a) rc=0、`copied=0 updated=0 protected=N`、案内なし。(b) 同左で `updated=0`。(c) rc=1、案内なし
+- 期待値の出所: R-002、`plan.md` P-17
 
 ### TC-16: ctime のみの変化
 
@@ -192,7 +220,7 @@
 ### TC-21: 変異注入
 
 - 対応 AC: AC-10 / Trace ID: AC-10 / 種別: integration
-- 入力: `plan.md` Task 6 の MU-1〜MU-12
+- 入力: `plan.md` Task 6 の MU-1〜MU-16
 - 期待出力: 全変異で指定の TC が FAIL。未変異のコピーは GREEN
 - 期待値の出所: `plan.md`
 
@@ -239,7 +267,7 @@
 
 | テストケース | 自動化 | 理由 / 代替手段 |
 | --- | --- | --- |
-| TC-01〜TC-16, TC-E01〜E04 | 可 | `tests/test_installer_ownership.py` |
+| TC-01〜TC-16, TC-22〜TC-24, TC-E01〜E04 | 可 | `tests/test_installer_ownership.py` |
 | TC-17〜TC-19 | grep で可 | 目視部分は V-1 で確認 |
 | TC-20, TC-21 | スクラッチパッドのスクリプトで可 | リポジトリには残さない。ログを evidence に保存 |
 | Linux 実機 | CI のみ | ローカル不可。PR の CI で確認 |

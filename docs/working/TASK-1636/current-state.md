@@ -1,14 +1,14 @@
 # TASK-1636 Current State
 
-> 更新: 2026-11-05 19:18
+> 更新: 2026-11-06 02:38
 
 ## フェーズ: BLOCKED
 
-## 進捗: `plan.md` 以外の計画一式と C-1 が完了 / T-01〜T-18 未着手
+## 進捗: `plan.md` 以外の計画一式、C-1、C-2 指摘の反映が完了 / T-00〜T-18 未着手
 
 ## 直近の完了タスク
 
-- PR #1639（head `e683fd4d`）の指摘を実測で確認し、計画一式を作成（2026-11-05 19:18）
+- RiverReview の R-001〜R-007 を下書きと計画一式へ反映し、簡易 C-1 を再実行（2026-11-06 02:38）
 
 ## 現在のタスク
 
@@ -21,9 +21,9 @@
 
 ## 次のアクション
 
-- Human: `PLANGATE_HOOK_TASK=TASK-1636` を付けて Claude Code を再起動する
-- Agent: `plan.md` を配置し、フェーズを `C-3 待ち` に更新する
-- Human: `plan.md` Q-1〜Q-4 を判断し、`bin/plangate approve TASK-1636` を実行する
+1. Human: `PLANGATE_HOOK_TASK=TASK-1636` を付けて Claude Code を再起動する
+2. Agent: `plan.md` を配置して下書きとの一致を確認し、フェーズを `C-3 待ち` に更新する
+3. Human: `plan.md` Q-1〜Q-5 を判断し、`bin/plangate approve TASK-1636` を実行する
 
 ## 計画からの乖離
 

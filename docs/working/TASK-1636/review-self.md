@@ -9,9 +9,11 @@ created_by: orchestrator
 
 # TASK-1636 セルフレビュー結果（C-1）
 
-> レビュー日: 2026-11-05
+> レビュー日: 2026-11-05 / 簡易 C-1 再実行: 2026-11-06 02:38（R-001〜R-007 の反映後）
 > 判定: **PASS** — critical=0, major=0, minor=1（WARN 1 件）
-> 作成者自身のレビューであり、独立性はない。C-2 は未実施（`plan.md` Q-3）。
+> 作成者自身のレビューであり、独立性はない。C-2 は代替実施で WARN（`review-external.md`、`plan.md` Q-3）。
+>
+> **簡易 C-1 の確認**: AC-07 の変更に TC-15、23、24 が対応する。AC-06 に TC-22 を追加した。新規変異 MU-13〜16 に検出 TC がある。exec 前提の順序が plan、todo、INDEX で一致する。Q-1〜Q-5 は推奨のみで確定していない。AC は 10 件のまま。下記の個別項目の結果は変わらない。
 > **`plan.md` はリポジトリに未配置**: Hook EH-3 が書き込みを block した。本レビューの Plan 項目は、配置待ちの同一本文に対して行った。配置後に内容の一致を確認するまで、C-3 の判断材料にしない。
 
 ## サマリー
@@ -35,14 +37,14 @@ created_by: orchestrator
 ### C1-PLAN-02: Unknowns処理
 - **result**: PASS
 - **category**: plan
-- **finding**: Q-1〜Q-5 に判断者と推奨を記載した。検証可能な前提は P-01〜P-16 で実測済み。
+- **finding**: Q-1〜Q-5 に判断者と推奨を記載した。検証可能な前提は P-01〜P-23 で実測済み（P-23 の main 側はコードとレビュー記録による）。
 - **evidence_ref**: —
 - **impacted_files**: []
 
 ### C1-PLAN-03: スコープ制御
 - **result**: PASS
 - **category**: plan
-- **finding**: 触らないファイルを列挙し、auto モードの rc と `plugin/` の README を別 Issue / 別 PBI に分離した。案内の復旧は指示の「案内文」の範囲に含めたが、`_print_caveats` の呼び出し復旧はレビュー指摘にない追加なので C-3 で確認対象とする。
+- **finding**: 触らないファイルを列挙し、auto モードの rc と `plugin/` の README を別 Issue / 別 PBI に分離した。案内の復旧は指示の「案内文」の範囲に含めたが、案内の復旧はレビュー指摘にない追加なので C-3 で確認対象とする（Q-5）。
 - **evidence_ref**: —
 - **impacted_files**: [`install.sh`]
 
@@ -160,7 +162,7 @@ created_by: orchestrator
 ### C1-TEST-14: テストケースの具体性
 - **result**: PASS
 - **category**: test
-- **finding**: rc と文言を値で指定し、出所を記載した。変更前でも満たすケース（TC-05、09、16、E04）は RED 列に PASS と書き、対応する変異で検出力を示す。ただし TC-E04 は変異の割当がなく、固定の目的にとどまる。
+- **finding**: rc と文言を値で指定し、出所を記載した。変更前でも満たすケース（TC-05、09、16、23、E04）は RED 列に PASS と書き、対応する変異で検出力を示す。ただし TC-E04 は変異の割当がなく、固定の目的にとどまる。
 - **evidence_ref**: —
 - **impacted_files**: []
 
@@ -176,10 +178,10 @@ created_by: orchestrator
 ### C1-B1B2-16: B-1確認質問
 - **result**: WARN
 - **category**: plan
-- **finding**: Human への確認質問は未実施。`pbi-input.md` は AI の下書きで、確認は Q-1〜Q-4 として C-3 に送っている。
+- **finding**: Human への確認質問は未実施。`pbi-input.md` は AI の下書きで、確認は Q-1〜Q-5 として C-3 に送っている。
 - **evidence_ref**: —
 - **impacted_files**: [`docs/working/TASK-1636/pbi-input.md`]
-- **suggested_action**: C-3 で Q-1〜Q-4 を判断する
+- **suggested_action**: C-3 で Q-1〜Q-5 を判断する
 - **owner**: human
 - **resolved**: false
 
