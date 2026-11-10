@@ -43,13 +43,14 @@ Human が適用したら同じ commit で flag を削除する（flag が残っ�
 - 兄弟 worktree にある untracked の plan.md（approvals と履歴しか見ない）
 - reflog 失効後・gc 後の履歴、未 fetch の remote、トークンを repo 外へ退避して戻す行為
 - env / 引数で対象を渡す経路（Codex の eh-bridge 等）はこの許可分岐に入らない（従来どおり block。機能差）
-- file_path に孤立サロゲートを含む payload。jq 1.8.1 は parse error で拒否し、grep の fallback により **origin/main の hook でも OUTSIDE_REPO_SKIP（rc=0）**になる。本 patch 以前からの既存挙動。書き込み主体が実際にどこへ書くかは未検証（follow-up issue 候補）
+- file_path に孤立サロゲートを含む payload。jq 1.8.1 は parse error で拒否し、grep の fallback により **origin/main の hook でも OUTSIDE_REPO_SKIP（rc=0）**になる。本 patch 以前からの既存挙動。書き込み主体が実際にどこへ書くかは未検証（#1647）
 
-保証の主体: exec 段階の plan_hash 拒否。前提は、exec を行う checkout に、Human が plan_hash 付きで発行した c3.json があること。plan_hash 層が検出するのは承認後の改変で、承認の不在は検出しない。EH-3 の task レーンは c3.json が無いと STRICT でも plan.md の編集を通す（ta-119 TC-P5 で固定）。bin/plangate 側の既存 fail-open（legacy c3.json の plan_hash 欠落・接頭辞不正・plan.md 不在の受理、c3.json が task_id に束縛されていないこと）は範囲外。
+保証の主体: exec 段階の plan_hash 拒否。前提は、exec を行う checkout に、Human が plan_hash 付きで発行した c3.json があること。plan_hash 層が検出するのは承認後の改変で、承認の不在は検出しない。EH-3 の task レーンは c3.json が無いと STRICT でも plan.md の編集を通す（ta-119 TC-P5 で固定）。bin/plangate 側の既存 fail-open（legacy c3.json の plan_hash 欠落・接頭辞不正・plan.md 不在の受理、c3.json が task_id に束縛されていないこと）は範囲外（#1646）。
 
 ## 3. 検証済みであること / 未検証であること
 
-- 検証済み（mktemp sandbox。実 repo には書いていない）: ta-119 の全 TC。変異注入（`PG_T119_MUTATION=1` の opt-in レーン）は killed=25 / survived=0 / 等価変異 5（各変異の分類理由は ta-119 の fixture 参照）
+- 検証済み（mktemp sandbox。実 repo には書いていない）: ta-119 の全 TC。変異注入（`PG_T119_MUTATION=1` の opt-in レーン）は killed=26 / survived=0 / 等価変異 5。等価変異（生存を期待値として集計を分けたもの）は次の 5 つ。M21b（制御文字の検査だけ外す）と M22（一致検査だけ外す）は、残る検査が同じ入力を止める。M19・M24・M26（`_tf_src` 系）は、env で注入した `_stdin` を isinstance 検査、それも外すと例外処理が BLOCK にする。多重防御として残している
+- 非機能: plan.md 以外の Write は、未 patch と同じ起動回数（jq=1・python3=1）であることを TC-F1 / F1b で固定した。実 repo（worktree 56 本、prunable 7 本）での `rev-list --all --reflog --full-history` は 3.3〜4.7 秒（3 回）で、git 呼び出しごとの timeout 10 秒に収まる。高負荷時の値は未測定
 - 未検証: 実 Claude Code の Write payload（H-02 の適用後、T-02 で実 Write を 1 回行い `PLAN_CREATE_ALLOW` を確認する）、Codex / Cursor 経路
 
 ## 4. patch（`git apply` 可能）

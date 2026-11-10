@@ -354,9 +354,10 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 > **残存脅威**（完全性を主張しない）: Bash 経路（#1104 open）、TOCTOU、
 > untracked な approvals の発見はベストエフォート（prunable / prune 済み / 別 clone の worktree は見えない）、
 > 兄弟 worktree の untracked plan.md、reflog 失効後の履歴、file_path に孤立サロゲートを含む
-> payload の既存 OUTSIDE_REPO_SKIP。保証の主体は exec 段階の plan_hash 拒否で、Human 発行の
+> payload の既存 OUTSIDE_REPO_SKIP（#1647）。保証の主体は exec 段階の plan_hash 拒否で、Human 発行の
 > c3.json が exec する checkout にあることが前提。task レーンは c3.json が無いと STRICT でも
-> plan.md 編集を通す。回帰網: `tests/extras/ta-119-eh3-plan-create.sh`。
+> plan.md 編集を通す。bin/plangate 側の legacy c3.json の fail-open は #1646。
+> 回帰網: `tests/extras/ta-119-eh3-plan-create.sh`。
 
 > EH-3 の HO block は**多層防御の 1 層**にすぎない。承認境界の最終的な保証主体は
 > **C-4 Human レビュー**と **GitHub branch protection** であり、本 hook の block を
