@@ -37,6 +37,8 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 - **C-1 PASS・C-2 完了済み**であること（`references/execution-runbook.md` §2 前提）。
   本サイクルは C-3' ゲートの位置づけであり、C-1/C-2 未完了の変更には使わない。
   この C-1 の実施結果（`PASS`）を Step 1 の入力 `gates.c1` にそのまま渡す（#780 Slice B）。
+- `PLANGATE_HOOK_TASK` 未設定のセッションでの挙動（plan 作成の入口・修正時の再起動案内と escalate・迂回の禁止）は
+  同梱 `references/rollout-policy.md` §6「起動条件と no-task セッションの挙動」に従う（#1197）。
 - 対象は **lite 帯候補の変更**（`references/lite-criteria.md` §2 の 4 軸を満たしうる変更）。
   high-risk / critical 相当や boundary=touches-HO が明らかな変更には使わない
   （使っても flow フェーズで即 human escalate になる）。

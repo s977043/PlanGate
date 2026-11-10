@@ -1,0 +1,3 @@
+# #1197 EH-3 plan.md 初回作成許可の patch は未適用（Human 適用待ち）。
+# docs/working/_reports/1197-eh3-plan-create-patch.md を scripts/apply-eh3-plan-create-1197.sh で
+# 適用したら、同じ commit でこのファイルを削除すること（残すと ta-119 TC-00b が FAIL する）。
