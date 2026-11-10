@@ -121,6 +121,20 @@ want TC-E09 && { new_sb; git -C "$R" worktree add -q "$S/lk" -b lk 2>/dev/null; 
 want TC-B6 && { new_sb; _fd=$(printf '\357\277\275'); mv "$R" "$S/r$_fd"; R="$S/r$_fd"; hk "$W" "$S/r\\ud800/$P"
   printf '  [KNOWN-GAP] TC-B6-lone-surrogate rc=%s (%s)\n' "$RC" "$(printf '%s' "$OUT" | grep -o 'OUTSIDE_REPO_SKIP\|PLAN_CREATE_ALLOW\|BLOCK' | head -1)"
   hk "$W" "$R/$P"; chk TC-B6-control-fffd-root allow; }
+# 非機能: plan.md 以外の Write で許可分岐の jq / python3 を起動しない（起動回数で判定）。
+# 期待回数は未 patch hook の実測値（jq=1: 対象抽出 / python3=1: repo containment）。
+# 陽性対照として plan.md の Write では回数が増える（許可分岐に入る）ことも測る。
+mkshim() { _sd=$(mktemp -d "$BASE/shim.XXXXXX"); for c in jq python3; do _w=$(command -v "$c"); printf '#!/bin/sh\necho x >>"%s/%s.count"\nexec "%s" "$@"\n' "$_sd" "$c" "$_w" >"$_sd/$c"; chmod +x "$_sd/$c"; done; printf '%s' "$_sd"; }
+cnt() { [ -f "$1" ] && wc -l <"$1" | tr -d ' ' || echo 0; }
+want TC-F1 && { new_sb; _sd=$(mkshim); hk "$W" "$R/docs/notes.md" PATH="$_sd:$PATH"
+  _j=$(cnt "$_sd/jq.count"); _p=$(cnt "$_sd/python3.count")
+  if [ "$_j" = 1 ] && [ "$_p" = 1 ]; then RC=0; OUT=PLAN_CREATE_ALLOW; else RC=9; OUT="jq=$_j python3=$_p"; fi; chk TC-F1-nonplan-md-no-extra-fork allow
+  _sd=$(mkshim); hk "$W" "$R/src.txt" PATH="$_sd:$PATH" PLANGATE_SKIP_REASON=f1
+  _j=$(cnt "$_sd/jq.count"); _p=$(cnt "$_sd/python3.count")
+  if [ "$_j" = 1 ] && [ "$_p" = 1 ]; then RC=0; OUT=PLAN_CREATE_ALLOW; else RC=9; OUT="jq=$_j python3=$_p"; fi; chk TC-F1b-nonplan-other-no-extra-fork allow
+  _sd=$(mkshim); hk "$W" "$R/$P" PATH="$_sd:$PATH"
+  _j=$(cnt "$_sd/jq.count"); _p=$(cnt "$_sd/python3.count")
+  if [ "$_j" -ge 2 ] && [ "$_p" -ge 2 ]; then RC=0; OUT=PLAN_CREATE_ALLOW; else RC=9; OUT="jq=$_j python3=$_p"; fi; chk TC-F1c-plan-positive-control allow; }
 want TC-I1 && { new_sb; _big=$(mktemp "$BASE/big.XXXXXX"); python3 -c 'import json,sys; print(json.dumps({"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":sys.argv[1],"content":"x"*1228800}}))' "$R/$P" >"$_big"
   OUT=$(cd "$R" && sh "$R/scripts/hooks/check-plan-hash.sh" <"$_big" 2>&1); RC=$?; chk TC-I1-1200KB-payload allow; }
 # docstring の記述の固定: task レーンは c3.json が無ければ STRICT でも plan.md 編集を通す（既存挙動）

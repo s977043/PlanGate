@@ -63,6 +63,7 @@ m M16 'TC-E09'    's|out("BLOCK\|unreachable worktree " + path)|continue|'
 m M17 'TC-08g'    's|r.returncode != 0 or r.stdout.strip() != b"false"|r.returncode != 0|'
 m M18 'TC-13'     's|        p = "/".join(parts\[:j\])|        p = os.path.realpath("/".join(parts[:j]))|'
 m M25-I1-env 'TC-I1' 's|raw = json.loads(sys.stdin.read())|raw = json.loads(os.environ["PG_STDIN"])|' 's|_pc_res=$(printf .%s. "$_stdin" \| PG_ROOT|_pc_res=$(PG_STDIN="$_stdin" PG_ROOT|'
+m M27-lexgate 'TC-F1' '/^  _pc_lex=0$/,/^  esac$/d' 's/^  if \[ "$_pc_lex" = "1" \] \\$/  if true \\/'
 me M19-tfsrc 'TC-E01' 's|^_tf_src=""$|_tf_src=stdin_jq|'
 printf 'MUT killed=%s survived=%s equivalent=%s%s%s\n' "$killed" "$survived" "$equiv" "${SURV:+ survived:$SURV}" "${EQ:+ equivalent:$EQ}"
 rm -rf "$MD"

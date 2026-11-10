@@ -60,7 +60,7 @@ patch 本体は下の `<!-- PG-PATCH-BEGIN -->` / `<!-- PG-PATCH-END -->` に挟
 <!-- PG-PATCH-BEGIN -->
 ```diff
 diff --git a/scripts/hooks/check-plan-hash.sh b/scripts/hooks/check-plan-hash.sh
-index dcdc88d0..31b5d3f8 100755
+index dcdc88d0..87cbe74b 100755
 --- a/scripts/hooks/check-plan-hash.sh
 +++ b/scripts/hooks/check-plan-hash.sh
 @@ -277,6 +277,7 @@ fi
@@ -81,7 +81,7 @@ index dcdc88d0..31b5d3f8 100755
      if [ -z "$target_file" ]; then
        target_file=$(printf '%s' "$_stdin" \
          | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' \
-@@ -546,6 +550,135 @@ fi
+@@ -546,6 +550,141 @@ fi
  #     check-forbidden-files.sh と同じ「no task→skip」慣行。Case 2）
  #   - PLANGATE_HOOK_STRICT=1 は従来どおり no-task を一律 block（後方互換）
  if [ -z "$task_id" ]; then
@@ -104,7 +104,13 @@ index dcdc88d0..31b5d3f8 100755
 +  #   legacy c3.json の plan_hash 欠落・接頭辞不正・plan.md 不在を exec が受理する
 +  #   fail-open、および c3.json が task_id に束縛されていないこと。
 +  # 詳細は docs/ai/hook-enforcement.md の EH-3 節。本分岐は多層防御の 1 層である。
-+  if [ "${_tf_src:-}" = "stdin_jq" ] \
++  # 入口の字句判定（fork なし）。plan.md 以外は従来と同じ経路・fork 数のまま下へ進む。
++  _pc_lex=0
++  case "${target_file}" in
++    */plan.md) _pc_lex=1 ;;
++  esac
++  if [ "$_pc_lex" = "1" ] \
++    && [ "${_tf_src:-}" = "stdin_jq" ] \
 +    && [ "${PLANGATE_HOOK_STRICT:-0}" != "1" ] \
 +    && [ ! -e "$REPO_ROOT/docs/working/_maintenance/maintenance.json" ] \
 +    && [ "$(printf '%s' "${_stdin:-}" | jq -r 'if (.tool_name|type)=="string" then .tool_name else "" end' 2>/dev/null || true)" = "Write" ] \
