@@ -44,7 +44,8 @@ printf '\n=== TA-119: EH-3 plan.md initial creation for unapproved TASK (#1197) 
 
 if pg_extra_contract_is_standalone; then
   unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE \
-    PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED 2>/dev/null || true
+    PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED \
+    PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
 fi
 
 if [ "$_pg_extra_mode" = harness ]; then
