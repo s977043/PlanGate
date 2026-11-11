@@ -43,9 +43,9 @@ evidence_head: 6d1f7a6b5ff52cda320e7ed99fdb9ad0ccf3a311（T-10 独立 worker が
 | 1329-AC-4 | PASS | TC-09（CI 緑は未確認） |
 | 1329-AC-5 | PASS | TC-06（H-00 の承認は plan に記録） |
 
-**総合**: WARN（全 12 基準のうち 10 PASS / 1 WARN / 1 未判定。I4 の機械証跡は未充足）
+**総合**: WARN（全 12 基準のうち 10 PASS / 1 WARN / 1 未判定。T-10 の独立再実行は完了。I4 の充足は本 handoff では宣言しない。判定は Human C-4 による（§7「I4 の充足記録」）。evidence 層は改ざんを検出しない（status.md 残存脅威モデル））
 
-**WARN の扱い**: T-10 と記録欄の記入はレビュアーが行う。完了するまで C-4 に渡さない。
+**WARN の扱い**: 残因は AC-6 の記録欄の PR 本文への転記（PR 作成時）と AC-7 の Human merge に限る。T-10 と記録欄の記入は独立 worker が完了した。
 
 ## 2. 既知課題一覧
 
@@ -76,14 +76,14 @@ evidence_head: 6d1f7a6b5ff52cda320e7ed99fdb9ad0ccf3a311（T-10 独立 worker が
 
 - canon の変更は追記のみ（削除 0）。他の canon 6 本は変更なし
 - 転記手順は status.md にある。canon を commit → `regen.sh` → evidence を commit → レビュアーが記録欄を埋めて check.sh（4 引数）を実行
-- exec レビューの記録は `review-external-exec.md`。既存 `review-external.md` の末尾へ追記する
+- exec レビューの記録は `review-external.md` の末尾（R-101〜R-112）
 - merge 後の #1329 / #1374 へのコメント（Q-5）は Human の名指し承認が要る（H-02）
 
 ## 6. テスト結果サマリ
 
 | 検査 | 結果 |
 | --- | --- |
-| check.sh（REPRO-CHECK + TC-01〜09、11、E01〜E03） | rc=0（下書き clone の最終 evidence head で、ピン留めした check.sh を 4 引数で実行。転記後に再実行が要る） |
+| check.sh（REPRO-CHECK + TC-01〜09、11、E01〜E03） | rc=0（転記後の evidence head `6d1f7a6b` で、T-10 の独立 worker が 4 引数で再実行して満たした。下記「独立再実行（T-10）」） |
 | `sh tests/run-tests.sh`（継承 TMPDIR） | rc=2。TA-100 unit で停止。対照 `9445df17` も同じ失敗（PASS 86、186 行で一致）。ログ: `evidence/test-runs/` |
 | 同（TMPDIR を実パスに） | head・対照とも rc=2。TA-100 unit は PASS し、TA-100 手順 3（L44 の `mktemp -d`）で停止（PASS 87、139 行で一致） |
 | 同（実パス TMPDIR + scratch の mktemp shim、**並行実行**） | **参考値**（ta-49 の固定 `/tmp` パスで干渉）。TA-100 は head・対照とも通過 |

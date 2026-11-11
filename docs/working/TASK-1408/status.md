@@ -35,11 +35,11 @@ C-3 は Human の `approvals/c3.json` 発行による（plan_hash `sha256:2f6dee
 
 **WARN**（handoff.md §1 と同じ。1408-AC-6 は I4 の機械証跡が未充足で WARN、1408-AC-7 は未判定）
 
-- T-08 / T-09: exec レビュー X-R1〜X-R5 を `review-external-exec.md`（R-101〜R-112）に集約した
+- T-08 / T-09: exec レビュー X-R1〜X-R5 を `review-external.md` の末尾（R-101〜R-112）に集約した
 - T-11: `sh tests/run-tests.sh` は TA-100 で rc=2。未変更の `9445df17` でも同じ箇所で失敗したので、本変更には帰属しない。原因は macOS の `mktemp -d` が TMPDIR を見ず、`/var` の symlink に一時ディレクトリを作ること（TA-100 L44。handoff.md §2）。実パスの TMPDIR と scratch の mktemp shim を使い、単独・直列で再実行した。対照 `9445df17` は rc=0（1556 passed / 0 failed）、head は rc=1（1548 passed / 4 failed）。4 件はすべて ta-61 TC-12 のタイムアウト（ta-62 / ta-65 / ta-70 / ta-71、load1 36〜113）で、個別に standalone で再実行すると、head は 4 本とも rc=0 だった。対照は ta-62 のみが負荷によるタイムアウトで rc=1 となり、**負荷に帰属すると確定した**（各実行の前後に uptime を記録。`evidence/test-runs/standalone-4.txt`）。並行実行時の TA-49 FAIL は干渉と確定した（並行実行した回の対照ログは単独実行の出力で上書きしてしまい、残っていない）
 - 既知課題: TA-49 は固定パス `/tmp/ta49_err*` を使うので、並行実行に弱い。head と対照を並行で走らせた shim 版の結果は参考値とする
 - clean-tree の範囲は現状のまま（tracked の差分と evidence/ 配下の untracked）とする。repo 全体の untracked（テスト生成物）は、commit 範囲の絞り込み（`git add -A docs/working/TASK-1408`）と head-paths-scoped で混入を防ぐ（オーガナイザー判断）
-- T-10: 2026-11-12 08:36 独立 worker が `6d1f7a6b` で実施。check.sh rc=0、陽性対照 rc=3（記録欄を参照）。`evidence/independent-rerun.txt` は未作成
+- T-10: 2026-11-12 08:36 独立 worker が `6d1f7a6b` で実施。check.sh rc=0、陽性対照 rc=3（記録欄を参照）。出力は `evidence/independent-rerun.txt`（`155ba058` で repo に配置）
 
 ## 計画からの変更点
 
@@ -51,6 +51,7 @@ C-3 は Human の `approvals/c3.json` 発行による（plan_hash `sha256:2f6dee
 - R4 による計画からの逸脱: TC-08 の主張を縮小した。digest の一致は改ざんの検出力を持たないので、機械証跡ではなく書き換え忘れの検出として扱う。検査力のなかった「1 byte 変えると digest が変わる」テストは削除した（R4 info）
 - R4-b: declared-me1 で `mergedAt` も照合する。R4-c: clean-tree が FAIL のときは、以降の検査を実行せず非 0 で終了する
 - R5（evidence 層のラウンドを打ち切り。§7-quater の打ち切り方に従う）: R5-a として、独立再実行に停止条件を加えた。check.sh は期待する evidence head と measure.sh の digest を引数で受け取り、不一致なら何も実行せず exit 3 で止まる。R5-b として、照合を「VERIFY」から「REPRO-CHECK」に改名し、manifest / make-manifest.sh / regen.sh の文言を「再現手順」の位置づけに合わせた。R5-c として、記録欄はレビュアーが埋めるものとした
+- T-10 の実施者を todo の「Codex」から Claude サブエージェント（作成者ではない別インスタンス）へ変更した。この端末での実施手段として Claude サブエージェントを用いたため。水準は I1（記録欄）
 - 転記手順（作成者）: canon を commit → `sh docs/working/TASK-1408/evidence/regen.sh <base> <canon-sha>` → evidence を commit。照合と記録はレビュアーが行う（下記）
 
 ## 独立再実行の手順
@@ -76,9 +77,10 @@ C-3 は Human の `approvals/c3.json` 発行による（plan_hash `sha256:2f6dee
 | sha256 check.sh | `743b380b4a05412e132d0aaa0ad714a759328cbdaebe4e9babca2f2e5d83a5b1`（`git show 6d1f7a6b:` から取り出して実測。作成者申告値と一致） | 独立 worker（T-10） |
 | sha256 measure.sh | `a6906024479b6aa2e08580150c978fdc6ee5c6d0a401131244a3767eb3a98353`（同上。一致） | 独立 worker（T-10） |
 | check.sh の rc | **0**（REPRO-CHECK 11 項目 / TC-01〜09・11・E01・E01b・E02・E03 すべて exit=0）。陽性対照（evidence head に `2a6939fa`）は rc=3（STOP） | 独立 worker（T-10） |
-| 出力の保存先 | session scratchpad `t10/check-output.txt` / `t10/check-negctl.txt`（repo 外。`evidence/independent-rerun.txt` は未作成） | 独立 worker（T-10） |
+| 出力の保存先 | session scratchpad `t10/check-output.txt` / `t10/check-negctl.txt`（repo 外）。check.sh の出力は `evidence/independent-rerun.txt` として repo に配置（`155ba058`） | 独立 worker（T-10） |
 | 実施者 / 日時 | 独立 worker（作成者ではない Claude サブエージェント）/ 2026-11-12 08:36 | 独立 worker（T-10） |
 | 記録した場所（PR 本文 / handoff） | status.md 本欄と handoff.md `evidence_head`。PR 本文は未作成 | 独立 worker（T-10） |
+| 独立性の水準 | **I1**（`evaluation-trust-boundary.md` §4 の定義「same model / separate context + role + run」に当たる。実施者は作成者と同一モデル系列の別インスタンスで、作成者の主張を使わず commit 内容から再実行した。I2 は separate model を要するので該当しない。canon §7「以後の I4 の最低要件」(1) の水準記録として書く） | 作成者（canon 定義との照合のみ） |
 
 **TODO が 1 つでも残る間は C-4 に渡さない。** handoff でも同じ方針を取り、記録欄が埋まっていなければ I4 の機械証跡は「未充足」と書く。
 
