@@ -6,10 +6,9 @@
 > 回帰網: [`tests/extras/ta-119-eh3-plan-create.sh`](../../../tests/extras/ta-119-eh3-plan-create.sh)
 > 計画: `docs/working/TASK-1197/plan.md`（C-3 CONDITIONAL）
 
-## 適用状態: **未適用**
+## 適用状態: **適用済み**（Human、2026-11-12、commit `82395dbe`）
 
-`tests/fixtures/eh3-plan-create-pending-1197.flag` が存在する間、ta-119 は gap（未適用）を期待値にする。
-Human が適用したら同じ commit で flag を削除する（flag が残っているのに適用済みだと ta-119 TC-00b が FAIL する）。
+適用と同じ commit で `tests/fixtures/eh3-plan-create-pending-1197.flag` を削除した。flag が無いので ta-119 は適用済みを期待値にする。
 
 ## 0. 結論
 
