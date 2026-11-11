@@ -1,0 +1,8 @@
+#!/bin/sh
+# scratch-only shim: macOS mktemp without a template ignores TMPDIR and uses /var/folders (symlink to /private/var).
+# Give template-less calls a TMPDIR-based template; pass everything else through unchanged.
+case "$*" in
+  "") exec /usr/bin/mktemp "${TMPDIR%/}/tmp.XXXXXXXX" ;;
+  "-d") exec /usr/bin/mktemp -d "${TMPDIR%/}/tmp.XXXXXXXX" ;;
+  *) exec /usr/bin/mktemp "$@" ;;
+esac

@@ -1,0 +1,140 @@
+TMPDIR=/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/f491ae15-1934-4efe-afa8-1e9906939b34/scratchpad/tmpdir-real/control realpath=/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/f491ae15-1934-4efe-afa8-1e9906939b34/scratchpad/tmpdir-real/control
+HEAD=9445df175e93fab31493274915bb35ab01cad4f1
+=== plangate validate --dir ===
+[PASS] complete-task: all artifacts + valid c3.json → PASS
+[PASS] missing-approval: no approvals/c3.json → FAIL
+[PASS] stale-plan-hash: plan.md modified after approval → FAIL
+[PASS] broken-pbi: pbi-input.md missing → FAIL
+
+=== TA-01: validate --mode ===
+[PASS] validate --mode standard: complete-task passes
+[PASS] validate --mode standard: missing-approval fails
+error: Unknown mode: unknown-xyz (no /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/f491ae15-1934-4efe-afa8-1e9906939b34/scratchpad/exec-draft-1408/control/workflows/unknown-xyz.yaml)
+[PASS] validate --mode unknown-xyz: non-existent mode returns error
+
+=== TA-02: review command ===
+Usage: plangate review <TASK-XXXX> [--phase c2|v3] [--file <path>]
+[PASS] review: no args shows usage (exit 1)
+[PASS] review: no args emits Usage text
+
+=== TA-03: exec command gate enforcement ===
+[PASS] exec: missing approvals/c3.json → actionable stderr guidance + nonzero exit
+[PASS] status: pending C-3 → Human-owned approve command without artifact hand-edit guidance
+[PASS] exec: non-approved C-3 → validate + Human-owned stderr guidance
+[PASS] exec: invalid c3-prime → validate guidance + nonzero exit
+[PASS] exec: plan_hash mismatch → safe validate + Human-owned re-decision guidance
+
+[extras] >>> ta-04-check-pr-issue-link.sh (start t+1s)
+
+=== TA-04: check-pr-issue-link.sh ===
+[PASS] pass: closes #N present
+[PASS] warn: no closing keyword
+[PASS] skip-label: documentation label
+[PASS] skip-marker: HTML comment marker
+[PASS] notice-refs: non-closing link 'Refs: #N' は NOTICE（PASS ではない）
+[PASS] notice-part-of: non-closing link 'Part of #N' は NOTICE（PASS ではない）
+[PASS] warn-bare-hash: bare #N without keyword stays WARN
+[PASS] notice-expected-issue: related_issue と一致するが非クローズ型のみ → NOTICE（番号まで全文一致）
+[PASS] pass-expected-issue-closing: related_issue と一致し closing keyword あり → PASS
+[PASS] warn-expected-issue-mismatch: related_issue と不一致 → WARN
+[PASS] warn-refs-no-separator: 区切り無しの 'refs#1' は linkage 宣言でない → WARN
+[PASS] warn-closing-word-boundary: hotfix/prefix/suffixes の語末一致で PASS しない → WARN
+[extras] <<< ta-04-check-pr-issue-link.sh done in 2s (new failures: 0)
+
+[extras] >>> ta-05-validate-schemas.sh (start t+3s)
+
+=== TA-05: validate-schemas (Issue #158) ===
+[PASS] valid/c3.json passes c3-approval schema
+[PASS] invalid/c3.json fails c3-approval schema (exit non-zero)
+[PASS] Intent Context Package fixture passes schema mapping/validation
+[PASS] schema-valid semantic-invalid Intent Context fixture fails closed
+[PASS] invalid date-time Intent Context fixture fails closed through validate-schemas
+[PASS] Intent Context Package contract scenarios pass
+[PASS] Plan Contract fixture passes schema mapping/validation
+[PASS] Plan Deliberation fixture passes schema mapping/validation
+[PASS] invalid Plan Deliberation fixture (partial cannot converge) fails closed
+[PASS] Plan Contract Context binding scenarios pass
+[PASS] Context Engine Intent Context adapter scenarios pass
+[PASS] validate-schemas: no args emits Usage text
+[SKIP] F-8: schemas/c3-prime.schema.json が既に配置済み (PR-2 適用後)
+[extras] <<< ta-05-validate-schemas.sh done in 6s (new failures: 0)
+
+[extras] >>> ta-06-hooks.sh (start t+10s)
+
+=== TA-06: hooks (Issue #157) ===
+[PASS] tests/hooks/run-tests.sh — all hook unit tests
+[extras] <<< ta-06-hooks.sh done in 16s (new failures: 0)
+
+[extras] >>> ta-07-eval-runner.sh (start t+26s)
+
+=== TA-07: eval-runner (Issue #156) ===
+[PASS] eval: sample task → exit 0 (no blockers)
+[PASS] eval: stdout contains AC coverage line
+[PASS] eval: no args emits Usage text
+[extras] <<< ta-07-eval-runner.sh done in 2s (new failures: 0)
+
+[extras] >>> ta-08-codex-log-parser.sh (start t+28s)
+
+=== TA-08: codex log parser (Issue #168) ===
+[PASS] codex_log_parser: latency_seconds extracted
+[PASS] codex_log_parser: completion_tokens extracted
+[PASS] eval-runner: --session-log produces PASS + latency value
+[extras] <<< ta-08-codex-log-parser.sh done in 1s (new failures: 0)
+
+[extras] >>> ta-09-metrics.sh (start t+29s)
+
+=== TA-09: metrics (Issue #195) ===
+[PASS] metrics: collect appended events to events.ndjson
+[PASS] metrics: events.ndjson lines are valid JSON
+[PASS] metrics: events conform to plangate-event.schema.json
+[PASS] metrics: c3_decided event with APPROVED verdict emitted
+[PASS] metrics: v1_completed with PASS verdict (AC counts derived)
+[PASS] metrics: report --json shows c3 APPROVED count
+[PASS] metrics: --aggregate report works
+[PASS] metrics: usage shown on no args
+[PASS] metrics (C-2): emitted events contain no forbidden fields (privacy §4)
+[PASS] metrics (D-1): schema rejects forbidden field (additionalProperties:false)
+[PASS] metrics (A-1): hook_violation auto-derived 2 events from audit log (filters PASS/BYPASS/other-task)
+[PASS] metrics (A-1): hook_name to hook_id mapping (check-c3-approval → EH-2)
+[PASS] metrics (A-1): hook_result mapping (VIOLATION→block, WARNING→warn)
+[PASS] metrics (A-1): events.ndjson remains valid JSON after hook events appended
+[PASS] metrics (A-1): hook_violation events conform to schema
+[PASS] metrics (D-2): 2026-05-04-baseline.json conforms to eval-baseline.schema.json
+[PASS] metrics (D-2): baseline schema rejects forbidden field at task level
+[PASS] metrics (H-1): --validate command checks events against schema
+[PASS] metrics (H-1): --validate exits 1 on schema violation (forbidden field)
+[PASS] metrics (J-1): schema_mapping.py includes eval-baseline.schema.json
+[PASS] metrics (F-3): plangate doctor includes v8.6.0 metrics health check
+[PASS] metrics (H-3): aggregate report includes by-mode section
+[PASS] metrics (H-3): --json output includes by_mode
+[PASS] metrics (K-1): --markdown-section produces handoff §7 table
+[PASS] metrics (K-2): --since 2030 filters out all old events (was 7)
+[PASS] metrics (K-2): --since 2026-01-01 keeps all in-range events (7)
+[PASS] metrics (K-3): doctor --json emits valid v8.6.0 JSON status
+[PASS] metrics (C-3): baseline-snapshot.py --dry-run output is schema-valid
+[extras] <<< ta-09-metrics.sh done in 16s (new failures: 0)
+
+[extras] >>> ta-10-doctor-fix.sh (start t+45s)
+
+=== TA-10: doctor --fix (TASK-0069) ===
+[PASS] doctor-fix TC-2: dry-run does not create settings.json / .bak
+[PASS] doctor-fix TC-3a: --apply creates settings.json, no .bak, --check passes
+[PASS] doctor-fix TC-3b: existing .bak rotated to .bak.<epoch>, new .bak created
+[PASS] doctor-fix TC-3c: pre-existing .bak.<epoch> never overwritten
+[PASS] doctor-fix TC-4: existing keys preserved, example merged (no dup)
+[PASS] doctor-fix TC-5: second --apply is byte-identical no-op
+[PASS] doctor-fix TC-E1: invalid JSON aborts, no overwrite, no .bak
+[PASS] doctor-fix TC-E2: only missing blocks appended, double-list preserved
+[PASS] doctor-fix TC-E3: read-only dir → explicit error, no partial write
+[PASS] doctor-fix TC-1: unwired env emits Hook Wiring section + FAIL + exit 1
+[PASS] doctor-fix TC-6: missing gh/codex -> guidance only, no auto-install (AC-6)
+[PASS] doctor-fix TC-7: --json --scope hooks has hook-wiring item; default byte-identical; no leak
+[extras] <<< ta-10-doctor-fix.sh done in 37s (new failures: 0)
+
+[extras] >>> ta-100-runtime-evidence-codex-probe-candidate.sh (start t+82s)
+TA-100: Codex Explorer lifecycle probe candidate (#1448)
+  [PASS] unit: Codex probe candidate suite passed (17 tests)
+  [PASS] proposal: Explorer lifecycle observation is candidate-only
+ERROR: output parent path must not traverse symlinks
+rc=2
+[extras] !! WATCHDOG: ta-100-runtime-evidence-codex-probe-candidate.sh has been running 300s (limit 300s) - stall candidate

@@ -1,0 +1,18 @@
+task: TASK-1408
+note: self-declared. The sha256 values below are written by the author in the same commit as the scripts;
+note: in-repo matching detects forgetting to regenerate, not tampering. Trust anchor: reviewed_at_sha and
+note: script digests recorded outside the commit (PR body / handoff), plus Human C-4.
+base: 9445df175e93fab31493274915bb35ab01cad4f1
+canon: 80e49220f3b1b77021968b65c6ab7356995652fc
+canon_parent: 9445df175e93fab31493274915bb35ab01cad4f1
+canon_paths: .github/PULL_REQUEST_TEMPLATE.md docs/ai/ai-loop-v2/phase0-migration.md
+head: (not declarable: this file is part of head) recorded outside the commit by the reviewer; check.sh stops unless HEAD equals that record
+head_paths_prefix: docs/working/TASK-1408/
+sha256 measure.sh: a6906024479b6aa2e08580150c978fdc6ee5c6d0a401131244a3767eb3a98353
+sha256 check.sh: 743b380b4a05412e132d0aaa0ad714a759328cbdaebe4e9babca2f2e5d83a5b1
+sha256 make-manifest.sh: a4300c475506135db0dc37b658ce47f16bcf373f5216eadff86bfe697a98bb9e
+sha256 regen.sh: a49a6fa7059f8178a92a8ec97f8cea59e5739e8503799571a4dc832cc2730e8e
+sha256 measurements.txt: 74793eb46746b29e02fec31eae543f6bcb89e8151534bfa28e57376fc3c8abce
+me1: {"mergeCommit":{"oid":"3331e5c49751b268412d4db8e5862982ac0005d8"},"mergedAt":"2026-09-29T00:01:17Z","state":"MERGED"}
+executor: author context (not independent)
+independent-rerun: NOT YET (T-10, separate context)
