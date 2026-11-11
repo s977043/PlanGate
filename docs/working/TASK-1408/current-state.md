@@ -1,6 +1,6 @@
 # TASK-1408 Current State
 
-> 更新: 2026-11-09 TODO:HH:MM（転記時に実時刻へ）
+> 更新: 2026-11-12 07:57
 
 ## フェーズ: verify（L-0 / V-1〜V-4）
 
@@ -8,12 +8,13 @@
 
 ## 直近の完了タスク
 
-- T-08 / T-09: exec レビュー X-R1〜X-R5 の指摘を R-101〜R-112 に集約（`review-external-exec.md`。転記時は既存 `review-external.md` の末尾へ追記する）
+- T-08 / T-09: exec レビュー X-R1〜X-R5 の指摘を R-101〜R-112 に集約（`review-external.md` 末尾へ追記済み）
 - T-11: `sh tests/run-tests.sh` を実行（結果は handoff.md §6）
+- worktree への転記（canon `e5573cc8`）と `regen.sh` による evidence 再生成（`cf751a1f`）
 
 ## 現在のタスク
 
-- worktree への転記（下書き clone から）
+- T-10（独立再実行）待ち
 
 ## ブロッカー
 
@@ -21,7 +22,7 @@
 
 ## 次のアクション
 
-- 転記 → canon を commit → `regen.sh` → evidence を commit → レビュアーが記録欄を埋めて T-10 を実行 → handoff を確定 → PR
+- レビュアーが記録欄を埋めて T-10 を実行 → handoff を確定 → PR
 
 ## 計画からの乖離
 

@@ -3,8 +3,8 @@ task_id: TASK-1408
 artifact_type: handoff
 schema_version: 1
 status: draft
-issued_at: TODO
-issued_at_commit: TODO（転記後の発行時点の commit SHA）
+issued_at: 2026-11-12 07:57
+issued_at_commit: cf751a1f6eaa8360042c43b55b3f7eef98b27436（転記・evidence 再生成後。この値はその SHA 時点のもの）
 author: qa-reviewer（下書き: 作成者 context）
 v1_release: ""
 ---
@@ -21,10 +21,10 @@ task: TASK-1408
 related_issue: https://github.com/s977043/plangate/issues/1408, https://github.com/s977043/plangate/issues/1329
 split_issue: https://github.com/s977043/plangate/issues/1643
 author: qa-reviewer
-issued_at: TODO
-issued_at_commit: TODO
+issued_at: 2026-11-12 07:57
+issued_at_commit: cf751a1f6eaa8360042c43b55b3f7eef98b27436
 base: 9445df175e93fab31493274915bb35ab01cad4f1
-canon_sha: TODO（転記後）
+canon_sha: e5573cc89b76d5c493aa10d548d22ac7ed7abc2c
 evidence_head: TODO（転記後。レビュアーが記録）
 ```
 
