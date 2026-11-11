@@ -27,7 +27,7 @@ C-3 は Human の `approvals/c3.json` 発行による（plan_hash `sha256:2f6dee
 - [x] T-01 / T-02 / T-03 / T-04 / T-05 / T-06 / T-07 / T-13 / T-14
 - [ ] T-08 R1 レビュー（I1 docs 整合 / I2 敵対、`reviewed_at_sha` つき）
 - [ ] T-09 R2 レビュー
-- [ ] T-10 Codex による独立再実行（ME-6 は assertion）
+- [x] T-10 独立再実行（ME-6 は assertion）。実施者は Codex から作成者ではない Claude サブエージェントへ変更（計画からの変更点を参照）。2026-11-12 rc=0
 - [ ] T-11 `sh tests/run-tests.sh`、TC-07 / TC-08
 - [ ] T-12 handoff ほか（I4 は「Human C-4 待ち」と記録）
 
