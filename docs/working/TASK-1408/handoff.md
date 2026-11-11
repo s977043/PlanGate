@@ -37,7 +37,7 @@ evidence_head: 6d1f7a6b5ff52cda320e7ed99fdb9ad0ccf3a311（T-10 独立 worker が
 | 1408-AC-3 / 1329-AC-2 | PASS | TC-03 |
 | 1408-AC-4 | PASS | TC-03、TC-05 |
 | 1408-AC-5 | PASS | TC-04 |
-| 1408-AC-6 | WARN | TC-07 は PASS。TC-08 は書き換え忘れの検出に縮小した（R-109）。独立レビューの記録と T-10 の独立再実行は未実施。記録欄は TODO |
+| 1408-AC-6 | WARN | TC-07 は PASS。TC-08 は書き換え忘れの検出に縮小した（R-109）。T-10 の独立再実行は 2026-11-12 に完了（reviewed_at_sha `6d1f7a6b`、check.sh rc=0、`evidence/independent-rerun.txt`）。記録欄の PR 本文への転記は PR 作成後 |
 | 1408-AC-7 | 未判定 | Human merge（TC-10。手動） |
 | 1329-AC-3 | PASS | TC-05 |
 | 1329-AC-4 | PASS | TC-09（CI 緑は未確認） |
@@ -89,4 +89,4 @@ evidence_head: 6d1f7a6b5ff52cda320e7ed99fdb9ad0ccf3a311（T-10 独立 worker が
 | 同（実パス TMPDIR + scratch の mktemp shim、**並行実行**） | **参考値**（ta-49 の固定 `/tmp` パスで干渉）。TA-100 は head・対照とも通過 |
 | 同（単独・直列。対照 → head の順） | 対照 `9445df17`: rc=0、1556 passed / 0 failed。head `c571a65c`: rc=1、1548 passed / 4 failed（ta-61 TC-12 のタイムアウト 4 件）。4 本を個別に standalone で再実行すると head はすべて rc=0、対照は ta-62 のみ負荷によるタイムアウトで rc=1（`evidence/test-runs/standalone-4.txt`）。負荷に帰属すると確定した。並行実行時の TA-49 TC-04 FAIL は、単独実行では head・対照とも再現しなかった（干渉と確定）。ログ: `evidence/test-runs/*-shim-serial.txt`。shim: `evidence/test-runs/mktemp-shim.sh.txt` |
 | markdownlint-cli2 0.18.1 | 0 error（変更した .md） |
-| 独立再実行（T-10） | 未実施 |
+| 独立再実行（T-10） | rc=0。REPRO-CHECK 11 項目と TC 全件が exit=0。陽性対照（古い evidence head）は rc=3。check.sh・measure.sh の digest は作成者の申告値と一致（`evidence/independent-rerun.txt`） |
