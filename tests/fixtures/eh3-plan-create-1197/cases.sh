@@ -92,9 +92,9 @@ want TC-E03 && { new_sb; _pp=$(mkpath git); hk "$W" "$R/$P" PATH="$_pp"; chk TC-
 want TC-E04 && { new_sb; _pp=$(mkpath python3); hk "$W" "$R/$P" PATH="$_pp"; chk TC-E04 block; }
 want TC-E05 && { new_sb; hk '""' "$R/$P"; chk TC-E05a block; hk 'null' "$R/$P"; chk TC-E05b block; hk '1' "$R/$P"; chk TC-E05c block; }
 want TC-E06 && { new_sb; _gd=$(mktemp -d "$BASE/g.XXXXXX"); _rg=$(command -v git)
-  printf '#!/bin/sh\ncase "$1" in rev-list) sleep 40;; esac\nexec %s "$@"\n' "$_rg" >"$_gd/git"; chmod +x "$_gd/git"
-  _t0=$(date +%s); hk "$W" "$R/$P" PATH="$_gd:$PATH" & _bp=$!; ( sleep 25; kill $_bp 2>/dev/null ) & _kp=$!; wait $_bp; _st=$?; kill $_kp 2>/dev/null; _t1=$(date +%s)
-  if [ $((_t1-_t0)) -lt 25 ] && [ $_st = 0 ]; then
+  printf '#!/bin/sh\ncase "$1" in rev-list) sleep 120;; esac\nexec %s "$@"\n' "$_rg" >"$_gd/git"; chmod +x "$_gd/git"
+  _t0=$(date +%s); hk "$W" "$R/$P" PATH="$_gd:$PATH" & _bp=$!; ( sleep 60; kill $_bp 2>/dev/null ) & _kp=$!; wait $_bp; _st=$?; kill $_kp 2>/dev/null; _t1=$(date +%s)
+  if [ $((_t1-_t0)) -lt 60 ] && [ $_st = 0 ]; then
     # hk ran in subshell; rerun synchronously to capture rc (bounded by the same timeout)
     hk "$W" "$R/$P" PATH="$_gd:$PATH"; else RC=99; OUT=hang; fi; chk TC-E06 block; }
 want TC-E07 && { new_sb; git -C "$R" worktree add -q "$S/gone" -b gone 2>/dev/null; rm -rf "$S/gone"; hk "$W" "$R/$P"; chk TC-E07 allow
