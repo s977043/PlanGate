@@ -25,7 +25,7 @@ issued_at: 2026-11-12 07:57
 issued_at_commit: cf751a1f6eaa8360042c43b55b3f7eef98b27436
 base: 9445df175e93fab31493274915bb35ab01cad4f1
 canon_sha: e5573cc89b76d5c493aa10d548d22ac7ed7abc2c
-evidence_head: TODO（転記後。レビュアーが記録）
+evidence_head: 6d1f7a6b5ff52cda320e7ed99fdb9ad0ccf3a311（T-10 独立 worker が記録。check.sh rc=0）
 ```
 
 ## 1. 要件適合確認結果
