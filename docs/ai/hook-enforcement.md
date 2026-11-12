@@ -337,12 +337,11 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 > | **守る** | `Edit\|Write` 経路の、**字句上**の表記揺れ（上記 7 変換クラスとその複合）による HO 迂回（#1101 適用後） |
 > | **守らない** | `Bash` 経路（#1104）/ FS エイリアス・シンボリックリンク（上記 3・#1264。repo 外 symlink 経由の到達は上記 5・#1234）/ **worktree 配下の HO パス（上記 4・#1277）** / **監査ログ（`hook-events.log`）が書けない環境（`log_event` が `set -eu` 下で失敗し block（exit 2）に到達しない・#1278。rc は `/bin/sh` の実体依存で、bash 系は rc=1 = fail-open、dash・ash 系はリダイレクト失敗のみ rc=2＝理由トークンなし。`_audit` のファイル化（`mkdir -p` 失敗）は dash でも rc=1。上記 6 の表を参照し「rc=2 だから守られている」と読まないこと）** / hook を配線していない導入先（plugin 配布物に `scripts/hooks/` は含まれない）/ `PLANGATE_BYPASS_HOOK=1` |
 >
-> **未承認 TASK の plan.md 初回作成（#1197 案 B / Human 適用待ち）**
+> **未承認 TASK の plan.md 初回作成（#1197 案 B / #1649 で適用済み）**
 >
 > patch 文書 [`1197-eh3-plan-create-patch.md`](../working/_reports/1197-eh3-plan-create-patch.md) は
-> **未適用**である（`tests/fixtures/eh3-plan-create-pending-1197.flag` が存在する間）。
-> 適用は Human が [`scripts/apply-eh3-plan-create-1197.sh`](../../scripts/apply-eh3-plan-create-1197.sh) で行う。
-> 適用後は no-task 経路で、次の条件をすべて満たす `Write` だけを rc=0（`PLAN_CREATE_ALLOW`。
+> #1649（`87838321`）で**適用済み**である（`tests/fixtures/eh3-plan-create-pending-1197.flag` は削除済み）。
+> no-task 経路では、次の条件をすべて満たす `Write` だけを rc=0（`PLAN_CREATE_ALLOW`。
 > hook-events.log と skip-decision-log.jsonl の両方に記録）にする。
 > それ以外は下表のとおり plan.md を block する。
 >
