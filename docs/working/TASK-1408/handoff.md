@@ -38,15 +38,15 @@ evidence_head: 6d1f7a6b5ff52cda320e7ed99fdb9ad0ccf3a311（T-10 独立 worker が
 | 1408-AC-3 / 1329-AC-2 | PASS | TC-03 |
 | 1408-AC-4 | PASS | TC-03、TC-05 |
 | 1408-AC-5 | PASS | TC-04 |
-| 1408-AC-6 | WARN | TC-07 は PASS。TC-08 は書き換え忘れの検出に縮小した（R-109）。T-10 の独立再実行は 2026-11-12 に完了（reviewed_at_sha `6d1f7a6b`、check.sh rc=0、`evidence/independent-rerun.txt`）。記録欄は PR #1650 本文に転記済み。I4 の機械証跡は未充足 |
-| 1408-AC-7 | 未判定 | Human merge（TC-10。手動） |
+| 1408-AC-6 | WARN | TC-07 は PASS。TC-08 は書き換え忘れの検出に縮小した（R-109）。T-10 の独立再実行は 2026-11-12 に完了（reviewed_at_sha `6d1f7a6b`、check.sh rc=0、`evidence/independent-rerun.txt`）。記録欄は PR #1650 本文に転記済み。I4 の機械証跡は未充足。Human の C-4 は実施された（PR #1650 を 2026-11-12T22:38:51Z に merge）。I4 を充足とみなすかは Human の判断であり、本表では判定しない |
+| 1408-AC-7 | PASS | Human が C-4 で PR #1650 を merge した（merge commit `90047151`、`mergedAt` 2026-11-12T22:38:51Z。`gh pr view 1650 --json mergedAt,mergeCommit`） |
 | 1329-AC-3 | PASS | TC-05 |
 | 1329-AC-4 | PASS | TC-09（CI: `gh pr checks 1650` で 13 本すべて pass。2026-11-13 07:27 測定、head `cea228cc`） |
 | 1329-AC-5 | PASS | TC-06（H-00 の承認は plan に記録） |
 
-**総合**: WARN（全 12 基準のうち 10 PASS / 1 WARN / 1 未判定。T-10 の独立再実行は完了。I4 の充足は本 handoff では宣言しない。判定は Human C-4 による（§7「I4 の充足記録」）。evidence 層は改ざんを検出しない（status.md 残存脅威モデル））
+**総合**: WARN（全 12 基準のうち 11 PASS / 1 WARN。T-10 の独立再実行は完了。I4 の充足は本 handoff では宣言しない。判定は Human C-4 による（§7「I4 の充足記録」）。evidence 層は改ざんを検出しない（status.md 残存脅威モデル））
 
-**WARN の扱い**: 残因は AC-6 の I4 充足判定（Human C-4）と AC-7 の Human merge に限る。T-10、記録欄の記入、PR #1650 本文への転記は完了した。
+**WARN の扱い**: 残因は AC-6 の I4 充足判定（Human の判断）に限る。AC-7 の Human merge は 2026-11-12T22:38:51Z に実施された（`90047151`）。T-10、記録欄の記入、PR #1650 本文への転記は完了した。
 
 ## 2. 既知課題一覧
 
