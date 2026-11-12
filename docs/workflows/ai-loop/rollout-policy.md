@@ -158,7 +158,7 @@ C-4 / merge は Human-owned 固定（**NO MERGE BY AI**）。
 
 | 状況 | 挙動 |
 |------|------|
-| plan.md が無い、または C-1 が未完了 | **escalate** する（ai-loop-cycle は C-1 PASS・C-2 完了が前提）。plan 作成の入口を案内する。未承認 TASK の plan.md を `Write` で**新規作成**することは EH-3 が許可する（`PLAN_CREATE_ALLOW`。適用状態は [`hook-enforcement.md`](../../ai/hook-enforcement.md) の EH-3 節） |
+| plan.md が無い、または C-1 が未完了 | **escalate** する（ai-loop-cycle は C-1 PASS・C-2 完了が前提）。plan 作成の入口を案内する。未承認 TASK の plan.md を `Write` で**新規作成**することは、上流リポジトリで hook を配線している場合に限り EH-3 が許可する（plugin 配布物に `scripts/hooks/` は含まれない。`PLAN_CREATE_ALLOW`。適用状態は [`hook-enforcement.md`](../../ai/hook-enforcement.md) の EH-3 節） |
 | plan.md が実在し、前提（C-1 PASS・C-2 完了）を満たす | 続行する |
 | 作成後の plan.md の**修正**が要る（C-1 自動修正・C-2 反映） | 既存 plan.md の改変は no-task では block されるため、**`PLANGATE_HOOK_TASK` を設定した再起動を案内して escalate** する |
 

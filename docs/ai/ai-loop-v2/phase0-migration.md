@@ -118,7 +118,7 @@ Legacy ai-loop に許可する変更:
 |---|---|---|
 | #1035 HOITL → HOTL ladder | **ADAPT** | 自律度 rollout / measurement は継承。ただし V2 Core と C-3' eligibility を分離し、Delivery E2E 完成後に再baseline |
 | #1059 changed_files / size_ok | **SUPERSEDE** | current lite/C-3' eligibility の構造問題。V2 では autonomy profile の問題として扱い、Delivery Loop の成立条件にしない |
-| #1197 no-task startup circularity | **SUPERSEDE + REGRESSION** | V2 Plan-first bootstrap が解消すべき構造的回帰 fixture として保持。旧経路の局所修正を V2 core に持ち込まない |
+| #1197 no-task startup circularity | **SUPERSEDE + REGRESSION** | V2 Plan-first bootstrap が解消すべき構造的回帰 fixture として保持。旧経路の局所修正を V2 core に持ち込まない。旧経路には #1649 で暫定の案 B を適用済みだが、V2 では引き続き bootstrap で解消する |
 
 ### Adjacent / distribution / harness prerequisites
 
