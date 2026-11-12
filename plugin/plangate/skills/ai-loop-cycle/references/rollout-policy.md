@@ -149,6 +149,26 @@ Human へ escalate する（経路定義の正本は [`00_concept.md`](./00_conc
 escalate は従来の人間 C-3 への降格であり、承認境界の撤廃ではない。
 C-4 / merge は Human-owned 固定（**NO MERGE BY AI**）。
 
+### 起動条件と no-task セッションの挙動（#1197）
+
+**起動条件**: ai-loop の run は、対象 TASK を `PLANGATE_HOOK_TASK=TASK-XXXX` に設定して
+起動したセッションで行う。env はセッション起動時に固定され、実行中の `export` は hook に届かない。
+
+`PLANGATE_HOOK_TASK` が未設定（no-task）のセッションでは、次の 3 分岐に従う:
+
+| 状況 | 挙動 |
+|------|------|
+| plan.md が無い、または C-1 が未完了 | **escalate** する（ai-loop-cycle は C-1 PASS・C-2 完了が前提）。plan 作成の入口を案内する。未承認 TASK の plan.md を `Write` で**新規作成**することは、上流リポジトリで hook を配線している場合に限り EH-3 が許可する（plugin 配布物に `scripts/hooks/` は含まれない。`PLAN_CREATE_ALLOW`。適用状態は `hook-enforcement.md` の EH-3 節） |
+| plan.md が実在し、前提（C-1 PASS・C-2 完了）を満たす | 続行する |
+| 作成後の plan.md の**修正**が要る（C-1 自動修正・C-2 反映） | 既存 plan.md の改変は no-task では block されるため、**`PLANGATE_HOOK_TASK` を設定した再起動を案内して escalate** する |
+
+いずれの分岐でも、arbiter の入力 `gates.c1` に実施していない C-1 の結果を書かない（**虚偽の `gates.c1` を渡さない**）。
+
+**迂回の禁止**: block を「決定に従うため」に回避しない。具体的には、CLI での直接書き込み、
+Bash 経路での plan.md 作成・改変、`PLANGATE_BYPASS_HOOK` の設定、plan.md や承認トークンを
+**消して再作成**する行為をしない。Bash 経路は EH-3 で解析されていない（**#1104 は open**）。
+本節はその穴を塞ぐガード配線を行わない。塞がっていないことを理由に、Bash 経路を使ってよいことにはならない。
+
 ## 7. 正本への参照
 
 - [`00_concept.md`](./00_concept.md) — ai-dev / ai-loop のアーキテクチャ・
