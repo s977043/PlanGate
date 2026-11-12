@@ -41,11 +41,17 @@ Human の決定（2026-10-26）:「下書き生成を実装する」方針で進
 ## 受入基準
 
 - AC-1: `draft` は `retro_enabled: true` かつ `approvals/c3.json` の `c3_status == "APPROVED"` の run だけで下書きを出す。
-  false / キーなし / C-3 未承認 / c3.json なし では、何も出さずに非ゼロで終了する
+  false / キーなし / C-3 未承認 / c3.json なし では、何も出さずに非ゼロで終了する。
+  opt-in 行は pbi-input.md と plan.md の両方に要り、c3.json の `plan_hash` が plan.md の sha256 と一致しなければ不成立とする。
+  コード fence 内・HTML コメント内の記述は opt-in とみなさない（R-002 / R-007）
 - AC-2: `draft` はどの入力でも `improvement-seeds.md` を変更しない（出力先に seeds を指定されたら拒否する）
-- AC-3: `append` は `confirmed_by` が空、またはプレースホルダ（`<human>` 等）の下書きを拒否する。拒否したときは seeds のバイト列が変わらない
-- AC-4: `append` は confirm 済みの下書きを末尾に 1 エントリだけ追記する。既存の内容はバイト単位で変わらない
+- AC-3: `append` は `confirmed_by` が空、またはプレースホルダ（`<human>` 等）の下書きを拒否する。拒否したときは seeds のバイト列が変わらない。
+  判定は L2 の `is_unconfirmed`（`UNCONFIRMED` 語彙）に従い、Unicode 書式文字（ZWSP 等）だけの値も空とみなす（R-001）
+- AC-4: `append` は confirm 済みの下書きを末尾に 1 エントリだけ追記する。既存の内容はバイト単位で変わらない。
+  追記部の見出しは 1 件・見出しの task_id は task-dir と一致・`confirmed_by` 行は 1 行で、追記後の seeds は L2 の
+  `read_declared_seeds` で件数が追記前 +1 になる（R-003 / R-006）
 - AC-5: 上の各 AC は TA-118 の TC で検査し、変異注入（ゲート除去 / confirmed_by 検査除去 / 上書き化）でそれぞれ FAIL することを確かめる
+- AC-6: 同じ task_id のエントリが seeds に既にあるとき、`append` は追記せず exit 5 で終了し、seeds のバイト列は変わらない（冪等。R-009）
 
 ## Notes from Refinement
 
@@ -61,7 +67,7 @@ Human の決定（2026-10-26）:「下書き生成を実装する」方針で進
 
 ### Unknowns
 
-- U-1: c3.json の `plan_hash` は plan.md に束縛されており、pbi-input.md の `retro_enabled` 行は束縛されていない。C-3 の後に pbi-input を書き換えた場合は検出できない（残存リスクとして明記する）
+- U-1: c3.json の `plan_hash` は plan.md に束縛されており、pbi-input.md の `retro_enabled` 行は束縛されていない。C-3 の後に pbi-input を書き換えた場合は検出できない → **解消**（R-007。opt-in 行を plan.md にも要求し plan_hash と照合する。AC-1）
 
 ### Assumptions
 

@@ -2,7 +2,11 @@
 
 ## Mode
 
-standard（plan.md「Mode判定」）
+high-risk（plan.md「Mode判定」。R-NNN 反映で AC 6 件となり standard から引き上げ）
+
+## 前提（R-NNN 反映後）
+
+- [ ] T-0: plan-draft.md を plan.md へ移し、plan-draft.md を削除する。`PLANGATE_HOOK_TASK=TASK-1544` のセッションで行う。plan.md 確定後に Human が c3.json（確定後 plan の plan_hash）を発行する — owner: agent / 🚩 / rollback: `git checkout -- docs/working/TASK-1544/`
 
 ## 🤖 Agent タスク
 
@@ -18,7 +22,8 @@ standard（plan.md「Mode判定」）
 
 ### 3. 検証
 
-- [ ] T-5: 変異注入 M-1〜M-4（test-cases.md）を実行し、結果を status.md に記録 — owner: agent / depends_on: T-3 / 🚩 / rollback: `git checkout -- scripts/retro_seed_draft.py`
+- [ ] T-3b: 生成器の module docstring に残存脅威モデルと confirmed_by の信頼境界を書く（R-004 / R-008） — owner: agent / depends_on: T-3 / rollback: 該当 docstring を戻す
+- [ ] T-5: 変異注入 M-1〜M-6・M-2b（test-cases.md）を実行し、結果を status.md に記録 — owner: agent / depends_on: T-3 / 🚩 / rollback: `git checkout -- scripts/retro_seed_draft.py`
 - [ ] T-6: `sh tests/run-tests.sh` を実行し、main の同じ実行と FAIL 件数を対照 — owner: agent / depends_on: T-4 / 🚩 / rollback: 不要
 
 ### 4. 完了
@@ -32,6 +37,7 @@ standard（plan.md「Mode判定」）
 
 ## ⚠️ 依存関係（Agent ↔ Human）
 
+- H-1 は T-0（plan.md 確定）の後
 - T-1 以降は H-1（C-3 APPROVED）の後
 - H-2 は T-7 の後
 

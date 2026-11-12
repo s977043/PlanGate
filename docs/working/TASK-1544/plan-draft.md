@@ -45,7 +45,7 @@ pbi-input.md「Out of scope」のとおり（opt-in source の追加・既定 ON
 
 ## Questions / Unknowns（#786）
 
-- U-1（pbi-input の改変は c3 の plan_hash に束縛されない）: 本 PBI では解消しない。生成器の docstring の残存脅威モデルに書く
+- U-1（pbi-input の改変は c3 の plan_hash に束縛されない）: **解消**（R-007）。opt-in 行を plan.md 側にも要求し、c3.json の `plan_hash` と plan.md の sha256 の一致を確かめる（ゲート 3）
 - seeds の 5 項目は handoff から機械的に決められない。下書きでは「未確認」と書き、既知課題の行を `失敗・手戻り` の候補として列挙する（06_retro.md 手順 3 と同じ扱い）
 
 ## Approach Comparison
@@ -79,12 +79,41 @@ python3 scripts/retro_seed_draft.py draft  --task-dir <docs/working/TASK-XXXX> [
 python3 scripts/retro_seed_draft.py append --task-dir <docs/working/TASK-XXXX> --draft <path> --seeds <path>
 ```
 
-終了コード: 0 = 成功 / 2 = 引数・入力の形式エラー / 3 = opt-in 不成立で停止（出力なし）/ 4 = confirm 未了で追記を拒否。
+終了コード: 0 = 成功 / 2 = 引数・入力の形式エラー / 3 = opt-in 不成立で停止（出力なし）/ 4 = confirm 未了で追記を拒否 / 5 = 同じ task_id のエントリが seeds に既にあり追記しない（冪等。R-009）。
 
-ゲート（`draft` と `append` の両方で判定する）:
+`--out` は、既に存在するパス（通常ファイル・symlink・ディレクトリ。`../` を含む別名で seeds を指す場合も、解決前のパスが存在すれば該当）を指したら exit 2 で何も書かない（R-005）。
 
-1. `<task-dir>/pbi-input.md` に、行全体が `retro_enabled: true` に一致する行がある（前後の空白は許す。`true` 以外の値・コメント中の記述は不成立）
+ゲート（`draft` と `append` の両方で判定する。すべて満たすときだけ成立）:
+
+1. `<task-dir>/pbi-input.md` と `<task-dir>/plan.md` の両方に、行全体が `retro_enabled: true` に一致する行がある（前後の空白は許す。`true` 以外の値は不成立）。照合前に `improvement_seed_delta.mask_code_blocks` で fence 内を伏せ、HTML コメント（`<!--` 〜 `-->`、複数行を含む）を除く。fence 内・コメント内の記述は不成立（R-002 / R-007）
 2. `<task-dir>/approvals/c3.json` が JSON として読め、`c3_status == "APPROVED"`
+3. c3.json の `plan_hash`（`sha256:<hex>`）が `<task-dir>/plan.md` の sha256 と一致する。`plan_hash` 欠落・形式不正・不一致・plan.md 欠落は不成立（R-007。EH-3 の `check-plan-hash.sh` と同じ形式）
+
+append の confirm 判定（R-001）:
+
+- `confirmed_by` の値から Unicode 書式文字（`unicodedata.category == "Cf"`。ZWSP 等）を除いたうえで、`improvement_seed_delta.is_unconfirmed` を適用する。真なら exit 4。判定語は L2 の `UNCONFIRMED` をそのまま使い、本スクリプトで独自の語彙を持たない
+- 下書き側の検査: 見出し `## <date> — <task_id>` がちょうど 1 件・task_id が `<task-dir>` の名前と一致・`- confirmed_by:` 行がちょうど 1 行（R-003）。違えば exit 2
+- seeds に同じ task_id の見出しが既にあれば exit 5（R-009）
+- 追記後の全文を一時ファイルに作り、`improvement_seed_delta.read_declared_seeds` を適用する。例外なら exit 4 で seeds を変えない。通れば件数が追記前 +1 であることを確かめてから seeds に反映する
+
+### 信頼境界（R-008）
+
+`confirmed_by` は**記入者を証明しない**。値は申告であり、生成器は本人確認済みとして扱わない。
+生成器が保証するのは「空・プレースホルダ・L2 の未確認語でない値が入っている」ことだけ。
+誰が記入したかの保証は C-4（Human レビュー）が担う。
+
+### 残存脅威モデル（R-004）
+
+守るもの: opt-in 不成立・C-3 未承認・plan_hash 不一致の run での下書き生成と追記 / 未 confirm の追記 / 既存内容の改変 / 二重追記 / `--out` による seeds の上書き。
+
+守らないもの:
+
+- seeds を Edit で直接書き換える経路（生成器を通らない）
+- `confirmed_by` に AI 名など任意の名前を書いた下書き（値の真正性は検証しない。R-008）
+- c3.json 自体の発行元（EH-3 / Human 発行の規範に依存）
+- 同時実行時の競合（追記はロックしない）
+
+本生成器は多層防御の 1 層であり、最終保証は C-4。生成器の module docstring にも同じ内容を書く。
 
 ## Work Breakdown
 
@@ -98,13 +127,13 @@ python3 scripts/retro_seed_draft.py append --task-dir <docs/working/TASK-XXXX> -
 ### Task 2: 生成器を実装する（GREEN）
 
 - Files: `scripts/retro_seed_draft.py`
-- Steps: ゲート関数 → handoff §2 表の抽出 → 下書きの整形 → append（confirmed_by の検査、ゲートの再判定、末尾への追記、既存内容の前方一致検証）
+- Steps: ゲート関数（opt-in 2 ファイル・c3_status・plan_hash）→ handoff §2 表の抽出 → 下書きの整形 → append（ゲートの再判定、下書きの 1 エントリ検査、confirmed_by の検査、重複 task_id の検査、追記後全文の `read_declared_seeds` 検査、末尾への追記、既存内容の前方一致検証）。L2 の関数は `scripts/improvement_seed_delta.py` から import する（複製しない）
 - Completion: TA-118 全 PASS。追記後の fixture が `scripts/improvement_seed_delta.py` の検査で正規形として通る
 - Rollback: ファイル削除
 
 ### Task 3: 変異注入
 
-- test-cases.md「変異注入計画」M-1〜M-4 を 1 つずつ注入し、該当 TC の FAIL を記録して戻す（commit しない）
+- test-cases.md「変異注入計画」M-1〜M-6（M-2b を含む）を 1 つずつ注入し、該当 TC の FAIL を記録して戻す（commit しない）
 - Rollback: `git checkout -- scripts/retro_seed_draft.py`
 
 ### Task 4: docs の更新
@@ -116,7 +145,7 @@ python3 scripts/retro_seed_draft.py append --task-dir <docs/working/TASK-XXXX> -
 ## Verification Plan
 
 - `sh tests/run-tests.sh`（harness 経由）で TA-118 全 PASS、既存の FAIL を増やさない（main で同じテストを流して対照）
-- TA-118 単体の実行 / 変異注入 M-1〜M-4 / `python3 -m py_compile scripts/retro_seed_draft.py`
+- TA-118 単体の実行 / 変異注入 M-1〜M-6（M-2b を含む） / `python3 -m py_compile scripts/retro_seed_draft.py`
 
 ### レビューレーン計画（#786）
 
@@ -139,11 +168,12 @@ python3 scripts/retro_seed_draft.py append --task-dir <docs/working/TASK-XXXX> -
 
 ## Mode判定
 
-**モード**: standard
+**モード**: high-risk（R-NNN 反映前は standard）
 
 - 変更ファイル数: 3 → standard
-- 受入基準数: 5 → standard
+- 受入基準数: 6 → high-risk 相当（定量軸）。ただし R-NNN 反映で AC を厳格化した結果であり変更ファイルは 3 件のまま
+- C-2 反映: review-external.md R-001〜R-009 を本ファイルへ 1 回で確定反映（2026-11-13）
 - 変更種別: 小機能追加（新規スクリプト + テスト） → standard
 - リスク: 中（承認トークンを読む。書かない） → standard
 - HO 対象パス: なし（3 件とも 12 カテゴリ外） → 例外ルール非該当
-- **最終判定**: standard。承認トークンを読むため V-3 は 2 ラウンドを下限とする（安全側）
+- **最終判定**: high-risk（判定ロジック「各軸の最大値」により受入基準数 6 を採用。安全側に引き上げ、緩めない）。承認トークンを読むため V-3 は 2 ラウンドを下限とする。high-risk のため V-2 を実行し、C-3 は人間必須（autonomous APPROVE 不可）

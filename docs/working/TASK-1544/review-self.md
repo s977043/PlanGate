@@ -60,3 +60,19 @@
 ## 自動修正ログ
 
 なし
+
+## 簡易 C-1 再実行（R-NNN 反映後 / 2026-11-13）
+
+> 対象: review-external.md R-001〜R-009 を反映した pbi-input.md / plan-draft.md / todo.md / test-cases.md。Plan 項目（C1-PLAN-01〜07）+ TC 紐付けのみ。
+
+**判定: PASS（WARN 1 件）**
+
+- C1-PLAN-01 受入基準網羅性: PASS — AC-1〜6 を test-cases.md マッピングで全件 TC に対応（AC-6 は TC-19）
+- C1-PLAN-02 Unknowns処理: PASS — U-1 は R-007（plan.md 側の opt-in + plan_hash 照合）で解消。前回の WARN を解除
+- C1-PLAN-03 スコープ制御: PASS — 変更ファイルは 3 件のまま。L2 は import のみで `improvement_seed_delta.py` は変更しない
+- C1-PLAN-04 テスト戦略: PASS — 変異 M-1〜M-6・M-2b、TC-11 は `read_declared_seeds` 直呼びで +1 を assert（素通り解消）
+- C1-PLAN-05 Work Breakdown Output: PASS — T-0（plan.md 移行）と T-3b（docstring）を追加
+- C1-PLAN-06 依存関係: PASS — H-1 は T-0 の後
+- C1-PLAN-07 動作検証自動化: PASS
+- **WARN**: Mode が受入基準数 6 により standard → high-risk に上がった（安全側）。high-risk のため V-2 実行・C-3 は人間必須。C-3 で確認を求める
+- AC の変更は厳格化のみ（AC-1/3/4 に条件追加、AC-6 新設、緩めた AC なし）
