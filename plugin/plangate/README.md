@@ -223,10 +223,10 @@ sh /path/to/plangate/install.sh --claude --dry-run
 オプション:
 
 ```bash
-sh install.sh --claude              # Claude Code のみ
-sh install.sh --codex               # Codex のみ
-sh install.sh --target /path/to/dir # インストール先を指定
-sh install.sh --dry-run             # 変更内容を確認（実行しない）
+sh /path/to/plangate/install.sh --claude              # Claude Code のみ
+sh /path/to/plangate/install.sh --codex               # Codex のみ
+sh /path/to/plangate/install.sh --target /path/to/dir # インストール先を指定
+sh /path/to/plangate/install.sh --dry-run             # 変更内容を確認（実行しない）
 ```
 
 この経路はローカルコピーを直接管理したい場合の代替です。Marketplace 版と同じプロジェクトに重ねて導入しないでください。
@@ -391,6 +391,7 @@ CLI と参照資料の前提条件を確認し、まず作業コンテキスト�
 
 **C-3: 人間の計画レビューと承認が完了してから**、別の操作として実装へ進みます。
 この README の実行例は承認記録の代わりになりません。
+導入先には `bin/plangate` が配布されないため、exec を機械的に止める仕組みは働きません。C-3 の承認は運用で守ってください。
 
 ```text
 /plangate:ai-dev-workflow TASK-XXXX exec
