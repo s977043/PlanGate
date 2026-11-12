@@ -331,6 +331,40 @@ scripts/ai-loop/test_run_evidence.py
 - 再測定のタイミングは、**§8 の Phase 1 Architecture / Contract design 着手時に 1 回**、および **canon 7 本を変更する PR ごと**。
 - 本決定は #1275 の close 条件を満たすためのものであり、失効時に必要な作業は follow-up issue として別途起票する（本 §7 は起票先の番号を後追いで記載してよい）。
 
+#### 例外の失効（記録: TASK-1408）
+
+**本例外は 2026-09-29（UTC）に失効した。** 動いた条件は M-2 と M-3、M-1 は baseline のまま。
+以後の canon 7 本の規定変更は I4（Human + machine independent evidence）を要求する。Human C-4 と merge の責務は変わらない。
+本節は M による失効の記録であり、2026-09-23 の #1329 コメントにある「runtime evidence 確認後の記録」を置き換える。
+
+- **一次証拠**: PR #1402 `mergeCommit` = `3331e5c49751b268412d4db8e5862982ac0005d8`、`mergedAt` = 2026-09-29T00:01:17Z（`gh pr view 1402 --json mergeCommit,mergedAt`）
+- **実測**（`git ls-tree -r` / `git grep -liE` を commit 指定で実行。M-1 は再帰で測定）:
+
+  | 時点 | M-1 | M-2 | M-3 |
+  | --- | --- | --- | --- |
+  | `3331e5c4^1`（#1402 の親） | なし | なし | baseline 4 ファイルと一致 |
+  | `3331e5c4`（#1402 の squash） | なし | `scripts/ai-loop-v2/` 6 ファイル | 9 ファイル（baseline + 5） |
+  | `9445df17`（記録の分岐元） | なし | `scripts/ai-loop-v2/` 11 ファイル | 13 ファイル（baseline + 9） |
+
+  > ファイル数は測定値であって契約値ではない。出力全文: `docs/working/TASK-1408/evidence/measurements.txt`
+- **実行系の存在**: #1402 は RunEvent / RunState / Decision / Delivery の検査を実行コードとして導入した（#1329 の #1402 preflight で semantic invalidation = YES）。本記録は存在の事実のみを扱い、**実装の正しさを判定しない**。
+- **baseline は更新しない。** 新たに現れたファイルを baseline へ加えることは本例外の延長と同義であり行わない。M-3 の baseline 4 ファイルは測定の基準点として残す。#1329 の「baseline 欄へ反映」は本節の記録をもって満たす。
+- **遡及しない。** Phase 0 / Phase 0.1 の充足記録（I1）は当時の規定に照らして有効なまま残す。
+- **#1402 は canon を変更していない**（`git diff --name-only 3331e5c4^1 3331e5c4 -- docs/ai/ai-loop-v2` が空）。
+- **失効後から本記録までの canon 差分**（`git log --first-parent 3331e5c4..9445df17 -- phase0-migration.md を含む canon 7 本`）: `a6d1ea5f`（#1406）/ `6d626360`（#1441）/ `0122d6f9`（#1447）/ `a3c9146d`（#1487）。merge 主体は `s977043`、approving review は 0 件で、**Human 判断と I4 の機械証跡は確認できない**。規定変更か否かの判定と扱いは #1643 に分離し、`9445df17` までの 4 commit の扱いは #1643 の Human 裁定に従う。
+- **§3 / §4 は変更しない。** 本節は失効の記録である。
+- **再測定の終了**: 失効後は、本 §7 判定規則の再測定の 2 つの時機（Phase 1 着手時、canon 変更 PR ごと）のどちらも判定条件ではない。記録と再測定の規則はここで終了し、以後は I4 証跡で判定する。既存の行は当時の規定として残す。
+- **以後の I4 の最低要件**: (1) `reviewed_at_sha` に固定した独立レビュー。作成者と別の context で実施し、水準（I1 / I2 など）を記録する。(2) 機械証跡は、固定 commit で再現できるコマンドと出力で、作成者の外で再実行したもの。CI 緑だけでは足りない。(3) Human C-4。
+- **non-normative の判定**: 変更が規定変更でないと確定できるのは Human だけで、C-4 で対象を名指しして承認する（本 §7 の判定主体の規則と同じ）。LLM のレビュアーは確定できない。判断できない場合は規定変更として扱う。
+- **I4 の充足記録**: 本記録の Human C-4 と機械証跡は `docs/working/TASK-1408/handoff.md` に残す。記録を更新する PR 自身の merge を本文で充足と宣言しない。
+
+| 残指摘（#1329） | 裁定 |
+| --- | --- |
+| 語彙近似の限界 | semantic invalidation gate で対応。失効により本例外での役割は終了 |
+| M-1 の `ls schemas/` 非再帰 | 以後の判定は再帰版とする。上の判定コマンドは baseline 当時の記録として残す |
+| fail-closed の主体と時期 | implementation PR author + reviewer / PR ごと。チェック項目は `.github/PULL_REQUEST_TEMPLATE.md` |
+| canon 変更 PR ごとの再測定 | 失効により判定条件としては終了し、I4 証跡に置き換える |
+
 #### 経緯（決着前の記録・そのまま保存する）
 
 > 以下は決着前（2026-09-10 より前）の記述であり、**上記「決定」に置き換わっている**。当時の論点を追えるように改変せず残す。
@@ -359,3 +393,8 @@ Phase 1 は実装ではなく **V2 Architecture / Contract design** から開始
 - 本 Phase 0.1 の negative example を `tests/extras/` fixture 化（[`taxonomy.md`](./taxonomy.md) §8 / [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §7）
 
 Evolution 実装は Delivery E2E (`FAIL -> Diagnose -> Repair -> PASS -> MERGE_READY` + `NO_PROGRESS -> STOP`) の成立後に開始する。
+
+### Phase 1 exit criteria
+
+- [ ] §7 に列挙した失効後の canon commit（`3331e5c4..9445df17`）の扱いを、#1643 で Human が裁定している
+- [ ] `9445df17` より後の canon 7 本の規定変更が、すべて I4（§7 の最低要件）で採用されている。例外は置かない
