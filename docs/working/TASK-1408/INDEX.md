@@ -13,11 +13,11 @@ C-4 待ち
 
 > C-3 は CONDITIONAL（2026-11-07）。確定後の plan_hash で c3.json を発行済み。Mode = critical（Human 決定）。PR #1650 は 2026-11-13 01:49（JST）作成済みで、本文に記録欄を転記済み。
 > V-1 の総合判定（handoff.md §1 の判定語を転記）: **WARN**（全 12 基準のうち 10 PASS / 1 WARN / 1 未判定。残因は AC-6 の I4 充足判定（Human C-4）と AC-7 の Human merge）
-> 未解決・Human 判断待ち: run-tests の head `c571a65c` の扱い、PR の `BEHIND` 取り込み後の evidence の扱い（handoff.md §2）
+> 解決済み（handoff.md §2）: run-tests は PR head `276f36a4` で取り直し済み（指摘 6）。`BEHIND` は Human 裁定（2026-11-13）で main を取り込まず、照合点を evidence head `6d1f7a6b` に固定（指摘 7）
 
 ## 次のアクション
 
-Human C-4（上記 2 件の判断を含む）
+Human C-4
 
 ## ファイルマップ
 

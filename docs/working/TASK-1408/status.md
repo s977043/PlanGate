@@ -19,7 +19,9 @@ C-3 は Human の `approvals/c3.json` 発行による（plan_hash `sha256:2f6dee
 | 2026-11-12 08:12 | verify（L-0 / V-1〜V-4） | C-3 APPROVED の `approvals/c3.json` を commit（`6d1f7a6b`。Human の発行時刻は不明、commit 時刻を記載） |
 | 2026-11-12 08:53 | verify（L-0 / V-1〜V-4） | T-10 独立再実行の結果を記録（`86db3567` 08:38 / `155ba058` 08:38 / `d5461bd3` 08:53 / `5dae38c0` 08:53） |
 | 2026-11-13 01:49 | PR 作成済 | PR #1650 を作成（`createdAt` 2026-11-12T16:49:09Z）。本文に記録欄を転記済み |
-| 不明 | C-4 待ち | Human C-4 待ち（本 commit で working context を PR 作成後の状態に同期） |
+| 2026-11-13 02:40 | C-4 待ち | Human C-4 待ち（working context を PR 作成後の状態に同期。`276f36a4` の commit 時刻） |
+| 2026-11-13 03:46 | C-4 待ち | run-tests を PR head `276f36a4` で取り直した（`cea228cc` の commit 時刻。指摘 6） |
+| 2026-11-13 07:27 | C-4 待ち | 再レビュー N1〜N5 を反映。指摘 7 は Human 裁定（2026-11-13）により main を取り込まず、照合点を evidence head `6d1f7a6b` に固定 |
 
 ## exec 開始時の記録
 
@@ -35,7 +37,7 @@ C-3 は Human の `approvals/c3.json` 発行による（plan_hash `sha256:2f6dee
 - [x] T-08 R1 レビュー（I1 docs 整合 / I2 敵対、`reviewed_at_sha` つき）。`review-external.md` R-101〜R-112 に集約
 - [x] T-09 R2 レビュー。同上
 - [x] T-10 独立再実行（ME-6 は assertion）。実施者は Codex から作成者ではない Claude サブエージェントへ変更（計画からの変更点を参照）。2026-11-12 rc=0
-- [x] T-11 `sh tests/run-tests.sh`、TC-07 / TC-08（結果は V-1 判定の節。head の SHA の問題は handoff §2 で未解決）
+- [x] T-11 `sh tests/run-tests.sh`、TC-07 / TC-08（結果は V-1 判定の節。head の SHA の問題（指摘 6）は PR head `276f36a4` で取り直し済み）
 - [ ] T-12 handoff ほか: **Human C-4 待ち**（handoff は PR 作成後の状態に更新済み。I4 の充足判定は Human C-4）
 
 ## V-1 判定
@@ -44,7 +46,7 @@ C-3 は Human の `approvals/c3.json` 発行による（plan_hash `sha256:2f6dee
 
 - T-08 / T-09: exec レビュー X-R1〜X-R5 を `review-external.md` の末尾（R-101〜R-112）に集約した
 - T-11: `sh tests/run-tests.sh` は TA-100 で rc=2。未変更の `9445df17` でも同じ箇所で失敗したので、本変更には帰属しない。原因は macOS の `mktemp -d` が TMPDIR を見ず、`/var` の symlink に一時ディレクトリを作ること（TA-100 L44。handoff.md §2）。実パスの TMPDIR と scratch の mktemp shim を使い、単独・直列で再実行した。対照 `9445df17` は rc=0（1556 passed / 0 failed）、head `c571a65c`（PR の履歴にない SHA で測った参考値。指摘 6）は rc=1（1548 passed / 4 failed）。4 件はすべて ta-61 TC-12 のタイムアウト（ta-62 / ta-65 / ta-70 / ta-71、load1 36〜113）で、個別に standalone で再実行すると、head は 4 本とも rc=0 だった。対照は ta-62 のみが負荷によるタイムアウトで rc=1 となり、**負荷に帰属すると確定した**（各実行の前後に uptime を記録。`evidence/test-runs/standalone-4.txt`）。並行実行時の TA-49 FAIL は干渉と確定した（並行実行した回の対照ログは単独実行の出力で上書きしてしまい、残っていない）
-- T-11（PR head で再測定、2026-11-13 02:42〜03:22）: 同じ方法（実パス TMPDIR + mktemp shim、単独・直列）で PR head `276f36a4` を測った。rc=1、1552 passed / 3 failed（load1 8.8 → 35.5）。FAIL は TA-10 TC-7、ta-61 TC-12(b) の ta-62 タイムアウト、TA-62 TC-D のタイムアウト。ta-10 と ta-62 を standalone で再実行すると head・対照 `9445df17` とも rc=0 だった。`9445df17..276f36a4` に `bin/` `scripts/` `tests/` の差分はないので、本変更には帰属しない。タイムアウト 2 件は負荷に帰属する。TA-10 TC-7 は再現せず、原因は未特定（`evidence/test-runs/run-tests-pr-head-276f36a4.txt`、`standalone-pr-head-276f36a4.txt`）。判定は WARN のまま
+- T-11（PR head で再測定、2026-11-13 02:42〜03:22）: 同じ方法（実パス TMPDIR + mktemp shim、単独・直列）で PR head `276f36a4` を測った。rc=1、1552 passed / 3 failed（load1 8.8 → 35.5）。FAIL は TA-10 TC-7、ta-61 TC-12(b) の ta-62 タイムアウト、TA-62 TC-D のタイムアウト。`9445df17..276f36a4` に `bin/` `scripts/` `tests/` の差分はない。タイムアウト 2 件は負荷に帰属する。TA-10 TC-7 は、standalone で head・対照 `9445df17` の両方に同じ `[FAIL] doctor-fix TC-7` が出ており（`standalone-pr-head-276f36a4.txt` 33 行目・77 行目）、既知 issue #1651（OPEN）に当たるので、本変更には帰属しない。standalone の rc は判定に使わない（standalone では FAIL が exit code に反映されない。#921）。また standalone 手順は cwd の誤りで TC-1/3a/3b/3c/4/5/6/E1/E2 も FAIL しており、不完全だった（evidence は書き換えずに残す）（`evidence/test-runs/run-tests-pr-head-276f36a4.txt`、`standalone-pr-head-276f36a4.txt`）。判定は WARN のまま
 - 既知課題: TA-49 は固定パス `/tmp/ta49_err*` を使うので、並行実行に弱い。head と対照を並行で走らせた shim 版の結果は参考値とする
 - clean-tree の範囲は現状のまま（tracked の差分と evidence/ 配下の untracked）とする。repo 全体の untracked（テスト生成物）は、commit 範囲の絞り込み（`git add -A docs/working/TASK-1408`）と head-paths-scoped で混入を防ぐ（オーガナイザー判断）
 - T-10: 2026-11-12 08:36 独立 worker が `6d1f7a6b` で実施。check.sh rc=0、陽性対照 rc=3（記録欄を参照）。出力は `evidence/independent-rerun.txt`（`155ba058` で repo に配置）
