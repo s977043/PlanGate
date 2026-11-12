@@ -1,6 +1,6 @@
 # TASK-1408 INDEX
 
-> 最終更新: 2026-11-12 07:57。基準 `origin/main` = `9445df17`。canon commit = `e5573cc8`。
+> 最終更新: 2026-11-13（PR #1650 作成後の同期。直前の head は `5dae38c0`）。基準 `origin/main` = `9445df17`。canon commit = `e5573cc8`。
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従う。
 
 ## チケット概要
@@ -9,14 +9,15 @@ PR #1402 により失効した canon 7 本の I1 例外を §7 に記録し、�
 
 ## 現在のフェーズ
 
-verify（L-0 / V-1〜V-4）
+C-4 待ち
 
-> C-3 は CONDITIONAL（2026-11-07）。確定後の plan_hash で c3.json を発行済み。Mode = critical（Human 決定）。
-> V-1 の総合判定は handoff.md §1 の判定語を転記する。現時点の判定: **WARN**（T-10 独立再実行は 2026-11-12 完了・記録欄は記入済み。残因は AC-6 の PR 本文への記録欄転記と AC-7 の Human merge。I4 の充足は本 PR では宣言しない）
+> C-3 は CONDITIONAL（2026-11-07）。確定後の plan_hash で c3.json を発行済み。Mode = critical（Human 決定）。PR #1650 は 2026-11-13 01:49（JST）作成済みで、本文に記録欄を転記済み。
+> V-1 の総合判定（handoff.md §1 の判定語を転記）: **WARN**（全 12 基準のうち 10 PASS / 1 WARN / 1 未判定。残因は AC-6 の I4 充足判定（Human C-4）と AC-7 の Human merge）
+> 未解決・Human 判断待ち: run-tests の head `c571a65c` の扱い、PR の `BEHIND` 取り込み後の evidence の扱い（handoff.md §2）
 
 ## 次のアクション
 
-PR 作成（記録欄を PR 本文へ転記）→ C-4
+Human C-4（上記 2 件の判断を含む）
 
 ## ファイルマップ
 
@@ -30,7 +31,7 @@ PR 作成（記録欄を PR 本文へ転記）→ C-4
 | review-external.md | review | C-2 の R-001〜R-014 / R2-n / R3-n と、末尾に exec レビュー R-101〜R-112 |
 | status.md | status, 復旧 | フェーズ履歴、計画からの変更点、独立再実行の手順、記録欄、残存脅威モデル、回避クラス台帳 |
 | current-state.md | status, 復旧 | 現在状態 |
-| handoff.md | C-4 | 引き継ぎ（下書き） |
+| handoff.md | C-4 | 引き継ぎ（PR 作成後の状態） |
 | evidence/ | レビュー根拠 | measure.sh / measurements.txt / manifest.txt / make-manifest.sh / regen.sh / check.sh |
 
 ## 変更ファイル一覧（概要）

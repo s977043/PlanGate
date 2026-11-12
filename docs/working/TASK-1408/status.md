@@ -13,6 +13,13 @@ C-3 は Human の `approvals/c3.json` 発行による（plan_hash `sha256:2f6dee
 | 日時 | フェーズ | 内容 |
 | --- | --- | --- |
 | 2026-11-08 00:00 | exec | 下書き clone で T-01〜T-07、T-14 を実施（worktree への転記待ち） |
+| 2026-11-12 07:56 | exec | canon を worktree に転記（`e5573cc8` の commit 時刻） |
+| 2026-11-12 07:58 | verify（L-0 / V-1〜V-4） | 測定 evidence・exec レビュー・handoff 下書きを追加（`16fa6db7`） |
+| 2026-11-12 08:04 | verify（L-0 / V-1〜V-4） | canon `e5573cc8` に対して evidence を再生成（`cf751a1f`） |
+| 2026-11-12 08:12 | verify（L-0 / V-1〜V-4） | C-3 APPROVED の `approvals/c3.json` を commit（`6d1f7a6b`。Human の発行時刻は不明、commit 時刻を記載） |
+| 2026-11-12 08:53 | verify（L-0 / V-1〜V-4） | T-10 独立再実行の結果を記録（`86db3567` 08:38 / `155ba058` 08:38 / `d5461bd3` 08:53 / `5dae38c0` 08:53） |
+| 2026-11-13 01:49 | PR 作成済 | PR #1650 を作成（`createdAt` 2026-11-12T16:49:09Z）。本文に記録欄を転記済み |
+| 不明 | C-4 待ち | Human C-4 待ち（本 commit で working context を PR 作成後の状態に同期） |
 
 ## exec 開始時の記録
 
@@ -25,11 +32,11 @@ C-3 は Human の `approvals/c3.json` 発行による（plan_hash `sha256:2f6dee
 ## 残タスク
 
 - [x] T-01 / T-02 / T-03 / T-04 / T-05 / T-06 / T-07 / T-13 / T-14
-- [ ] T-08 R1 レビュー（I1 docs 整合 / I2 敵対、`reviewed_at_sha` つき）
-- [ ] T-09 R2 レビュー
+- [x] T-08 R1 レビュー（I1 docs 整合 / I2 敵対、`reviewed_at_sha` つき）。`review-external.md` R-101〜R-112 に集約
+- [x] T-09 R2 レビュー。同上
 - [x] T-10 独立再実行（ME-6 は assertion）。実施者は Codex から作成者ではない Claude サブエージェントへ変更（計画からの変更点を参照）。2026-11-12 rc=0
-- [ ] T-11 `sh tests/run-tests.sh`、TC-07 / TC-08
-- [ ] T-12 handoff ほか（I4 は「Human C-4 待ち」と記録）
+- [x] T-11 `sh tests/run-tests.sh`、TC-07 / TC-08（結果は V-1 判定の節。head の SHA の問題は handoff §2 で未解決）
+- [ ] T-12 handoff ほか: **Human C-4 待ち**（handoff は PR 作成後の状態に更新済み。I4 の充足判定は Human C-4）
 
 ## V-1 判定
 
@@ -79,7 +86,7 @@ C-3 は Human の `approvals/c3.json` 発行による（plan_hash `sha256:2f6dee
 | check.sh の rc | **0**（REPRO-CHECK 11 項目 / TC-01〜09・11・E01・E01b・E02・E03 すべて exit=0）。陽性対照（evidence head に `2a6939fa`）は rc=3（STOP） | 独立 worker（T-10） |
 | 出力の保存先 | session scratchpad `t10/check-output.txt` / `t10/check-negctl.txt`（repo 外）。check.sh の出力は `evidence/independent-rerun.txt` として repo に配置（`155ba058`） | 独立 worker（T-10） |
 | 実施者 / 日時 | 独立 worker（作成者ではない Claude サブエージェント）/ 2026-11-12 08:36 | 独立 worker（T-10） |
-| 記録した場所（PR 本文 / handoff） | status.md 本欄と handoff.md `evidence_head`。PR 本文は未作成 | 独立 worker（T-10） |
+| 記録した場所（PR 本文 / handoff） | status.md 本欄と handoff.md `evidence_head`。PR #1650 本文（2026-11-13 作成）の「独立再実行の記録」欄に転記済み | 独立 worker（T-10） |
 | 独立性の水準 | **I1**（`evaluation-trust-boundary.md` §4 の定義「same model / separate context + role + run」に当たる。実施者は作成者と同一モデル系列の別インスタンスで、作成者の主張を使わず commit 内容から再実行した。I2 は separate model を要するので該当しない。canon §7「以後の I4 の最低要件」(1) の水準記録として書く） | 作成者（canon 定義との照合のみ） |
 
 **TODO が 1 つでも残る間は C-4 に渡さない。** handoff でも同じ方針を取り、記録欄が埋まっていなければ I4 の機械証跡は「未充足」と書く。

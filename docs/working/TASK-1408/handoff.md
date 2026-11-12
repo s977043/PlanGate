@@ -2,14 +2,14 @@
 task_id: TASK-1408
 artifact_type: handoff
 schema_version: 1
-status: draft
+status: issued
 issued_at: 2026-11-12 07:57
-issued_at_commit: cf751a1f6eaa8360042c43b55b3f7eef98b27436（転記・evidence 再生成後。この値はその SHA 時点のもの）
+issued_at_commit: 5dae38c0d3c792684ae05dc30444d4bfbee0c612（PR #1650 作成時の head。本書の実測値はこの SHA 時点のもの。以後の同期 commit で値は変わらない）
 author: qa-reviewer（下書き: 作成者 context）
 v1_release: ""
 ---
 
-# TASK-1408 Handoff（下書き）
+# TASK-1408 Handoff
 
 > **C-4 に渡す条件**: status.md「記録欄」の TODO がすべてレビュアーの手で埋まり、T-10（独立再実行）の結果が `evidence/independent-rerun.txt` にあること。TODO が残る間は C-4 に渡さない。
 > 本 handoff は充足を宣言しない（§7「I4 の充足記録」）。
@@ -22,7 +22,8 @@ related_issue: https://github.com/s977043/plangate/issues/1408, https://github.c
 split_issue: https://github.com/s977043/plangate/issues/1643
 author: qa-reviewer
 issued_at: 2026-11-12 07:57
-issued_at_commit: cf751a1f6eaa8360042c43b55b3f7eef98b27436
+issued_at_commit: 5dae38c0d3c792684ae05dc30444d4bfbee0c612  # PR #1650 作成時の head
+pr: https://github.com/s977043/plangate/pull/1650  # 2026-11-12T16:49:09Z 作成
 base: 9445df175e93fab31493274915bb35ab01cad4f1
 canon_sha: e5573cc89b76d5c493aa10d548d22ac7ed7abc2c
 evidence_head: 6d1f7a6b5ff52cda320e7ed99fdb9ad0ccf3a311（T-10 独立 worker が記録。check.sh rc=0）
@@ -37,7 +38,7 @@ evidence_head: 6d1f7a6b5ff52cda320e7ed99fdb9ad0ccf3a311（T-10 独立 worker が
 | 1408-AC-3 / 1329-AC-2 | PASS | TC-03 |
 | 1408-AC-4 | PASS | TC-03、TC-05 |
 | 1408-AC-5 | PASS | TC-04 |
-| 1408-AC-6 | WARN | TC-07 は PASS。TC-08 は書き換え忘れの検出に縮小した（R-109）。T-10 の独立再実行は 2026-11-12 に完了（reviewed_at_sha `6d1f7a6b`、check.sh rc=0、`evidence/independent-rerun.txt`）。記録欄の PR 本文への転記は PR 作成後 |
+| 1408-AC-6 | WARN | TC-07 は PASS。TC-08 は書き換え忘れの検出に縮小した（R-109）。T-10 の独立再実行は 2026-11-12 に完了（reviewed_at_sha `6d1f7a6b`、check.sh rc=0、`evidence/independent-rerun.txt`）。記録欄は PR #1650 本文に転記済み。I4 の機械証跡は未充足 |
 | 1408-AC-7 | 未判定 | Human merge（TC-10。手動） |
 | 1329-AC-3 | PASS | TC-05 |
 | 1329-AC-4 | PASS | TC-09（CI 緑は未確認） |
@@ -45,7 +46,7 @@ evidence_head: 6d1f7a6b5ff52cda320e7ed99fdb9ad0ccf3a311（T-10 独立 worker が
 
 **総合**: WARN（全 12 基準のうち 10 PASS / 1 WARN / 1 未判定。T-10 の独立再実行は完了。I4 の充足は本 handoff では宣言しない。判定は Human C-4 による（§7「I4 の充足記録」）。evidence 層は改ざんを検出しない（status.md 残存脅威モデル））
 
-**WARN の扱い**: 残因は AC-6 の記録欄の PR 本文への転記（PR 作成時）と AC-7 の Human merge に限る。T-10 と記録欄の記入は独立 worker が完了した。
+**WARN の扱い**: 残因は AC-6 の I4 充足判定（Human C-4）と AC-7 の Human merge に限る。T-10、記録欄の記入、PR #1650 本文への転記は完了した。
 
 ## 2. 既知課題一覧
 
@@ -57,6 +58,8 @@ evidence_head: 6d1f7a6b5ff52cda320e7ed99fdb9ad0ccf3a311（T-10 独立 worker が
 | head の単独・直列 run-tests で、ta-61 TC-12 の stage-1 が 4 本タイムアウト（ta-62 / ta-65 / ta-70 / ta-71、180s） | minor | open。**負荷に帰属（確定）**。4 本を個別に standalone で再実行すると、head ではすべて rc=0 だった。未変更の対照でも、ta-62 は負荷が上がったとき（load1 12→28）に同じ型のタイムアウトで rc=1 になった。ta-62 は 174〜180s で、上限 180s に近い | No（ta-62 の上限余裕は別 issue 候補） |
 | CI の markdownlint v25 での結果が未確認（ローカルは 0.18.1 で 0 error） | minor | open | No |
 | 失効後 4 commit の扱いは未裁定 | — | #1643 で Human 裁定 | No |
+| run-tests の head `c571a65c`（§6）が `9c5b3262..5dae38c0` に含まれず、PR 内容に対する結果と確認できない（PR #1650 レビュー指摘 6） | major | **未解決・Human 判断待ち**（canon との同一性を示すか PR head で取り直すか） | No |
+| PR は `BEHIND`（base `9445df17`）。main 取り込みで `canon..head` の固定が崩れ REPRO-CHECK が FAIL する見込み（未実行。指摘 7） | major | **未解決・Human 判断待ち**（取り込み後に evidence を再生成するか `6d1f7a6b` に固定するか、C-4 前に決める） | No |
 
 ## 3. V2 候補
 
