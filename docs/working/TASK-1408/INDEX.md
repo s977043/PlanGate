@@ -1,6 +1,6 @@
 # TASK-1408 INDEX
 
-> 最終更新: 2026-11-13（PR #1650 作成後の同期。直前の head は `5dae38c0`）。基準 `origin/main` = `9445df17`。canon commit = `e5573cc8`。
+> 最終更新: 2026-11-13（PR #1650 merge 後の同期。merge commit `90047151`）。基準 `origin/main` = `9445df17`。canon commit = `e5573cc8`。
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従う。
 
 ## チケット概要
@@ -9,15 +9,16 @@ PR #1402 により失効した canon 7 本の I1 例外を §7 に記録し、�
 
 ## 現在のフェーズ
 
-C-4 待ち
+done
 
+> PR #1650 は Human の C-4 で merge 済み（merge commit `90047151`、2026-11-13 07:38 JST）。
 > C-3 は CONDITIONAL（2026-11-07）。確定後の plan_hash で c3.json を発行済み。Mode = critical（Human 決定）。PR #1650 は 2026-11-13 01:49（JST）作成済みで、本文に記録欄を転記済み。
-> V-1 の総合判定（handoff.md §1 の判定語を転記）: **WARN**（全 12 基準のうち 10 PASS / 1 WARN / 1 未判定。残因は AC-6 の I4 充足判定（Human C-4）と AC-7 の Human merge）
+> V-1 の総合判定（handoff.md §1 の判定語を転記）: **WARN**（全 12 基準のうち 11 PASS / 1 WARN。残因は AC-6 の I4 充足判定（Human の判断））
 > 解決済み（handoff.md §2）: run-tests は PR head `276f36a4` で取り直し済み（指摘 6）。`BEHIND` は Human 裁定（2026-11-13）で main を取り込まず、照合点を evidence head `6d1f7a6b` に固定（指摘 7）
 
 ## 次のアクション
 
-Human C-4
+なし（AC-6 の I4 充足判定は Human の判断）
 
 ## ファイルマップ
 

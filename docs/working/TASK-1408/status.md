@@ -22,6 +22,7 @@ C-3 は Human の `approvals/c3.json` 発行による（plan_hash `sha256:2f6dee
 | 2026-11-13 02:40 | C-4 待ち | Human C-4 待ち（working context を PR 作成後の状態に同期。`276f36a4` の commit 時刻） |
 | 2026-11-13 03:46 | C-4 待ち | run-tests を PR head `276f36a4` で取り直した（`cea228cc` の commit 時刻。指摘 6） |
 | 2026-11-13 07:27 | C-4 待ち | 再レビュー N1〜N5 を反映。指摘 7 は Human 裁定（2026-11-13）により main を取り込まず、照合点を evidence head `6d1f7a6b` に固定 |
+| 2026-11-13 07:38 | done | Human の C-4 で PR #1650 を merge（merge commit `90047151`、`mergedAt` 2026-11-12T22:38:51Z）。AC-6 の I4 充足判定は Human の判断 |
 
 ## exec 開始時の記録
 
