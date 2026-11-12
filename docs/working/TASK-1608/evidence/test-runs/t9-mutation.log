@@ -1,0 +1,78 @@
+# T-9 変異注入（2026-10-24。一時ディレクトリのコピーに変異を入れ、repo のファイルは変更していない）
+# 初回は M10（contained フラグ無視）と M13（type 6 不一致）が生存した。
+# M10: contained フラグは CANONICAL_SEED.fullmatch と冗長な死にコードだったため削除し、変異を「リストマーカー除去の無効化」に差し替えた。
+# M13: type 7 が同じ入力を拾っていたため、段落を割り込む <div> のテスト（TC-HTML-06）を追加した。
+M01 fence close ignores length: KILLED rc=1 ['FAILED (failures=2, errors=1)']
+M02 unclosed fence accepted: KILLED rc=1 ['FAILED (failures=7)']
+M03 no HTML block recognition: KILLED rc=1 ['FAILED (failures=3, errors=3)']
+M04 unclosed HTML accepted: KILLED rc=1 ['FAILED (failures=1)']
+M05 no indented code: KILLED rc=1 ['FAILED (errors=1)']
+M06 setext accepted: KILLED rc=1 ['FAILED (failures=2)']
+M07 invisible chars allowed: KILLED rc=1 ['FAILED (failures=7)']
+M08 skeleton keeps Cf: KILLED rc=1 ['FAILED (failures=1)']
+M09 whole-value negative only: KILLED rc=1 ['FAILED (failures=4)']
+M10 container prefix not stripped: KILLED rc=1 ['FAILED (failures=7, errors=19)']
+M11 no list continuation offset: KILLED rc=1 ['FAILED (failures=2)']
+M12 only exact markers counted: KILLED rc=1 ['FAILED (failures=1)']
+M13 type 6 never matches: KILLED rc=1 ['FAILED (errors=1)']
+M14 ASCII-only date candidate: KILLED rc=1 ['FAILED (failures=1)']
+M15 type 2 comment end ignored: KILLED rc=1 ['FAILED (failures=2, errors=3)']
+survivors: []
+
+# 敵対レビュー R1 の是正後に再実行（M01〜M15 は全件 KILLED のまま。M11 は failures=1 に変化）
+M16 list end does not close block: KILLED rc=1 ['FAILED (failures=2, errors=2)']
+M17 close tolerance uses in_list: KILLED rc=1 ['FAILED (failures=1)']
+M18 inline markup not stripped: KILLED rc=1 ['FAILED (failures=4)']
+M19 section heading keeps ownership: KILLED rc=1 ['FAILED (failures=1)']
+M20 closing sequence accepted: KILLED rc=1 ['FAILED (failures=1)']
+M21 unterminated comment accepted: KILLED rc=1 ['FAILED (failures=1)']
+survivors: []
+
+# 敵対レビュー R2 の是正後に再実行（M01〜M20 は全件 KILLED。M21 は対象コードを撤去したため削除。M19 はアンカーを一意化）
+M18 inline markup not stripped: KILLED rc=1 ['FAILED (failures=2)']
+M22 inline structure allowed: KILLED rc=1 ['FAILED (failures=8)']
+M23 list block requires no paragraph: KILLED rc=1 ['FAILED (failures=2)']
+M24 setext keeps ownership: KILLED rc=1 ['FAILED (failures=2)']
+M19 section heading keeps ownership: KILLED rc=1 ['FAILED (failures=1)']
+survivors: []
+
+# 敵対レビュー R3 の是正後に再実行（M01〜M24 は全件 KILLED。M18 はアンカーを新コードに合わせ更新）
+M18 inline markup not stripped: KILLED rc=1 ['FAILED (failures=2)']
+M25 marker-line block allowed: KILLED rc=1 ['FAILED (failures=5)']
+M26 no NFKC / punctuation split: KILLED rc=1 ['FAILED (failures=3)']
+survivors: []
+
+# 改訂 plan D-1b（T-14）実装後に全変異を再実行（2026-10-25）。M01〜M16 / M18〜M26 は全件 KILLED のまま
+M27 quote/list switch allowed: KILLED rc=1 ['FAILED (failures=1)']
+M28 block boundary allowed: KILLED rc=1 ['FAILED (failures=6)']
+M29 thematic break not a block: KILLED rc=1 ['FAILED (failures=1)']
+M30 HTML start not a block: KILLED rc=1 ['FAILED (failures=1)']
+M31 blank does not separate: KILLED rc=1 ['FAILED (failures=37, errors=26)']
+M32 list continuation ignores column: KILLED rc=1 ['FAILED (failures=5)']
+M33 ATX not a block: KILLED rc=1 ['FAILED (failures=1)']
+M34 lazy line after blank keeps container: KILLED rc=1 ['FAILED (failures=2, errors=1)']
+M35 fence start not a block: KILLED rc=1 ['FAILED (failures=1)']
+M17 close tolerance uses in_list: SURVIVED rc=0 ['OK']
+# M17 は等価変異と判定: D-1b により「in_list が真のまま列 0 で fence を開く」入力は境界規則で先に拒否され、
+# fence を開いた時点で in_list と block_in_list が異なる状態に到達できない（到達させる入力は adv_r1_02 だが、境界で拒否される）
+# → R5 M-1 で撤回: in_list（skeleton 判定）と container（生の行）が食い違う C-1 の経路で到達可能だった。
+
+# R5 是正後に全変異を再実行（2026-10-25）。in_list を撤去して container に一本化したため M16 / M23 のアンカーを更新し、
+# M17 を「許容幅を常に +2（M17a）」「常に +0（M17b）」の 2 変異に分けた。M36 は C-1 の回帰（リスト判定を skeleton で行う）
+M01〜M16, M18〜M20, M22〜M34: すべて KILLED
+M17a close tolerance always +2: KILLED rc=1 ['FAILED (errors=1)']
+M17b close tolerance never +2: KILLED rc=1 ['FAILED (failures=1)']
+M36 list shape judged on skeleton: KILLED rc=1 ['FAILED (failures=3)']
+M35 fence start not a block: KILLED rc=1 ['FAILED (failures=1)']（初回は生存。test_adv_r5_fence_right_after_list_is_a_boundary を追加して KILLED）
+survivors: []
+
+# 改訂 2（plan D-1c / T-18〜T-21）実装後に全 41 変異を再実行（2026-10-25）
+# 初回: M12（完全一致のマーカーだけ数える）が生存 = 既存の検出テストの入力が入れ子規則で先に拒否されるようになったため。
+#       test_t21_non_canonical_second_marker_is_counted を追加して KILLED。M36 はアンカーを新コードに合わせ更新
+M01〜M20, M22〜M36: すべて KILLED
+M37 quote-inner nesting allowed: KILLED rc=1 ['FAILED (failures=2)']
+M38 list-inner nesting allowed: KILLED rc=1 ['FAILED (failures=1)']
+M39 list continuation nesting allowed: KILLED rc=1 ['FAILED (failures=4)']
+M40 content offset not enforced: KILLED rc=1 ['FAILED (failures=6)']
+M41 block content updates container: KILLED rc=1 ['FAILED (failures=1, errors=5)']
+survivors: []
