@@ -58,7 +58,7 @@ evidence_head: 6d1f7a6b5ff52cda320e7ed99fdb9ad0ccf3a311（T-10 独立 worker が
 | head の単独・直列 run-tests で、ta-61 TC-12 の stage-1 が 4 本タイムアウト（ta-62 / ta-65 / ta-70 / ta-71、180s） | minor | open。**負荷に帰属（確定）**。4 本を個別に standalone で再実行すると、head ではすべて rc=0 だった。未変更の対照でも、ta-62 は負荷が上がったとき（load1 12→28）に同じ型のタイムアウトで rc=1 になった。ta-62 は 174〜180s で、上限 180s に近い | No（ta-62 の上限余裕は別 issue 候補） |
 | CI の markdownlint v25 での結果が未確認（ローカルは 0.18.1 で 0 error） | minor | open | No |
 | 失効後 4 commit の扱いは未裁定 | — | #1643 で Human 裁定 | No |
-| run-tests の head `c571a65c`（§6）が `9c5b3262..5dae38c0` に含まれず、PR 内容に対する結果と確認できない（PR #1650 レビュー指摘 6） | major | **未解決・Human 判断待ち**（canon との同一性を示すか PR head で取り直すか） | No |
+| run-tests の head `c571a65c`（§6）が `9c5b3262..5dae38c0` に含まれず、PR 内容に対する結果と確認できない（PR #1650 レビュー指摘 6） | minor | PR head `276f36a4` で取り直した（単独・直列、rc=1、1552 passed / 3 failed）。3 件は standalone で head・対照 `9445df17` とも rc=0 で再現せず、本変更に帰属しない（§6）。TA-10 TC-7 の失敗原因は未特定。`c571a65c` のログは PR 外の SHA で測った参考値として残す。判定は WARN のまま | No |
 | PR は `BEHIND`（base `9445df17`）。main 取り込みで `canon..head` の固定が崩れ REPRO-CHECK が FAIL する見込み（未実行。指摘 7） | major | **未解決・Human 判断待ち**（取り込み後に evidence を再生成するか `6d1f7a6b` に固定するか、C-4 前に決める） | No |
 
 ## 3. V2 候補
@@ -90,6 +90,7 @@ evidence_head: 6d1f7a6b5ff52cda320e7ed99fdb9ad0ccf3a311（T-10 独立 worker が
 | `sh tests/run-tests.sh`（継承 TMPDIR） | rc=2。TA-100 unit で停止。対照 `9445df17` も同じ失敗（PASS 86、186 行で一致）。ログ: `evidence/test-runs/` |
 | 同（TMPDIR を実パスに） | head・対照とも rc=2。TA-100 unit は PASS し、TA-100 手順 3（L44 の `mktemp -d`）で停止（PASS 87、139 行で一致） |
 | 同（実パス TMPDIR + scratch の mktemp shim、**並行実行**） | **参考値**（ta-49 の固定 `/tmp` パスで干渉）。TA-100 は head・対照とも通過 |
-| 同（単独・直列。対照 → head の順） | 対照 `9445df17`: rc=0、1556 passed / 0 failed。head `c571a65c`: rc=1、1548 passed / 4 failed（ta-61 TC-12 のタイムアウト 4 件）。4 本を個別に standalone で再実行すると head はすべて rc=0、対照は ta-62 のみ負荷によるタイムアウトで rc=1（`evidence/test-runs/standalone-4.txt`）。負荷に帰属すると確定した。並行実行時の TA-49 TC-04 FAIL は、単独実行では head・対照とも再現しなかった（干渉と確定）。ログ: `evidence/test-runs/*-shim-serial.txt`。shim: `evidence/test-runs/mktemp-shim.sh.txt` |
+| 同（単独・直列。対照 → head の順） | 対照 `9445df17`: rc=0、1556 passed / 0 failed。head `c571a65c`: rc=1、1548 passed / 4 failed（ta-61 TC-12 のタイムアウト 4 件）。4 本を個別に standalone で再実行すると head はすべて rc=0、対照は ta-62 のみ負荷によるタイムアウトで rc=1（`evidence/test-runs/standalone-4.txt`）。負荷に帰属すると確定した。並行実行時の TA-49 TC-04 FAIL は、単独実行では head・対照とも再現しなかった（干渉と確定）。ログ: `evidence/test-runs/*-shim-serial.txt`。shim: `evidence/test-runs/mktemp-shim.sh.txt`。**head `c571a65c` は PR の履歴にない SHA で測った参考値**（指摘 6） |
+| 同（単独・直列、**PR head `276f36a4`**） | rc=1、1552 passed / 3 failed（load1 8.8 → 35.5）。FAIL は TA-10 TC-7（`doctor --json` の default と `--scope v8.6.0` の不一致または hooks scope の検査）、ta-61 TC-12(b) の ta-62 タイムアウト（180s、load1 31）、TA-62 TC-D の driver タイムアウト（180s）。ta-10 と ta-62 を standalone で再実行すると head・対照 `9445df17` とも rc=0。`9445df17..276f36a4` に `bin/` `scripts/` `tests/` の差分はない。タイムアウト 2 件は負荷に帰属、TA-10 TC-7 は非再現で本変更に帰属しない（原因は未特定）。ログ: `evidence/test-runs/run-tests-pr-head-276f36a4.txt`、`evidence/test-runs/standalone-pr-head-276f36a4.txt` |
 | markdownlint-cli2 0.18.1 | 0 error（変更した .md） |
 | 独立再実行（T-10） | rc=0。REPRO-CHECK 11 項目と TC 全件が exit=0。陽性対照（古い evidence head）は rc=3。check.sh・measure.sh の digest は作成者の申告値と一致（`evidence/independent-rerun.txt`） |
