@@ -148,4 +148,13 @@ unset _t115_skill _t115_src _t115_dst _t115_file \
   _t115_mirror_fail _t115_stale_fail _t115_required_fail \
   _t115_md_fail _t115_plan _t115_exec 2>/dev/null || true
 
+# Offline packaged-guidance regression; never invokes a Plugin host or model.
+if python3 "$_T115_ROOT/tests/test_verify_plugin_guidance.py"; then
+  printf '  [PASS] Plugin-only verify applicability and packaged references\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] Plugin-only verify applicability or packaged references\n' >&2
+  fail=$((fail + 1))
+fi
+
 pg_extra_contract_finalize
