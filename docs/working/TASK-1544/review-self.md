@@ -93,3 +93,21 @@
 - **WARN**: 本番 seeds 宛ての append はゲート 5 で c3.json の git 追跡を要求するため、worktree で approve した未追跡の c3.json では追記できない（安全側。運用への影響は C-3 で確認を求める）
 - AC の変更は厳格化のみ（AC-1 / 3 / 4 / 5 / 6 に条件追加、緩めた AC なし）
 - high-risk のため C-2 R2 を実施する（未実施）
+
+## 簡易 C-1 再実行（C-2 敵対レビュー R2 / R-018〜R-023 と判定 2 原則の反映後 / 2026-11-13）
+
+> 対象: review-external.md R-018〜R-023 を反映した pbi-input.md / plan-draft.md / todo.md / test-cases.md。Plan 項目（C1-PLAN-01〜07）+ TC 紐付けのみ。
+
+**判定: PASS（WARN 1 件）**
+
+- C1-PLAN-01 受入基準網羅性: PASS — AC-1 の追加条件（commit 済み blob での判定・`samefile`）を TC-21 (e)〜(i)、AC-4 の追加条件（symlink・mode・exit 8）を TC-20 (d)〜(g) に対応づけた
+- C1-PLAN-02 Unknowns処理: PASS — 新しい Unknown なし。発行者・commit 作成者の検証は残存脅威に明記
+- C1-PLAN-03 スコープ制御: PASS — 変更ファイルは 3 件のまま。HO パスなし
+- C1-PLAN-04 テスト戦略: PASS — M-8〜M-11 を追加。R1 の TC-21 (e)（`git add` で exit 0）は是正後の挙動に合わせて commit 済みの陽性対照に改め、staged のみは (g) で exit 3 とした
+- C1-PLAN-05 Work Breakdown Output: PASS — Task 2 の Steps と T-3 / T-3b / T-5 を更新
+- C1-PLAN-06 依存関係: PASS — 変更なし
+- C1-PLAN-07 動作検証自動化: PASS — TC-21 (h) は macOS 限定で、区別する FS では SKIP を明示出力する
+- 判定の 2 原則: plan-draft.md の表で全判定箇所（ゲート 1〜5・`--out`・`--seeds`・`--draft`・task-dir の位置）に原則を割り当て、適用しない箇所は理由を記載
+- **WARN**: 本番 seeds への append は c3.json 等の commit 後に限られる（運用手順を plan に明記。一時コピー経路を正規手段として明記）。C-3 で運用への影響の確認を求める
+- AC の変更は厳格化のみ（AC-1 / AC-4 に条件追加、緩めた AC なし）
+- high-risk・未収束のため C-2 R3 を実施する（未実施）

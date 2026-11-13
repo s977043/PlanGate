@@ -17,13 +17,13 @@ high-risk（plan.md「Mode判定」。R-NNN 反映で AC 6 件となり standard
 ### 2. 実装
 
 - [ ] T-2: `tests/extras/ta-118-retro-seed-draft.sh` を書き、生成器が無い状態で FAIL を記録（RED） — owner: agent / depends_on: T-1 / 🚩 / rollback: ファイル削除
-- [ ] T-3: `scripts/retro_seed_draft.py` を実装し TA-118 全 PASS（GREEN）。ゲート 1〜5・終了コード 0/2〜7・`--out` の `lexists` + `O_EXCL`・sha256 再照合つき `os.replace` を含む（R-010〜R-016） — owner: agent / depends_on: T-2 / 🚩 / rollback: ファイル削除
+- [ ] T-3: `scripts/retro_seed_draft.py` を実装し TA-118 全 PASS（GREEN）。ゲート 1〜5・終了コード 0/2〜8・`--out` の `lexists` + `O_EXCL`・sha256 再照合つき `os.replace` を含む（R-010〜R-016）。判定の 2 原則（同一性は `samefile`・出所は `HEAD` の blob）を plan「判定の 2 原則」の表どおりに全判定箇所へ適用し、書き込みは `realpath` の実体へ mode を引き継いで行う（R-018〜R-021） — owner: agent / depends_on: T-2 / 🚩 / rollback: ファイル削除
 - [ ] T-4: `docs/workflows/06_retro.md` の検査観点節を更新 — owner: agent / depends_on: T-3 / rollback: `git checkout -- docs/workflows/06_retro.md`
 
 ### 3. 検証
 
-- [ ] T-3b: 生成器の module docstring に残存脅威モデル（R-017 の U+3164 を含む）と confirmed_by の信頼境界を書く（R-004 / R-008 / R-017） — owner: agent / depends_on: T-3 / rollback: 該当 docstring を戻す
-- [ ] T-5: 変異注入 M-1〜M-7・M-2b・M-6b（test-cases.md）。各 TC の終了コードは完全一致で照合する（R-010）を実行し、結果を status.md に記録 — owner: agent / depends_on: T-3 / 🚩 / rollback: `git checkout -- scripts/retro_seed_draft.py`
+- [ ] T-3b: 生成器の module docstring に残存脅威モデル（R-017 の U+3164、R-023 の `O_NOFOLLOW` は最終要素のみ、一時コピー経路、commit 作成者は検証しないことを含む）と confirmed_by の信頼境界、運用手順（c3.json を commit してから append / 一時コピー経路）を書く（R-004 / R-008 / R-017 / R-018 / R-023） — owner: agent / depends_on: T-3 / rollback: 該当 docstring を戻す
+- [ ] T-5: 変異注入 M-1〜M-11・M-2b・M-6b（test-cases.md。M-9 は macOS で実行し、区別する FS では SKIP を記録）。各 TC の終了コードは完全一致で照合する（R-010）を実行し、結果を status.md に記録 — owner: agent / depends_on: T-3 / 🚩 / rollback: `git checkout -- scripts/retro_seed_draft.py`
 - [ ] T-6: `sh tests/run-tests.sh` を実行し、main の同じ実行と FAIL 件数を対照 — owner: agent / depends_on: T-4 / 🚩 / rollback: 不要
 
 ### 4. 完了

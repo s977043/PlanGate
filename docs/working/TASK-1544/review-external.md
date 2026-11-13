@@ -92,3 +92,52 @@ commit SHA は push 後に status.md へ記録する（squash 後も追えるよ
 | R-017 | reflected | 同上 | plan-draft 残存脅威モデル |
 
 high-risk のため R2（是正が効いているか、是正が新しい穴を生んでいないか）を実施する。
+
+### 監査表の補記（R1 分 / 追記専用）
+
+| R-NNN | reflected_in(commit) |
+|-------|---------------------|
+| R-010〜R-017 | `e88104e8` |
+
+---
+
+## C-2 敵対レビュー R2（head `e88104e8` / Mode high-risk / 判定 CONDITIONAL・未収束）
+
+> 出典: PR #1612 最新コメント（C-2 敵対レビュー R2）。major 3 / minor 2 / info 1。
+> R-010〜R-017 の是正は狙った症状には効いている。R-013 のゲート 5 に迂回の余地が残り、R-015 の `os.replace` が新しい穴を作った（§7-quater「是正が生んだ穴」）。
+
+### 指摘一覧
+
+| ID | severity | 指摘 | 是正方針 |
+|----|----------|------|---------|
+| R-018 | major | ゲート 5 は `git ls-files --error-unmatch` で index 登録の有無だけを見ている。追跡済み c3.json の作業ツリー改変も、`git add` だけでも通る。ゲート 4 も同じ型 | `git show HEAD:<path>` の blob で判定する（commit 済みを条件にする）。TC-21 に「作業ツリーだけ改変」「staged のみ」を追加 |
+| R-019 | major | 本番 seeds 宛てかをパス文字列で比べている。大文字小文字を区別しない FS の別名でゲート 5 を飛ばせる | `os.path.samefile`（inode）で判定する。TC-21 に別名ケース（macOS のみ） |
+| R-020 | major | `os.replace` で mode が 0600 になる。seeds が symlink だとリンクを置き換え、本番不変のまま exit 0（AC-4 の誤 PASS） | 書き込み先を `realpath` に固定、一時ファイルは同じ dir、mode を引き継ぐ。TC-20 (d) symlink / (e) mode |
+| R-021 | minor | 先頭バイト不一致時の exit が未定義（CRLF の seeds で起きうる） | `read_bytes` で読み、不一致専用の exit 8 |
+| R-022 | minor | M-6 の FAIL 欄は同じ日付の場合にしか成り立たない | TC-19 に「同じ日付・同じ task_id」と明記 |
+| R-023 | info | `O_NOFOLLOW` が守れるのは最終要素だけ | 残存脅威モデルに追記 |
+
+### 設計モデルの変更（§7-quater）
+
+R-018 / R-019 は R1 の「承認トークンの文脈流用」と同じ層の新クラスで、出所と同一性をファイルの状態やパス文字列で近似していたことが共通原因。判定を 2 原則（同一性は inode / 出所は commit 済み blob）に統一し、全判定箇所への割り当てを plan-draft.md「判定の 2 原則」の表に置いた。R3 はこの 2 原則が全判定箇所に適用されているかに焦点を絞る。発行者の検証は引き続き範囲外（EH-3 と Human の規範。残存脅威）。
+
+### 回避クラス台帳（R2 分 / 追記専用）
+
+| クラス | 代表例（最小再現） | 検出ラウンド | 是正 | 前ラウンドが見つけられなかった理由 |
+|-------|------------------|------------|------|--------------------------------|
+| 状態の代理指標を出所の証明に使う | 追跡済み c3.json を作業ツリーで APPROVED に書き換える、または未 commit の c3.json を `git add` するだけでゲート 5 を通る | R2 | R-018（`HEAD` の blob で判定。原則 P） | R1 の是正（R-013）は「追跡下にあるか」を出所の証明とみなし、index の状態が作業ツリー・index 上の操作だけで作れることを照合していなかった |
+| パス文字列で同一性を判定する | macOS で `Docs/Working/Improvement-Seeds.md` を `--seeds` に渡し、本番宛てでないと判定させてゲート 5 を飛ばす | R2 | R-019（`samefile`。原則 I） | R1 は `realpath` による正規化で同一性が決まると前提し、FS の大文字小文字の扱いという正規化の外側の別名を見ていなかった |
+| 原子的置き換えでファイル属性・リンクを失う | symlink の seeds に append すると、リンクが通常ファイルに置き換わり本番は不変のまま exit 0。mode は 0600 になる | R2 | R-020（`realpath` の実体に書き、mode を引き継ぐ） | R1 の R-015 は TOCTOU の検出に焦点を置いて `os.replace` を導入し、置き換えがファイルの属性とリンクに与える副作用を検査対象にしていなかった |
+
+### 監査表（R2 分 / 追記専用）
+
+| R-NNN | status | reflected_in(commit) | notes |
+|-------|--------|---------------------|-------|
+| R-018 | reflected | 本 commit（`docs(TASK-1544): C-2 R2（R-018〜R-023）と判定 2 原則を反映する`） | plan-draft ゲート 5・判定の 2 原則・運用手順・pbi-input AC-1・test-cases TC-21 (e)〜(g)・M-8 |
+| R-019 | reflected | 同上 | plan-draft ゲート 5・判定の 2 原則・pbi-input AC-1・test-cases TC-21 (h)・M-9 |
+| R-020 | reflected | 同上 | plan-draft append 節・pbi-input AC-4・test-cases TC-20 (d) / (e)・M-10 |
+| R-021 | reflected | 同上 | plan-draft 終了コード 8・append 節・pbi-input AC-4・test-cases TC-20 (f) / (g)・M-11 |
+| R-022 | reflected | 同上 | test-cases TC-19 |
+| R-023 | reflected | 同上 | plan-draft 残存脅威モデル |
+
+R3（2 原則が全判定箇所に適用されているか）を実施する。

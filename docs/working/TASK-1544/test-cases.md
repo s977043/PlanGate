@@ -12,7 +12,7 @@
 | AC-2 | TC-01〜TC-03, TC-09, TC-09b |
 | AC-3 | TC-04, TC-04b〜TC-04d, TC-05, TC-10 |
 | AC-4 | TC-06, TC-11, TC-14, TC-15, TC-20 |
-| AC-5 | 変異注入計画 M-1〜M-7（M-2b を含む） |
+| AC-5 | 変異注入計画 M-1〜M-11（M-2b / M-6b を含む） |
 | AC-6 | TC-19, TC-19b, TC-19c |
 
 ## 組合せ表: retro_enabled × confirmed_by
@@ -81,7 +81,7 @@ c3.json 発行後に plan.md を 1 バイト変える。期待: draft exit 3・s
 
 ### TC-19: 二重 append（冪等）
 
-TC-06 の後、同じ下書きで append を再実行。期待: exit 5、seeds のバイト列は 1 回目の後と一致。
+TC-06 の後、同じ下書き（**同じ日付・同じ task_id**）で append を再実行。期待: exit 5、seeds のバイト列は 1 回目の後と一致。日付違いの重複は TC-19c (b) で扱う（R-022）。
 
 ### TC-19b: 大文字小文字違いの task_id（R-014）
 
@@ -96,6 +96,10 @@ seeds に (a) 見出し末尾に空白を付けた `## <date> — TASK-9999 `、
 (a) 末尾に改行が無い seeds（L2 は通る）に confirm 済み下書きを append → exit 0、追記後の全文が `read_declared_seeds` を通り件数が +1、既存部分はバイト一致し、その直後に改行が 1 つだけ補われる。
 (b) 追記前から `read_declared_seeds` を通らない seeds（既存エントリの confirmed_by が空）→ exit 6、seeds 不変。
 (c) python から生成器の append 関数を import し、読み込み後・置き換え前に seeds を 1 バイト変える差し込み（テスト用に置き換え直前の読み直し関数を差し替える）で実行 → exit 7、seeds は差し込み後のバイト列のまま、一時ファイルが残らない。
+(d) seeds が実ファイルを指す symlink（R-020）→ exit 0、symlink 自体は symlink のまま残り（`os.path.islink` が真）、リンク先の実ファイルに 1 エントリ追記されている（リンクだけ置き換えて本番不変のまま exit 0 になる誤 PASS を検出する）。
+(e) mode 0644 の seeds（R-020）→ exit 0、追記後の実体の mode が 0644 のまま（0600 にならない）。
+(f) CRLF 改行の seeds（R-021）→ 既存部分のバイト列が CRLF のまま保たれる。終了コードは L2 の判定に従い 0 または 6 の完全一致（fixture 作成時に L2 を流して期待値を決める）で、8 にはならない。
+(g) python から append 関数を import し、追記後の全文を組み立てる関数を先頭 1 バイトを変えるものに差し替えて実行 → exit 8、seeds 不変（R-021）。
 
 ### TC-21: 承認トークンの文脈流用（R-013）
 
@@ -103,7 +107,11 @@ seeds に (a) 見出し末尾に空白を付けた `## <date> — TASK-9999 `、
 (b) c3.json に `task_id` キーが無い → draft exit 3、append exit 3。
 (c) sandbox git repo の `docs/working/improvement-seeds.md`（追跡済み）を `--seeds` にし、task-dir を repo の外に置く → append exit 3、seeds 不変。
 (d) (c) の repo の `docs/working/TASK-9999/` に task-dir を置き、c3.json だけ未追跡 → append exit 3、seeds 不変。
-(e) (d) で c3.json を `git add` した状態 → append exit 0（陽性対照）。
+(e) (d) で pbi-input.md / plan.md / c3.json を `git add` して commit した状態 → append exit 0（陽性対照）。
+(f) (e) の後、追跡済み c3.json を作業ツリー上だけで `c3_status: "CONDITIONAL"` に書き換える → append exit 0（判定は `HEAD` の blob。作業ツリーの改変は根拠にしない）。逆に、`HEAD` の c3.json を CONDITIONAL で commit し、作業ツリーだけ APPROVED に書き換える → append exit 3（R-018）。
+(g) (d) で c3.json を `git add` しただけ（staged のみ・未 commit）→ append exit 3、seeds 不変（R-018。R1 の (e) はこの状態を陽性対照にしていたため、是正後の挙動に合わせて (e) を commit 済みに改めた）。
+(h) **macOS のみ**（大文字小文字を区別しない FS で実行。区別する FS では SKIP と明記して出力する）: `--seeds` に `<repo>/Docs/Working/Improvement-Seeds.md`、task-dir を repo の外に置く → append exit 3、seeds 不変（R-019。パス文字列の比較なら本番宛てでないと判定してゲート 5 を飛ばす）。
+(i) 一時コピー経路の陽性対照: (c) の seeds を repo 外の一時ディレクトリにコピーして `--seeds` に渡し、task-dir は repo 外の sandbox（作業ツリーの c3.json）→ append exit 0、本番 seeds は不変。
 
 ## Edge Cases
 
@@ -154,7 +162,11 @@ draft は exit 2。stdout は空。
 | M-5 | plan_hash 照合を除去する | TC-17, TC-18 |
 | M-6 | 重複 task_id の検査を除去する | TC-19（重複検査が消えると L2 の duplicate 検出で exit 6 になり、exit 5 の完全一致で FAIL）, TC-19b, TC-19c |
 | M-6b | task_id の比較から `casefold` / `strip` を外す | TC-19b, TC-19c (a) |
-| M-7 | task_id 一致の検査（ゲート 4）と本番 seeds 宛ての所在・追跡検査（ゲート 5）を除去する | TC-21 (a)〜(d) |
+| M-7 | task_id 一致の検査（ゲート 4）と本番 seeds 宛ての所在・commit 済み検査（ゲート 5）を除去する | TC-21 (a)〜(d), (f) 後段, (g), (h) |
+| M-8 | ゲート 5 の commit 済み判定を `git ls-files --error-unmatch` に戻し、ゲート 1〜4 を作業ツリーで判定する（原則 P の除去） | TC-21 (f)（後段が exit 0 になり FAIL）, (g)（exit 0 になり FAIL）。R-018 |
+| M-9 | 本番 seeds 宛て・task-dir 位置の判定を `samefile` からパス文字列（`realpath` 後の `==`）に戻す（原則 I の除去） | TC-21 (h)（macOS。exit 0 になり FAIL）。R-019 |
+| M-10 | 書き込みを `realpath` でなく `--seeds` のパスへの `os.replace` にし、mode を引き継がない | TC-20 (d)（symlink が通常ファイルに置き換わり FAIL）, (e)（mode 0600 で FAIL）。R-020 |
+| M-11 | 前方一致の不一致で exit 8 ではなく exit 6 を返す / `read_bytes` をテキストモードの読み込みに戻す | TC-20 (g)（exit 6 で FAIL）, (f)（CRLF が失われ FAIL）。R-021 |
 
 また、生成器が無い状態（Task 1 の RED）で TA-118 が FAIL することも記録する。
 

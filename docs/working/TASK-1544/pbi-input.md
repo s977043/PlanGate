@@ -45,7 +45,8 @@ Human の決定（2026-10-26）:「下書き生成を実装する」方針で進
   opt-in 行は pbi-input.md と plan.md の両方に要り、c3.json の `plan_hash` が plan.md の sha256 と一致しなければ不成立とする。
   コード fence 内・HTML コメント内・4 スペース以上のインデント（タブを含む）の記述は opt-in とみなさず、閉じていない fence は不成立とする（R-002 / R-007 / R-012）。
   c3.json の `task_id` が task-dir 名と一致しなければ（欠落を含む）不成立とし、本番 seeds 宛ての `append` では task-dir が同じ作業ツリーの
-  `docs/working/` 直下にあり c3.json が git 追跡下にあることを要求する（R-013）
+  `docs/working/` 直下にあり、pbi-input.md / plan.md / c3.json が `HEAD` に commit 済みであることを要求し、上の判定をその commit 済み blob の内容で行う。
+  作業ツリーの改変・staged のみの状態は根拠にしない。本番 seeds 宛てか・task-dir の位置は inode（`os.path.samefile`）で判定し、パス文字列の比較で判定しない（R-013 / R-018 / R-019）
 - AC-2: `draft` はどの入力でも `improvement-seeds.md` を変更しない（出力先に seeds を指定されたら拒否する）
 - AC-3: `append` は `confirmed_by` が空、またはプレースホルダ（`<human>` 等）の下書きを拒否する。拒否したときは seeds のバイト列が変わらない。
   判定は L2 の `is_unconfirmed`（`UNCONFIRMED` 語彙）に従い、Unicode 書式文字（ZWSP 等）だけの値も空とみなす（R-001）。
@@ -53,7 +54,8 @@ Human の決定（2026-10-26）:「下書き生成を実装する」方針で進
 - AC-4: `append` は confirm 済みの下書きを末尾に 1 エントリだけ追記する。既存の内容はバイト単位で変わらない。
   追記部の見出しは 1 件・見出しの task_id は task-dir と一致・`confirmed_by` 行は 1 行で、追記後の seeds は L2 の
   `read_declared_seeds` で件数が追記前 +1 になる（R-003 / R-006）。
-  末尾改行の無い seeds でも追記でき、追記前の seeds が L2 を通らなければ exit 6、読み込みから置き換えまでに seeds が変われば exit 7 で、いずれも seeds を変えない（R-015）
+  末尾改行の無い seeds でも追記でき、追記前の seeds が L2 を通らなければ exit 6、読み込みから置き換えまでに seeds が変われば exit 7、追記後の先頭が追記前のバイト列と一致しなければ exit 8 で、いずれも seeds を変えない（R-015 / R-021）。
+  seeds が symlink のときはリンク先の実体に追記し（リンクは symlink のまま）、実体の mode は追記前と同じに保つ（R-020）
 - AC-5: 上の各 AC は TA-118 の TC で検査し、変異注入（ゲート除去 / confirmed_by 検査除去 / 上書き化）でそれぞれ FAIL することを確かめる。
   TC は終了コードを期待値と完全一致で照合する（R-010）
 - AC-6: 同じ task_id のエントリが seeds に既にあるとき、`append` は追記せず exit 5 で終了し、seeds のバイト列は変わらない（冪等。R-009）。
