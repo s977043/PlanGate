@@ -91,8 +91,13 @@ python3 scripts/retro_seed_draft.py append --task-dir <docs/working/TASK-XXXX> -
 2. `<task-dir>/approvals/c3.json` が JSON として読め、`c3_status == "APPROVED"`
 3. c3.json の `plan_hash`（`sha256:<hex>`）が `<task-dir>/plan.md` の sha256 と一致する。`plan_hash` 欠落・形式不正・不一致・plan.md 欠落は不成立（R-007。EH-3 の `check-plan-hash.sh` と同じ形式）
 4. c3.json の `task_id` が文字列で、`<task-dir>` の実体（`os.path.realpath`）の basename と完全一致する。`task_id` 欠落・型不正・不一致は不成立（R-013）。origin/main の c3.json 91 件のうち `task_id` が無いものが 1 件（TASK-0038）あり、そうした c3.json は fail-closed で exit 3 になる
-5. `append` で、`--seeds` が本番 seeds 宛てのとき: (i) `<task-dir>` の親が `<root>/docs/working` と `samefile` で同一であり、(ii) `pbi-input.md` / `plan.md` / `approvals/c3.json` の 3 ファイルがいずれも `HEAD` に commit 済みで、(iii) 3 ファイルとも作業ツリーのバイト列が `HEAD` の blob と一致する。このときゲート 1〜4 は **`HEAD` の blob の内容**で判定する。(i)〜(iii) とゲート 1〜4 のいずれかを満たさなければ不成立（exit 3。R-013 / R-018 / R-019 / TC-21 (f)）。作業ツリーの改変・index への登録（`git add`）だけでは成立せず、作業ツリーが `HEAD` と食い違う状態もゲートが成立する向きか否かを問わず不成立とする
-   - **本番宛ての判定は git を使わない（R-024）**: `<root>` は `os.path.realpath(__file__)` の 2 階層上（`scripts/` の親）とする。`--seeds` と `<root>/docs/working/improvement-seeds.md` を `os.path.samefile` で比較し、同一なら本番宛て。後者が存在しなければ本番宛てでない。`GIT_*` 環境変数・カレントディレクトリ・`--seeds` の位置は本番宛てかの判定に影響しない
+5. `append` で、`--seeds` が本番 seeds 宛てのとき: (i) `dirname(realpath(<task-dir>))` が `<root>/docs/working` と `samefile` で同一であり（R-028）、(ii) `pbi-input.md` / `plan.md` / `approvals/c3.json` の 3 ファイルがいずれも `HEAD` に commit 済みで、(iii) 3 ファイルとも作業ツリーのバイト列が `HEAD` の blob と一致する。このときゲート 1〜4 は **`HEAD` の blob の内容**で判定する。(i)〜(iii) とゲート 1〜4 のいずれかを満たさなければ不成立（exit 3。R-013 / R-018 / R-019 / TC-21 (f)）。作業ツリーの改変・index への登録（`git add`）だけでは成立せず、作業ツリーが `HEAD` と食い違う状態もゲートが成立する向きか否かを問わず不成立とする
+   - **本番宛ての判定は git を使わず、書き込み先の側で fail-closed にする（R-024 / R-027）**: 次の (a) または (b) を満たせば本番宛てとする。
+     - (a) `<gen-root>`（`os.path.realpath(__file__)` の 2 階層上。`scripts/` の親）について、`--seeds` と `<gen-root>/docs/working/improvement-seeds.md` が `os.path.samefile` で同一。後者が存在しなければ (a) は不成立
+     - (b) `realpath(--seeds)` の末尾 3 要素を `casefold()` した値が `docs` / `working` / `improvement-seeds.md` であり、`dirname(dirname(dirname(realpath(--seeds))))`（2 つ上の階層の親）に `.git`（ディレクトリまたはファイル。`os.path.lexists`）がある
+     - `<root>` は (a) が成立すれば `<gen-root>`、(a) が不成立で (b) が成立すれば `dirname(dirname(dirname(realpath(--seeds))))` とする。(i)〜(iii) と git の読み取りはこの `<root>` に対して行う
+     - (b) はパス文字列を使うが、本番宛てと判定する向き（ゲート 5 を課す向き）にだけ働く。(b) が不成立であることを本番宛てでない根拠にはせず、(a) と (b) の両方が不成立のときだけ本番宛てでないとする。生成器のコピー・hardlink・PYTHONPATH 経由の起動で `<gen-root>` がずれても (b) で本番宛てと判定される
+     - `GIT_*` 環境変数・カレントディレクトリは本番宛てかの判定に影響しない
    - **git は blob の読み取りだけに使う（R-024）**: `git -C <root>` を、環境変数から `GIT_` で始まるものをすべて除いた env で呼ぶ。本番宛てと判定した後に git の実行（`rev-parse` / `show`）が失敗したら exit 3（「本番以外」に倒さない）
    - **相対パスと HEAD の固定（R-025）**: 作業ツリー相対パスは `os.path.relpath(os.path.realpath(<task-dir>), <root>)` を 1 回だけ求め、3 ファイルで共有する。HEAD は最初に `git rev-parse --verify HEAD^{commit}` で SHA に固定し、以降は `git show <sha>:<相対パス>/<ファイル>` で読む（3 回の読み取りの間に commit が入っても同じ commit を読む）
 
@@ -124,8 +129,8 @@ R1 の「承認トークンの文脈流用」と R2 の R-018 / R-019 は、出�
 | ゲート 2（`c3_status`） | P（本番 seeds 宛て） | 本番宛ては `HEAD` の c3.json の blob を読む。それ以外はゲート 1 と同じ理由で作業ツリー |
 | ゲート 3（`plan_hash`） | P（本番 seeds 宛て） | 本番宛ては `HEAD` の plan.md の blob の sha256 と、`HEAD` の c3.json の `plan_hash` を照合する |
 | ゲート 4（`task_id`） | P（本番 seeds 宛て） | 本番宛ては `HEAD` の c3.json の `task_id` を使う。比較相手の task-dir 名は task-dir の実体の basename（識別子の比較であり、2 つのパスの同一性判定ではないため I は適用しない） |
-| ゲート 5（本番 seeds 宛てか） | I | `--seeds` と `<root>/docs/working/improvement-seeds.md`（`<root>` は `realpath(__file__)` の 2 階層上）を `samefile` で比較する。後者が存在しなければ本番宛てでない。git は使わない（R-024。判定器の env で分岐が反転しないようにする） |
-| ゲート 5（task-dir の位置） | I | `<task-dir>` の親と `<root>/docs/working` を `samefile` で比較する |
+| ゲート 5（本番 seeds 宛てか） | I（+ 拒否側にだけ広げるパス形状） | (a) `--seeds` と `<gen-root>/docs/working/improvement-seeds.md`（`<gen-root>` は `realpath(__file__)` の 2 階層上）を `samefile` で比較、または (b) `realpath(--seeds)` の末尾 3 要素（casefold）が `docs/working/improvement-seeds.md` で 2 つ上の階層の親に `.git` がある。どちらかが成立すれば本番宛て。(b) は本番宛てと判定する向きにだけ使い、同一性の否定には使わない（原則 I は「同一である」の判定に適用し、(b) は fail-closed の追加条件）。git は使わない（R-024 / R-027） |
+| ゲート 5（task-dir の位置） | I | `dirname(realpath(<task-dir>))` と `<root>/docs/working` を `samefile` で比較する（R-028） |
 | ゲート 5（commit 済み） | P | 固定した HEAD SHA で `git show <sha>:<path>` が成功するかで判定する。`git ls-files` は使わない。git は `GIT_*` を除いた env で呼び、失敗は exit 3（R-024 / R-025） |
 | ゲート 5（作業ツリーと HEAD の一致） | P | 3 ファイルとも作業ツリーのバイト列と `HEAD` の blob が一致することを要求する。判定の根拠は blob のままで、作業ツリーは一致の確認にだけ使う（TC-21 (f)） |
 | 下書きの task_id | どちらも適用しない | 識別子の比較。`heading_task_id` と `task_dir_id` で求め、`strip()` 後の完全一致（R-026） |
@@ -149,9 +154,9 @@ R1 の「承認トークンの文脈流用」と R2 の R-018 / R-019 は、出�
 
 ### 残存脅威モデル（R-004）
 
-本節は完全性を主張しない。C-2 R1〜R3 で見つかったクラスを塞いだ時点の「守るもの / 守らないもの」の列挙であり、未発見のクラスが残りうる。
+本節は完全性を主張しない。C-2 R1〜R4 で見つかったクラスを塞いだ時点の「守るもの / 守らないもの」の列挙であり、未発見のクラスが残りうる。
 
-守るもの: opt-in 不成立・C-3 未承認・plan_hash 不一致の run での下書き生成と追記 / 他 TASK の c3.json の流用、本番 seeds 宛てでの作業ツリー外・未 commit（作業ツリーだけの改変・staged のみを含む）の c3.json（R-013 / R-018） / 本番 seeds 宛てで 3 ファイルの作業ツリーが `HEAD` と食い違う状態（TC-21 (f)） / `GIT_CEILING_DIRECTORIES` / `GIT_DIR` / `GIT_WORK_TREE` などの env による本番宛て判定の反転（R-024） / 読み取りの間の HEAD の移動（R-025） / 大文字小文字違いなどの別名による本番 seeds 判定の回避（R-019） / symlink の seeds でリンクだけが置き換わる誤 PASS と mode の喪失（R-020） / 未 confirm の追記 / 既存内容の改変 / 二重追記（大文字小文字・空白・日付違いを含む。R-014） / `--out` による seeds の上書き（リンク先の無い symlink を含む。R-016） / 読み込みから置き換えまでの seeds の変化の検出（R-015）。
+守るもの: opt-in 不成立・C-3 未承認・plan_hash 不一致の run での下書き生成と追記 / 他 TASK の c3.json の流用、本番 seeds 宛てでの作業ツリー外・未 commit（作業ツリーだけの改変・staged のみを含む）の c3.json（R-013 / R-018） / 本番 seeds 宛てで 3 ファイルの作業ツリーが `HEAD` と食い違う状態（TC-21 (f)） / `GIT_CEILING_DIRECTORIES` / `GIT_DIR` / `GIT_WORK_TREE` などの env による本番宛て判定の反転（R-024） / 生成器のコピー・hardlink・PYTHONPATH 経由の起動による本番宛て判定の回避（R-027） / 読み取りの間の HEAD の移動（R-025） / 大文字小文字違いなどの別名による本番 seeds 判定の回避（R-019） / symlink の seeds でリンクだけが置き換わる誤 PASS と mode の喪失（R-020） / 未 confirm の追記 / 既存内容の改変 / 二重追記（大文字小文字・空白・日付違いを含む。R-014） / `--out` による seeds の上書き（リンク先の無い symlink を含む。R-016） / 読み込みから置き換えまでの seeds の変化の検出（R-015）。
 
 守らないもの:
 
@@ -166,7 +171,9 @@ R1 の「承認トークンの文脈流用」と R2 の R-018 / R-019 は、出�
 - `HEAD` は任意のローカル commit でよい。origin/main への到達や push 済みかは検証しないため、ローカルで commit した c3.json は原則 P を満たす（R3）
 - seeds の hardlink。本番 seeds と inode を共有する別パスは `samefile` で本番宛てと判定されるが、hardlink を張ること自体は防がない。また `os.replace` で実体を置き換えると hardlink の共有は切れる（R3）
 - `<root>` から `docs/working/` までの途中要素の symlink や bind mount による別名（`samefile` は最終的な inode を比べるだけで、経路の正当性は検証しない。R3）
-- 生成器のコピー（`scripts/retro_seed_draft.py` を別の場所に置いて実行すると、`<root>` はコピー先の 2 階層上になり、本番 seeds 宛てと判定されない。一時コピー経路と同じく PR と C-4 で担保する。R-024 の帰結）
+- 生成器のコピー・hardlink・PYTHONPATH 経由の起動は、本番 seeds 宛ての判定 (b)（`realpath(--seeds)` の末尾 3 要素と `.git` の所在）で本番宛てと判定されるため、ゲート 5 を外す経路としては塞いでいる（R-027）。守らないのは、本番 seeds の実体を末尾 3 要素が `docs/working/improvement-seeds.md` にならないパスへ hardlink し、かつ生成器のコピーを使う経路（(a) も (b) も成立しない。hardlink を張れる主体は seeds を Edit で直接書き換えることもでき、上の「Edit で直接書き換える経路」と同じ層。PR と C-4 で担保する）
+- PATH 上の偽 `git`・`refs/replace`・`.git/config`（`core.*` や alias 等）による `HEAD` の blob の偽装。git は `GIT_*` を除いた env で呼ぶが、PATH の解決とリポジトリ内の設定・置換参照は検証しない（「`HEAD` は任意のローカル commit」と同じ層。R-029）
+- macOS など大文字小文字を区別しない FS で、大文字小文字だけが異なる別名の task-dir や seeds を渡した場合。`samefile` と (b) の casefold により本番宛てと判定され、ゲート 4 の task_id 完全一致や commit 済み判定で exit 3 になる（拒否側に倒れるだけで、別名での追記を成功させる経路は提供しない。R-029）
 
 保証の主体: 本生成器は多層防御の 1 層であり、最終保証は C-4（Human レビュー）・branch protection・c3.json を Human が発行する規範（EH-3）。生成器の module docstring にも同じ内容を書く。
 
@@ -188,7 +195,7 @@ R1 の「承認トークンの文脈流用」と R2 の R-018 / R-019 は、出�
 
 ### Task 3: 変異注入
 
-- test-cases.md「変異注入計画」M-1〜M-12（M-2b / M-6b を含む）を 1 つずつ注入し、該当 TC の FAIL を記録して戻す（commit しない）
+- test-cases.md「変異注入計画」M-1〜M-13（M-2b / M-6b / M-8b を含む）を 1 つずつ注入し、該当 TC の FAIL を記録して戻す（commit しない）
 - Rollback: `git checkout -- scripts/retro_seed_draft.py`
 
 ### Task 4: docs の更新
@@ -200,7 +207,7 @@ R1 の「承認トークンの文脈流用」と R2 の R-018 / R-019 は、出�
 ## Verification Plan
 
 - `sh tests/run-tests.sh`（harness 経由）で TA-118 全 PASS、既存の FAIL を増やさない（main で同じテストを流して対照）
-- TA-118 単体の実行 / 変異注入 M-1〜M-12（M-2b / M-6b を含む） / `python3 -m py_compile scripts/retro_seed_draft.py`
+- TA-118 単体の実行 / 変異注入 M-1〜M-13（M-2b / M-6b / M-8b を含む） / `python3 -m py_compile scripts/retro_seed_draft.py`
 
 ### レビューレーン計画（#786）
 
@@ -227,7 +234,7 @@ R1 の「承認トークンの文脈流用」と R2 の R-018 / R-019 は、出�
 
 - 変更ファイル数: 3 → standard
 - 受入基準数: 6 → high-risk 相当（定量軸）。ただし R-NNN 反映で AC を厳格化した結果であり変更ファイルは 3 件のまま
-- C-2 反映: review-external.md R-001〜R-009 を本ファイルへ 1 回で確定反映（2026-11-13、`003f49e7`）。C-2 敵対レビュー R1 の R-010〜R-017 を 1 回で確定反映（2026-11-13、`e88104e8`）。R2 の R-018〜R-023 と判定の 2 原則を 1 回で確定反映（2026-11-13、`bec976bd`）。R3 の R-024〜R-026・TC-21 (f) の厳格化・残存脅威モデルを 1 回で確定反映（2026-11-13）。変更ファイルは 3 件のまま
+- C-2 反映: review-external.md R-001〜R-009 を本ファイルへ 1 回で確定反映（2026-11-13、`003f49e7`）。C-2 敵対レビュー R1 の R-010〜R-017 を 1 回で確定反映（2026-11-13、`e88104e8`）。R2 の R-018〜R-023 と判定の 2 原則を 1 回で確定反映（2026-11-13、`bec976bd`）。R3 の R-024〜R-026・TC-21 (f) の厳格化・残存脅威モデルを 1 回で確定反映（2026-11-13、`3ca7842e`）。R4 の R-027〜R-029 を 1 回で確定反映し C-2 を終了（2026-11-13）。変更ファイルは 3 件のまま
 - 変更種別: 小機能追加（新規スクリプト + テスト） → standard
 - リスク: 中（承認トークンを読む。書かない） → standard
 - HO 対象パス: なし（3 件とも 12 カテゴリ外） → 例外ルール非該当

@@ -12,7 +12,7 @@
 | AC-2 | TC-01〜TC-03, TC-09, TC-09b |
 | AC-3 | TC-04, TC-04b〜TC-04d, TC-05, TC-10 |
 | AC-4 | TC-06, TC-11, TC-14, TC-15, TC-20 |
-| AC-5 | 変異注入計画 M-1〜M-12（M-2b / M-6b / M-8b を含む） |
+| AC-5 | 変異注入計画 M-1〜M-13（M-2b / M-6b / M-8b を含む） |
 | AC-6 | TC-19, TC-19b, TC-19c |
 
 ## 組合せ表: retro_enabled × confirmed_by
@@ -116,6 +116,7 @@ seeds に (a) 見出し末尾に空白を付けた `## <date> — TASK-9999 `、
 (i) 一時コピー経路の陽性対照: (c) の seeds を repo 外の一時ディレクトリにコピーして `--seeds` に渡し、task-dir は repo 外の sandbox（作業ツリーの c3.json）→ append exit 0、本番 seeds は不変。本番宛てでないことは root との `samefile` で決まり、git の成否には依存しない（R-024。plan-draft ゲート 5 と一致）。
 (j) env による判定の反転（R-024）: (d) の状態（c3.json だけ未追跡）で、`GIT_CEILING_DIRECTORIES=<repo の親>` を付けて append → exit 3、seeds 不変。同じく `GIT_DIR=<存在しないパス>`、`GIT_DIR=<別の sandbox repo の .git>` を付けた場合も exit 3。陽性対照として (e) の状態に `GIT_DIR=<存在しないパス>` を付けて append → exit 0（git は `GIT_*` を除いた env で呼ばれる）。
 (k) 本番宛てと判定した後の git 失敗（R-024）: (e) の状態で sandbox repo の `.git` を一時的に読めなくする（`HEAD` を壊す）→ append exit 3、seeds 不変（「本番以外」に倒して exit 0 にならない）。
+(l) 生成器の位置と本番 seeds の不一致（R-027）: (d) の状態（c3.json だけ未追跡）で、sandbox repo の**外**に置いた生成器のコピー（`<gen-root>/docs/working/improvement-seeds.md` が存在しない位置）から、sandbox repo の `docs/working/improvement-seeds.md` を `--seeds` にして append → exit 3、seeds 不変（判定 (b) で本番宛て）。hardlink で置いた生成器のコピー、`PYTHONPATH` 経由で import して起動した場合も exit 3。陽性対照として同じ起動方法で (e) の状態 → exit 0。
 
 ## Edge Cases
 
@@ -173,6 +174,7 @@ draft は exit 2。stdout は空。
 | M-10 | 書き込みを `realpath` でなく `--seeds` のパスへの `os.replace` にし、mode を引き継がない | TC-20 (d)（symlink が通常ファイルに置き換わり FAIL）, (e)（mode 0600 で FAIL）。R-020 |
 | M-11 | 前方一致の不一致で exit 8 ではなく exit 6 を返す / `read_bytes` をテキストモードの読み込みに戻す | TC-20 (g)（exit 6 で FAIL）, (f)（CRLF が失われ FAIL）。R-021 |
 | M-12 | 本番宛ての判定を `git rev-parse --show-toplevel`（呼び出し元の env のまま）に戻し、git 失敗時は本番以外として扱う | TC-21 (j)（exit 0 になり FAIL）, (k)（exit 0 になり FAIL）。R-024 |
+| M-13 | 本番宛ての判定から (b)（`realpath(--seeds)` の末尾 3 要素と `.git` の所在）を除去し、(a) の `samefile` だけにする | TC-21 (l)（exit 0 になり FAIL）。R-027 |
 
 また、生成器が無い状態（Task 1 の RED）で TA-118 が FAIL することも記録する。
 

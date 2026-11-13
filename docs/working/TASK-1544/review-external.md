@@ -183,3 +183,63 @@ TC-21 (f) の扱い（R3 で厳しい側を採用）: 本番宛てでは 3 フ�
 | R-025 | reflected | 同上 | plan-draft ゲート 5（相対パスと HEAD の固定）・判定の 2 原則の表 |
 | R-026 | reflected | 同上 | plan-draft append 節（識別子の求め方の統一）・判定の 2 原則の表に 4 行 |
 | TC-21 (f) | reflected | 同上 | plan-draft ゲート 5 (iii)・pbi-input AC-1・test-cases TC-21 (f) / (f2)・M-8 / M-8b |
+
+### 監査表の補記（R3 分 / 追記専用）
+
+| R-NNN | reflected_in(commit) |
+|-------|---------------------|
+| R-024〜R-026・TC-21 (f) | `3ca7842e` |
+
+---
+
+## C-2 敵対レビュー R4（head `3ca7842e` / Mode high-risk / 判定 CONDITIONAL・収束）
+
+> 出典: PR #1612 最新コメント（C-2 敵対レビュー R4）。major 1 / minor 1 / info 1。
+> R-024〜R-026 の是正はそれぞれの経路を塞いでいる。新しい回避クラスは出ていない（§7-quater の収束判定）。
+> 是正が生んだ穴も確認済み: case-sensitive / casefold の分岐はどちらも拒否方向で揃い、HEAD の SHA 固定は detached HEAD と shallow clone で動作し、HEAD が無ければ exit 3。
+
+### 指摘一覧
+
+| ID | severity | 指摘 | 是正方針 | クラス |
+|----|----------|------|---------|-------|
+| R-027 | major | 本番宛てかを生成器の位置で判定しているため、生成器をコピー・hardlink・PYTHONPATH 経由で起動すると、本物の本番 seeds にゲート 5 を通らずに追記できる | 書き込み先の側で fail-closed にする。(a) 現行の `samefile`、または (b) `realpath(--seeds)` の末尾 3 要素（casefold）が `docs/working/improvement-seeds.md` で 2 つ上の階層に `.git` がある、のどちらかで本番宛て。TC-21 (l)・M-13 | 既出（R3 の env クラスの別経路） |
+| R-028 | minor | ゲート 5 (i) の「親」が symlink 解決の前か後か未定義 | `dirname(realpath(task-dir))` と明記 | 既出（R2 の同一性クラス） |
+| R-029 | info | PATH 上の偽 git、`refs/replace`、`.git/config` で HEAD の blob を偽装できる | 残存脅威に追記（「HEAD は任意のローカル commit」に含まれる）。あわせて大文字小文字だけ異なる別名（exit 3 になるだけ）も追記 | 既出 |
+
+### 回避クラス台帳（R4 分 / 追記専用）
+
+新しいクラスなし。R-027 は R3 の「判定器の実行環境で分岐が反転する」の別経路（env ではなく生成器の配置）として同クラスに含める。
+
+### 監査表（R4 分 / 追記専用）
+
+| R-NNN | status | reflected_in(commit) | notes |
+|-------|--------|---------------------|-------|
+| R-027 | reflected | 本 commit（`docs(TASK-1544): C-2 R4 を反映し C-2 を終了する`） | plan-draft ゲート 5（判定 (a) / (b) と `<root>` の定義）・判定の 2 原則の表・残存脅威モデル・pbi-input AC-1・test-cases TC-21 (l)・M-13 |
+| R-028 | reflected | 同上 | plan-draft ゲート 5 (i)・判定の 2 原則の表 |
+| R-029 | reflected | 同上 | plan-draft 残存脅威モデル（偽 git / `refs/replace` / `.git/config`、大文字小文字違いの別名） |
+
+---
+
+## C-2 終了（R4 で収束 / 2026-11-13）
+
+### R1〜R4 の要約
+
+| ラウンド | head | 判定 | 指摘 | 主な是正 |
+|---------|------|------|------|---------|
+| L1 | — | — | R-001〜R-009 | confirm 判定の L2 委譲・opt-in の fence / コメント除外・plan_hash 照合・冪等（exit 5） |
+| R1 | `003f49e7` | CONDITIONAL | R-010〜R-017 | exit 4 / 6 / 7 の分離・インデント制限・task_id 束縛（ゲート 4）・本番 seeds 宛ての所在（ゲート 5） |
+| R2 | `e88104e8` | CONDITIONAL・未収束 | R-018〜R-023 | 判定の 2 原則（同一性は `samefile`・出所は `HEAD` の blob）・`realpath` の実体への書き込みと mode 引き継ぎ・exit 8 |
+| R3 | `bec976bd` | CONDITIONAL・未収束 | R-024〜R-026 | 本番宛て判定を git から外す・`GIT_*` を除いた env・HEAD SHA の固定・識別子の求め方の統一 |
+| R4 | `3ca7842e` | CONDITIONAL・収束 | R-027〜R-029 | 本番宛て判定を書き込み先の側でも成立させる（判定 (b)）・`realpath` 後の親の明記・残存脅威の追記 |
+
+### 回避クラス台帳の最終状態
+
+R1 の 4 クラス（冗長な後段検査による変異の吸収 / 前提関数の対象外構文 / 承認トークンの文脈流用 / 識別子の正規化の揺れ）、R2 の 3 クラス（状態の代理指標を出所の証明に使う / パス文字列で同一性を判定する / 原子的置き換えでファイル属性・リンクを失う）、R3 の 1 クラス（判定器の実行環境で分岐が反転する。R4 の R-027 は同クラスの別経路）の計 8 クラス。R4 で新クラスなし。
+
+### 収束と打ち切り
+
+R4 で新しい回避クラス・失敗クラスが出なかったため、§7-quater の収束判定に従い C-2 を終了する（R5 は行わない）。
+
+- **完全性は主張しない。** 守るもの / 守らないものは plan-draft.md「残存脅威モデル」節に列挙した。未発見のクラスが残りうる
+- **保証の主体**: 本生成器は多層防御の 1 層。最終保証は C-4（Human レビュー）・branch protection・c3.json を Human が発行する規範（EH-3）
+- V-3 は review-principles §7-quater に従い 2 ラウンドを下限とする（plan-draft「レビューレーン計画」のとおり）

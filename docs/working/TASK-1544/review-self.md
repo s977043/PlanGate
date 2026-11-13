@@ -129,3 +129,22 @@
 - **WARN**: 生成器をコピーして別の場所で実行すると本番宛てと判定されない（R-024 の帰結）。残存脅威モデルに明記し、PR と C-4 で担保する
 - AC の変更は厳格化のみ（AC-1 に条件追加、緩めた AC なし）
 - R4（是正箇所に絞って 1 ラウンド）を実施する（未実施）
+
+## 簡易 C-1 再実行（C-2 敵対レビュー R4 / R-027〜R-029 の反映後・C-2 終了 / 2026-11-13）
+
+> 対象: review-external.md R-027〜R-029 を反映した pbi-input.md / plan-draft.md / test-cases.md。Plan 項目（C1-PLAN-01〜07）+ TC 紐付けのみ。
+
+**判定: PASS（WARN 1 件）**
+
+- C1-PLAN-01 受入基準網羅性: PASS — AC-1 の追加条件（本番宛て判定 (b)。生成器のコピー・hardlink・PYTHONPATH 経由の起動でもゲート 5 を外せない）を TC-21 (l) に対応づけた
+- C1-PLAN-02 Unknowns処理: PASS — ゲート 5 (i) の「親」を `dirname(realpath(task-dir))` と確定（R-028）。`<root>` の定義を (a) / (b) の成立に応じて明記
+- C1-PLAN-03 スコープ制御: PASS — 変更ファイルは 3 件のまま。HO パスなし
+- C1-PLAN-04 テスト戦略: PASS — M-13（判定 (b) の除去）を追加し TC-21 (l) で検出する。変異範囲を M-1〜M-13 に更新
+- C1-PLAN-05 Work Breakdown Output: PASS — Task 3 / Verification Plan の変異範囲を更新
+- C1-PLAN-06 依存関係: PASS — 変更なし
+- C1-PLAN-07 動作検証自動化: PASS — TC-21 (l) は sandbox repo 外の生成器コピーで自動実行
+- 判定の 2 原則: ゲート 5 の本番宛て判定の行を (a) `samefile` + (b) 拒否側にだけ広げるパス形状に更新。(b) は同一性の否定に使わないことを明記
+- 残存脅威モデル: 「生成器のコピー」の記述を R-027 是正後の実態に合わせ、R-029（偽 git / `refs/replace` / `.git/config`、大文字小文字違いの別名）を追記
+- **WARN**: 本番 seeds の実体を末尾 3 要素が `docs/working/improvement-seeds.md` にならないパスへ hardlink し、かつ生成器のコピーを使う経路は塞がない（残存脅威に明記。PR と C-4 で担保）
+- AC の変更は厳格化のみ（AC-1 に条件追加、緩めた AC なし）
+- C-2 は R4 で収束し終了（完全性は主張しない）
