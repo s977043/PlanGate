@@ -43,15 +43,21 @@ Human の決定（2026-10-26）:「下書き生成を実装する」方針で進
 - AC-1: `draft` は `retro_enabled: true` かつ `approvals/c3.json` の `c3_status == "APPROVED"` の run だけで下書きを出す。
   false / キーなし / C-3 未承認 / c3.json なし では、何も出さずに非ゼロで終了する。
   opt-in 行は pbi-input.md と plan.md の両方に要り、c3.json の `plan_hash` が plan.md の sha256 と一致しなければ不成立とする。
-  コード fence 内・HTML コメント内の記述は opt-in とみなさない（R-002 / R-007）
+  コード fence 内・HTML コメント内・4 スペース以上のインデント（タブを含む）の記述は opt-in とみなさず、閉じていない fence は不成立とする（R-002 / R-007 / R-012）。
+  c3.json の `task_id` が task-dir 名と一致しなければ（欠落を含む）不成立とし、本番 seeds 宛ての `append` では task-dir が同じ作業ツリーの
+  `docs/working/` 直下にあり c3.json が git 追跡下にあることを要求する（R-013）
 - AC-2: `draft` はどの入力でも `improvement-seeds.md` を変更しない（出力先に seeds を指定されたら拒否する）
 - AC-3: `append` は `confirmed_by` が空、またはプレースホルダ（`<human>` 等）の下書きを拒否する。拒否したときは seeds のバイト列が変わらない。
-  判定は L2 の `is_unconfirmed`（`UNCONFIRMED` 語彙）に従い、Unicode 書式文字（ZWSP 等）だけの値も空とみなす（R-001）
+  判定は L2 の `is_unconfirmed`（`UNCONFIRMED` 語彙）に従い、Unicode 書式文字（ZWSP 等）だけの値も空とみなす（R-001）。
+  この拒否は exit 4 で返し、L2 全文検査の失敗（exit 6）とは別のコードにする（R-010）
 - AC-4: `append` は confirm 済みの下書きを末尾に 1 エントリだけ追記する。既存の内容はバイト単位で変わらない。
   追記部の見出しは 1 件・見出しの task_id は task-dir と一致・`confirmed_by` 行は 1 行で、追記後の seeds は L2 の
-  `read_declared_seeds` で件数が追記前 +1 になる（R-003 / R-006）
-- AC-5: 上の各 AC は TA-118 の TC で検査し、変異注入（ゲート除去 / confirmed_by 検査除去 / 上書き化）でそれぞれ FAIL することを確かめる
-- AC-6: 同じ task_id のエントリが seeds に既にあるとき、`append` は追記せず exit 5 で終了し、seeds のバイト列は変わらない（冪等。R-009）
+  `read_declared_seeds` で件数が追記前 +1 になる（R-003 / R-006）。
+  末尾改行の無い seeds でも追記でき、追記前の seeds が L2 を通らなければ exit 6、読み込みから置き換えまでに seeds が変われば exit 7 で、いずれも seeds を変えない（R-015）
+- AC-5: 上の各 AC は TA-118 の TC で検査し、変異注入（ゲート除去 / confirmed_by 検査除去 / 上書き化）でそれぞれ FAIL することを確かめる。
+  TC は終了コードを期待値と完全一致で照合する（R-010）
+- AC-6: 同じ task_id のエントリが seeds に既にあるとき、`append` は追記せず exit 5 で終了し、seeds のバイト列は変わらない（冪等。R-009）。
+  task_id は strip + casefold の完全一致で比較し、日付は比較しない（R-014）
 
 ## Notes from Refinement
 

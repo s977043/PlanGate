@@ -76,3 +76,20 @@
 - C1-PLAN-07 動作検証自動化: PASS
 - **WARN**: Mode が受入基準数 6 により standard → high-risk に上がった（安全側）。high-risk のため V-2 実行・C-3 は人間必須。C-3 で確認を求める
 - AC の変更は厳格化のみ（AC-1/3/4 に条件追加、AC-6 新設、緩めた AC なし）
+
+## 簡易 C-1 再実行（C-2 敵対レビュー R1 / R-010〜R-017 反映後 / 2026-11-13）
+
+> 対象: review-external.md R-010〜R-017 を反映した pbi-input.md / plan-draft.md / todo.md / test-cases.md。Plan 項目（C1-PLAN-01〜07）+ TC 紐付けのみ。
+
+**判定: PASS（WARN 1 件）**
+
+- C1-PLAN-01 受入基準網羅性: PASS — 追加条件（AC-1 の task_id・インデント・閉じない fence・本番 seeds 宛て、AC-3 の exit 4/6 分離、AC-4 の末尾改行・exit 6/7、AC-5 の完全一致照合、AC-6 の正規化）を TC-E01 / E02d / E02e / TC-19b / 19c / TC-20 / TC-21 に対応づけた
+- C1-PLAN-02 Unknowns処理: PASS — R-013 / R-015 の前提を実測（c3.json 91 件中 `task_id` あり 90 件・欠落は TASK-0038 のみ → fail-closed exit 3 と明記。現行 seeds は L2 を通る 7 件）
+- C1-PLAN-03 スコープ制御: PASS — 変更ファイルは 3 件のまま。HO パスなし
+- C1-PLAN-04 テスト戦略: PASS — M-2 / M-2b の FAIL 欄を exit コード分離後の実挙動に合わせた。M-6b / M-7 を追加。TC-21 (e) を陽性対照として置いた
+- C1-PLAN-05 Work Breakdown Output: PASS — Task 2 の Steps と T-3 / T-3b / T-5 を更新
+- C1-PLAN-06 依存関係: PASS — 変更なし
+- C1-PLAN-07 動作検証自動化: PASS — 追加 TC はすべて TA-118 で自動実行（TC-20 (c) は python から関数を import して差し込む）
+- **WARN**: 本番 seeds 宛ての append はゲート 5 で c3.json の git 追跡を要求するため、worktree で approve した未追跡の c3.json では追記できない（安全側。運用への影響は C-3 で確認を求める）
+- AC の変更は厳格化のみ（AC-1 / 3 / 4 / 5 / 6 に条件追加、緩めた AC なし）
+- high-risk のため C-2 R2 を実施する（未実施）
