@@ -111,3 +111,21 @@
 - **WARN**: 本番 seeds への append は c3.json 等の commit 後に限られる（運用手順を plan に明記。一時コピー経路を正規手段として明記）。C-3 で運用への影響の確認を求める
 - AC の変更は厳格化のみ（AC-1 / AC-4 に条件追加、緩めた AC なし）
 - high-risk・未収束のため C-2 R3 を実施する（未実施）
+
+## 簡易 C-1 再実行（C-2 敵対レビュー R3 / R-024〜R-026・TC-21 (f) 厳格化の反映後 / 2026-11-13）
+
+> 対象: review-external.md R-024〜R-026 を反映した pbi-input.md / plan-draft.md / test-cases.md。Plan 項目（C1-PLAN-01〜07）+ TC 紐付けのみ。
+
+**判定: PASS（WARN 1 件）**
+
+- C1-PLAN-01 受入基準網羅性: PASS — AC-1 の追加条件（作業ツリーと `HEAD` の blob の一致・git を使わない本番宛て判定・判定後の git 失敗で不成立）を TC-21 (f) / (f2) / (j) / (k) に対応づけた
+- C1-PLAN-02 Unknowns処理: PASS — plan-draft.md:94 と TC-21 (i) の食い違いを解消（本番宛ては root との `samefile` で決まり、git の成否に依存しない）
+- C1-PLAN-03 スコープ制御: PASS — 変更ファイルは 3 件のまま。HO パスなし
+- C1-PLAN-04 テスト戦略: PASS — M-8 の FAIL 欄を (f2) に改め、M-8b（blob 一致検査の除去）と M-12（git 依存の本番宛て判定）を追加
+- C1-PLAN-05 Work Breakdown Output: PASS — Task 3 / Verification Plan の変異範囲を M-1〜M-12 に更新
+- C1-PLAN-06 依存関係: PASS — 変更なし
+- C1-PLAN-07 動作検証自動化: PASS — TC-21 の sandbox repo には生成器のコピーを置いて実行する前提を明記
+- 判定の 2 原則: 表に 5 行（作業ツリーと HEAD の一致・下書きの task_id・exit 5 の重複・draft・exit 6/7/8）を追加
+- **WARN**: 生成器をコピーして別の場所で実行すると本番宛てと判定されない（R-024 の帰結）。残存脅威モデルに明記し、PR と C-4 で担保する
+- AC の変更は厳格化のみ（AC-1 に条件追加、緩めた AC なし）
+- R4（是正箇所に絞って 1 ラウンド）を実施する（未実施）

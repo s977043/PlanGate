@@ -141,3 +141,45 @@ R-018 / R-019 は R1 の「承認トークンの文脈流用」と同じ層の�
 | R-023 | reflected | 同上 | plan-draft 残存脅威モデル |
 
 R3（2 原則が全判定箇所に適用されているか）を実施する。
+
+### 監査表の補記（R2 分 / 追記専用）
+
+| R-NNN | reflected_in(commit) |
+|-------|---------------------|
+| R-018〜R-023 | `bec976bd` |
+
+---
+
+## C-2 敵対レビュー R3（head `bec976bd` / Mode high-risk / 判定 CONDITIONAL・未収束）
+
+> 出典: PR #1612 最新コメント（C-2 敵対レビュー R3）。major 1 / minor 2。
+> 2 原則は判定箇所の表におおむね全数適用されている。新しい回避クラスが 1 件（判定器の env による分岐の反転）。
+
+### 指摘一覧
+
+| ID | severity | 指摘 | 是正方針 |
+|----|----------|------|---------|
+| R-024 | major | 本番宛ての判定が `git rev-parse` に依存し、`GIT_CEILING_DIRECTORIES` / `GIT_DIR` / `GIT_WORK_TREE` で「本番以外」に反転できる。plan-draft.md:94（git 失敗は不成立）と TC-21 (i)（repo 外で git 失敗 → 本番以外で exit 0）が矛盾 | 本番宛ては git を使わずに決める（root = `realpath(__file__)` の 2 階層上、`samefile`）。git は blob の読み取りだけに使い `GIT_*` を除いた env で呼ぶ。本番宛て判定後の git 失敗は exit 3。TC-21 (j) / (k)、変異 M-12 |
+| R-025 | minor | 作業ツリー相対パスの求め方が未定義。HEAD を 3 回別々に読む | `relpath(realpath(task-dir), root)` を 1 回だけ求め、HEAD は `rev-parse` で SHA に固定して `<sha>:<path>` で読む |
+| R-026 | minor | 識別子の比較方法が統一されておらず、判定箇所の表から 4 行が漏れている | 同じ関数で求める。表に「下書きの task_id」「exit 5 の重複」「draft サブコマンド」「exit 6/7/8」を追加 |
+
+TC-21 (f) の扱い（R3 で厳しい側を採用）: 本番宛てでは 3 ファイル（pbi-input / plan / c3.json）について作業ツリーと `HEAD` の blob の一致とゲートの成立の両方を要求する。(f) 前半の期待値を exit 3 に改め、(f2) を追加した。pbi-input AC-1 も同じ方向で揃えた（厳格化。緩める変更なし）。
+
+### 回避クラス台帳（R3 分 / 追記専用）
+
+| クラス | 代表例（最小再現） | 検出ラウンド | 是正 | 前ラウンドが見つけられなかった理由 |
+|-------|------------------|------------|------|--------------------------------|
+| 判定器の実行環境（env）で分岐が反転する | `GIT_CEILING_DIRECTORIES=<repo の親>` を付けて本番 seeds に append すると git が失敗し「本番以外」と判定され、原則 P を外せる | R3 | R-024（本番宛ては `realpath(__file__)` と `samefile` で決め、git は `GIT_*` を除いた env で blob の読み取りだけに使う。判定後の git 失敗は exit 3） | R2 の設計モデルはプロセス env を判定器の入力として数えていなかった |
+
+### 収束判定
+
+未収束。ただし新しいクラスは「P を使うかどうかを決める分岐」という 1 層に閉じており、R-024 で git をこの分岐の判定から外した。R4 は是正箇所に絞って 1 ラウンド行い、新しいクラスが出なければ打ち切る。打ち切り時の残存脅威モデルは R3 の文案で plan-draft.md「残存脅威モデル」節を更新済み（完全性は主張しない）。
+
+### 監査表（R3 分 / 追記専用）
+
+| R-NNN | status | reflected_in(commit) | notes |
+|-------|--------|---------------------|-------|
+| R-024 | reflected | 本 commit（`docs(TASK-1544): C-2 R3（R-024〜R-026）と残存脅威モデルを反映する`） | plan-draft ゲート 5・判定の 2 原則の表・残存脅威モデル・pbi-input AC-1・test-cases TC-21 前提 / (i) / (j) / (k)・M-12 |
+| R-025 | reflected | 同上 | plan-draft ゲート 5（相対パスと HEAD の固定）・判定の 2 原則の表 |
+| R-026 | reflected | 同上 | plan-draft append 節（識別子の求め方の統一）・判定の 2 原則の表に 4 行 |
+| TC-21 (f) | reflected | 同上 | plan-draft ゲート 5 (iii)・pbi-input AC-1・test-cases TC-21 (f) / (f2)・M-8 / M-8b |

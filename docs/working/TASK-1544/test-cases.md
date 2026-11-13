@@ -12,7 +12,7 @@
 | AC-2 | TC-01〜TC-03, TC-09, TC-09b |
 | AC-3 | TC-04, TC-04b〜TC-04d, TC-05, TC-10 |
 | AC-4 | TC-06, TC-11, TC-14, TC-15, TC-20 |
-| AC-5 | 変異注入計画 M-1〜M-11（M-2b / M-6b を含む） |
+| AC-5 | 変異注入計画 M-1〜M-12（M-2b / M-6b / M-8b を含む） |
 | AC-6 | TC-19, TC-19b, TC-19c |
 
 ## 組合せ表: retro_enabled × confirmed_by
@@ -105,13 +105,17 @@ seeds に (a) 見出し末尾に空白を付けた `## <date> — TASK-9999 `、
 
 (a) c3.json の `task_id` が `TASK-0001`（task-dir は `TASK-9999`、他は正常）→ draft exit 3・stdout 空、append exit 3、seeds 不変。
 (b) c3.json に `task_id` キーが無い → draft exit 3、append exit 3。
+前提（R-024）: 本番宛ての判定は `realpath(__file__)` の 2 階層上を root とするため、(c)〜(h)・(j) の sandbox git repo には生成器と `improvement_seed_delta.py` を `scripts/` 配下にコピーし、そのコピーを実行する。
 (c) sandbox git repo の `docs/working/improvement-seeds.md`（追跡済み）を `--seeds` にし、task-dir を repo の外に置く → append exit 3、seeds 不変。
 (d) (c) の repo の `docs/working/TASK-9999/` に task-dir を置き、c3.json だけ未追跡 → append exit 3、seeds 不変。
 (e) (d) で pbi-input.md / plan.md / c3.json を `git add` して commit した状態 → append exit 0（陽性対照）。
-(f) (e) の後、追跡済み c3.json を作業ツリー上だけで `c3_status: "CONDITIONAL"` に書き換える → append exit 0（判定は `HEAD` の blob。作業ツリーの改変は根拠にしない）。逆に、`HEAD` の c3.json を CONDITIONAL で commit し、作業ツリーだけ APPROVED に書き換える → append exit 3（R-018）。
+(f) (e) の後、追跡済み c3.json を作業ツリー上だけで `c3_status: "CONDITIONAL"` に書き換える → append exit 3、seeds 不変（作業ツリーと `HEAD` の blob が食い違う。pbi-input.md / plan.md を作業ツリーだけで 1 バイト変えた場合も同じく exit 3）。
+(f2) `HEAD` の c3.json を CONDITIONAL で commit し、作業ツリーだけ APPROVED に書き換える → append exit 3、seeds 不変（blob の不一致とゲート 2 の不成立の両方。R-018）。作業ツリーを `HEAD` と一致させた（CONDITIONAL のまま）状態でも exit 3（ゲート 2 は `HEAD` の blob で判定）。
 (g) (d) で c3.json を `git add` しただけ（staged のみ・未 commit）→ append exit 3、seeds 不変（R-018。R1 の (e) はこの状態を陽性対照にしていたため、是正後の挙動に合わせて (e) を commit 済みに改めた）。
 (h) **macOS のみ**（大文字小文字を区別しない FS で実行。区別する FS では SKIP と明記して出力する）: `--seeds` に `<repo>/Docs/Working/Improvement-Seeds.md`、task-dir を repo の外に置く → append exit 3、seeds 不変（R-019。パス文字列の比較なら本番宛てでないと判定してゲート 5 を飛ばす）。
-(i) 一時コピー経路の陽性対照: (c) の seeds を repo 外の一時ディレクトリにコピーして `--seeds` に渡し、task-dir は repo 外の sandbox（作業ツリーの c3.json）→ append exit 0、本番 seeds は不変。
+(i) 一時コピー経路の陽性対照: (c) の seeds を repo 外の一時ディレクトリにコピーして `--seeds` に渡し、task-dir は repo 外の sandbox（作業ツリーの c3.json）→ append exit 0、本番 seeds は不変。本番宛てでないことは root との `samefile` で決まり、git の成否には依存しない（R-024。plan-draft ゲート 5 と一致）。
+(j) env による判定の反転（R-024）: (d) の状態（c3.json だけ未追跡）で、`GIT_CEILING_DIRECTORIES=<repo の親>` を付けて append → exit 3、seeds 不変。同じく `GIT_DIR=<存在しないパス>`、`GIT_DIR=<別の sandbox repo の .git>` を付けた場合も exit 3。陽性対照として (e) の状態に `GIT_DIR=<存在しないパス>` を付けて append → exit 0（git は `GIT_*` を除いた env で呼ばれる）。
+(k) 本番宛てと判定した後の git 失敗（R-024）: (e) の状態で sandbox repo の `.git` を一時的に読めなくする（`HEAD` を壊す）→ append exit 3、seeds 不変（「本番以外」に倒して exit 0 にならない）。
 
 ## Edge Cases
 
@@ -162,11 +166,13 @@ draft は exit 2。stdout は空。
 | M-5 | plan_hash 照合を除去する | TC-17, TC-18 |
 | M-6 | 重複 task_id の検査を除去する | TC-19（重複検査が消えると L2 の duplicate 検出で exit 6 になり、exit 5 の完全一致で FAIL）, TC-19b, TC-19c |
 | M-6b | task_id の比較から `casefold` / `strip` を外す | TC-19b, TC-19c (a) |
-| M-7 | task_id 一致の検査（ゲート 4）と本番 seeds 宛ての所在・commit 済み検査（ゲート 5）を除去する | TC-21 (a)〜(d), (f) 後段, (g), (h) |
-| M-8 | ゲート 5 の commit 済み判定を `git ls-files --error-unmatch` に戻し、ゲート 1〜4 を作業ツリーで判定する（原則 P の除去） | TC-21 (f)（後段が exit 0 になり FAIL）, (g)（exit 0 になり FAIL）。R-018 |
+| M-7 | task_id 一致の検査（ゲート 4）と本番 seeds 宛ての所在・commit 済み検査（ゲート 5）を除去する | TC-21 (a)〜(d), (f), (f2), (g), (h) |
+| M-8 | ゲート 5 の commit 済み判定を `git ls-files --error-unmatch` に戻し、ゲート 1〜4 を作業ツリーで判定する（原則 P の除去） | TC-21 (f2)（exit 0 になり FAIL）, (g)（exit 0 になり FAIL）。R-018 |
+| M-8b | ゲート 5 の作業ツリーと `HEAD` の blob の一致検査を除去する | TC-21 (f)（exit 0 になり FAIL） |
 | M-9 | 本番 seeds 宛て・task-dir 位置の判定を `samefile` からパス文字列（`realpath` 後の `==`）に戻す（原則 I の除去） | TC-21 (h)（macOS。exit 0 になり FAIL）。R-019 |
 | M-10 | 書き込みを `realpath` でなく `--seeds` のパスへの `os.replace` にし、mode を引き継がない | TC-20 (d)（symlink が通常ファイルに置き換わり FAIL）, (e)（mode 0600 で FAIL）。R-020 |
 | M-11 | 前方一致の不一致で exit 8 ではなく exit 6 を返す / `read_bytes` をテキストモードの読み込みに戻す | TC-20 (g)（exit 6 で FAIL）, (f)（CRLF が失われ FAIL）。R-021 |
+| M-12 | 本番宛ての判定を `git rev-parse --show-toplevel`（呼び出し元の env のまま）に戻し、git 失敗時は本番以外として扱う | TC-21 (j)（exit 0 になり FAIL）, (k)（exit 0 になり FAIL）。R-024 |
 
 また、生成器が無い状態（Task 1 の RED）で TA-118 が FAIL することも記録する。
 

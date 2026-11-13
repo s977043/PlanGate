@@ -45,8 +45,9 @@ Human の決定（2026-10-26）:「下書き生成を実装する」方針で進
   opt-in 行は pbi-input.md と plan.md の両方に要り、c3.json の `plan_hash` が plan.md の sha256 と一致しなければ不成立とする。
   コード fence 内・HTML コメント内・4 スペース以上のインデント（タブを含む）の記述は opt-in とみなさず、閉じていない fence は不成立とする（R-002 / R-007 / R-012）。
   c3.json の `task_id` が task-dir 名と一致しなければ（欠落を含む）不成立とし、本番 seeds 宛ての `append` では task-dir が同じ作業ツリーの
-  `docs/working/` 直下にあり、pbi-input.md / plan.md / c3.json が `HEAD` に commit 済みであることを要求し、上の判定をその commit 済み blob の内容で行う。
-  作業ツリーの改変・staged のみの状態は根拠にしない。本番 seeds 宛てか・task-dir の位置は inode（`os.path.samefile`）で判定し、パス文字列の比較で判定しない（R-013 / R-018 / R-019）
+  `docs/working/` 直下にあり、pbi-input.md / plan.md / c3.json の 3 ファイルが `HEAD` に commit 済みで、かつ作業ツリーのバイト列が `HEAD` の blob と一致することを要求し、上の判定をその commit 済み blob の内容で行う。
+  作業ツリーの改変・staged のみの状態は根拠にせず、作業ツリーが `HEAD` と食い違えば不成立とする。本番 seeds 宛てか・task-dir の位置は inode（`os.path.samefile`）で判定し、パス文字列の比較で判定しない（R-013 / R-018 / R-019）。
+  本番 seeds 宛てかは git を使わずに生成器の位置（`realpath(__file__)` の 2 階層上）から決め、`GIT_*` 環境変数で判定が変わらない。本番宛てと判定した後に git が失敗したら不成立とする（R-024）
 - AC-2: `draft` はどの入力でも `improvement-seeds.md` を変更しない（出力先に seeds を指定されたら拒否する）
 - AC-3: `append` は `confirmed_by` が空、またはプレースホルダ（`<human>` 等）の下書きを拒否する。拒否したときは seeds のバイト列が変わらない。
   判定は L2 の `is_unconfirmed`（`UNCONFIRMED` 語彙）に従い、Unicode 書式文字（ZWSP 等）だけの値も空とみなす（R-001）。
