@@ -11,14 +11,15 @@ created_by: orchestrator
 
 > レビュー日: 2026-11-13
 > 対象: plan-draft.md / todo.md / test-cases.md（照合: origin/main `8a689907`、静的読解のみ）
-> 判定: **WARN** — critical=0, major=0, minor=2
+> 判定: **WARN** — critical=0, major=0, minor=1
+> 簡易 C-1 再実行（2026-11-13）: C-2 R-001〜R-004 の確定反映後。C1-PLAN-07 を PASS に更新。C1-PLAN-01 / C1-TEST-13 は AC-1 の対象明記（R-001）後も対応 TC が変わらないことを確認し PASS 維持。残る WARN は C1-B1B2-16（D-1 の Human 確認）のみ
 
 ## サマリー
 
 | result | 件数 |
 |--------|------|
-| PASS | 22 |
-| WARN | 2 |
+| PASS | 23 |
+| WARN | 1 |
 | FAIL | 0 |
 | N/A | 1 |
 
@@ -49,10 +50,9 @@ created_by: orchestrator
 - **finding**: T-1 → T-7 の直列。RED（T-2）が GREEN（T-3）に先行。
 
 ### C1-PLAN-07: 動作検証自動化
-- **result**: WARN
-- **finding**: macOS の再現は実行コマンドで自動化済み。Linux での M-1 は CI 上でしか確認できず、ローカル exec では TC-7b の合成入力で代替する。
-- **suggested_action**: exec 中に M-1 を一時コミットした draft ブランチで CI を 1 回回すか、未検証として handoff に明記する
-- **owner**: agent / **resolved**: false
+- **result**: PASS
+- **finding**: macOS の再現は実行コマンドで自動化済み。検出ロジックは OS に依存しない（`/home/runner/...` も `isabs` と D-3 で検出）。Linux での実行は CI に依存し、ローカルでは TC-7b の合成入力で Linux 型入力を確認する（R-003 で記述を是正）。
+- **owner**: agent / **resolved**: true（R-003）
 
 ### C1-PLAN-08-AEE: Stop Condition 記入
 - **result**: PASS
@@ -141,3 +141,4 @@ created_by: orchestrator
 | check_id | 修正内容 | 修正先ファイル |
 |----------|---------|--------------|
 | C1-TEST-14 | D-3（埋め込みパス）を追加し、TC-05 / M-2 を追加 | plan-draft.md / test-cases.md |
+| C-2 R-001〜R-004 | AC-1 対象明記・残存脅威追加、M-3 期待値統一、Linux 記述是正、T-5 stderr 保存 | pbi-input.md / plan-draft.md / todo.md / test-cases.md / review-external.md |

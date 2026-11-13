@@ -1,6 +1,6 @@
 # TASK-1651 INDEX
 
-> 最終更新: 2026-11-13 09:01
+> 最終更新: 2026-11-13 10:00
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従う。
 
 ## チケット概要
@@ -9,10 +9,11 @@ ta-10 TC-7 の絶対パス漏れ検査を `/Users/` 固定から OS 非依存の
 
 ## 現在のフェーズ
 
-plan
+C-3 待ち
 
-> **plan.md への移動待ち（TASK 文脈付きセッションが必要）**。計画本文は `plan-draft.md` にある。
-> C-1 判定: WARN（critical=0, major=0, minor=2）。
+> **plan.md への移行が必要**（TASK 文脈付きセッション）。計画本文は `plan-draft.md` にあり、c3.json はまだ発行できない。
+> C-2: APPROVE（minor 3 / info 1、R-001〜R-004 を反映済み。review-external.md）。
+> 簡易 C-1 判定: WARN（critical=0, major=0, minor=1: D-1 の Human 確認）。
 
 ## 次のアクション
 
@@ -29,6 +30,7 @@ plan
 | todo.md | タスク一覧 |
 | test-cases.md | テストケース・変異注入計画 |
 | review-self.md | C-1 結果 |
+| review-external.md | C-2 指摘 R-001〜R-004 と監査表 |
 | status.md | フェーズ履歴 |
 
 ## 変更ファイル一覧（概要）

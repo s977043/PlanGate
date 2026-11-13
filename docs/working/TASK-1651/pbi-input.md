@@ -27,7 +27,7 @@
 
 | ID | 基準（issue の AC に対応） |
 |----|------|
-| AC-1 | macOS と Linux の両方で、TC-7 が契約上許可した 1 キー（`project_root`）以外に絶対パスの文字列値があれば検出する |
+| AC-1 | macOS と Linux の両方で、TC-7 が **hooks scope の JSON**（`doctor --json --scope hooks`）について、契約上許可した 1 キー（トップレベル `project_root`）以外に絶対パスの文字列値があれば検出する（他 scope は TC-7 の対象外。残存脅威は plan-draft.md「残存脅威」節。R-001） |
 | AC-2 | `project_root` 以外のキーに絶対パスを入れた変異で TC-7 が FAIL する（陽性対照） |
 | AC-3 | `doctor_check.py` の docstring と TC-7 の見出しコメントが同じ契約を書いている |
 

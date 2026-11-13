@@ -4,7 +4,7 @@
 
 | AC | TC |
 |----|----|
-| AC-1（macOS / Linux 両方で `project_root` 以外の絶対パスを検出） | TC-01, TC-04, TC-05, TC-06 |
+| AC-1（macOS / Linux 両方で、hooks scope の JSON の `project_root` 以外の絶対パスを検出） | TC-01, TC-04, TC-05, TC-06 |
 | AC-2（陽性対照） | M-1, M-2, M-3 |
 | AC-3（docstring と TC-7 見出しの契約一致） | TC-07 |
 
@@ -24,9 +24,11 @@
 
 | ID | 変異 | 期待 | 検出力を示す OS |
 |----|------|------|----------------|
-| M-1 | `doctor_check.py` `main()` に `result["leak_probe"] = str(REPO)` を追加 | TC-7 FAIL | macOS / Linux 両方（REPO は両 OS で絶対パス。CI ubuntu でも同変異で FAIL することを確認） |
-| M-2 | `run_hooks_checks()` の check の `detail` を `f"missing: {REPO}/.claude/settings.json"` に変更 | TC-7 FAIL（D-3 の部分一致で検出） | 両方 |
-| M-3 | 検査器の除外条件を「キー名が `project_root` で始まる / どの深さでも」に緩める | TC-03 FAIL | 両方（合成入力のため OS 不問） |
+| M-1 | `doctor_check.py` `main()` に `result["leak_probe"] = str(REPO)` を追加 | TC-7 FAIL | 検出ロジックは OS 非依存（REPO は両 OS で絶対パス）。Linux での実行は CI に依存する（R-003） |
+| M-2 | `run_hooks_checks()` の check の `detail` を `f"missing: {REPO}/.claude/settings.json"` に変更 | TC-7 FAIL（D-3 の部分一致で検出） | 同上 |
+| M-3 | 検査器の除外条件を「キー名が `project_root` で始まる / どの深さでも」に緩める | TC-7b（TC-03）FAIL | OS 不問（合成入力） |
+
+> 期待値の正本（R-002）: **M-1 / M-2 は TC-7、M-3 は TC-7b（TC-03）が FAIL**。plan-draft.md Task 5 / todo.md T-5 も同じ文言にする。各変異の stderr は evidence に保存する（R-004）。
 
 ## エッジケース
 

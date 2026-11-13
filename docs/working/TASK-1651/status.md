@@ -2,7 +2,7 @@
 
 ## 現在フェーズ
 
-plan（plan.md への移動待ち。TASK 文脈付きセッションが必要）
+C-3 待ち（plan.md への移行が必要。TASK 文脈付きセッションが必要）
 
 ## フェーズ履歴
 
@@ -10,6 +10,7 @@ plan（plan.md への移動待ち。TASK 文脈付きセッションが必要）
 |------|---------|------|
 | 2026-11-13 08:37 | plan | pbi-input.md 作成。plan.md の書き込みは EH-3 に block（TASK 文脈なしのセッション） |
 | 2026-11-13 09:01 | plan | plan-draft.md / todo.md / test-cases.md / review-self.md 作成。C-1: WARN（minor 2: C1-PLAN-07 Linux での M-1 は CI 依存、C1-B1B2-16 D-1 の Human 確認未取得） |
+| 2026-11-13 10:00 | C-3 待ち | C-2 APPROVE（minor 3 / info 1）。R-001〜R-004 を review-external.md に集約し 1 回で確定反映。簡易 C-1: WARN（minor 1: D-1 の Human 確認） |
 
 ## モード判定
 

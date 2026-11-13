@@ -116,8 +116,8 @@ TC-7b: 同じ検査器を合成 JSON（`/home/runner/...` と `/Users/...` を `
 
 ### Task 5: 変異注入（陽性対照）
 
-- Output: test-cases.md M-1〜M-3 の結果記録（commit しない）
-- Completion: 各変異で TC-7 が FAIL、戻して PASS
+- Output: test-cases.md M-1〜M-3 の結果記録（commit しない）。各変異の stderr を evidence/test-runs/mutation.txt に保存する（既存の `2>/dev/null` で assert メッセージが捨てられるため。R-004）
+- Completion: M-1 / M-2 は TC-7、M-3 は TC-7b（TC-03）が FAIL。戻して PASS（R-002）
 - Rollback: `git checkout -- scripts/doctor_check.py tests/extras/ta-10-doctor-fix.sh`
 
 ## Testing Strategy
@@ -125,7 +125,7 @@ TC-7b: 同じ検査器を合成 JSON（`/home/runner/...` と `/Users/...` を `
 - Unit: TC-7b（合成入力。OS 非依存の検出力）
 - Integration: TC-7（実 `bin/plangate doctor --json`）、`sh tests/run-tests.sh` の harness 経由（`set -eu` source でハングしないこと）
 - E2E: 該当なし
-- Verification Automation: `sh tests/extras/ta-10-doctor-fix.sh` / `sh tests/run-tests.sh`、main で同テストを流して既存 FAIL の対照、変異注入 M-1〜M-3。Linux での検出力は CI（ubuntu）上の TC-7 / TC-7b PASS と、M-1 を Linux で再現できない分は TC-7b の `/home/runner/...` 合成入力で担保する
+- Verification Automation: `sh tests/extras/ta-10-doctor-fix.sh` / `sh tests/run-tests.sh`、main で同テストを流して既存 FAIL の対照、変異注入 M-1〜M-3。検出ロジックは OS に依存しない（CI の checkout `/home/runner/...` も `isabs` と D-3 の双方で検出される）。Linux での実行は CI（ubuntu）に依存し、ローカル exec では TC-7b の `/home/runner/...` 合成入力で Linux 型の入力を確認する（R-003）
 
 ## Risks & Mitigations
 
@@ -135,6 +135,12 @@ TC-7b: 同じ検査器を合成 JSON（`/home/runner/...` と `/Users/...` を `
 | `isabs` が埋め込みパスを取りこぼす | D-3（REPO 値の部分一致検査） |
 | 既存の正当な値に誤反応 | Task 1 で実出力を確認、Replan Trigger |
 | python の例外が `2>/dev/null` で隠れ素通り | 検査器は assert 失敗・例外とも非 0 で終わり TC は FAIL 側に倒れる（既存構造を踏襲）。M-3 で確認 |
+
+## 残存脅威（R-001）
+
+- TC-7 が再帰検査するのは **hooks scope の JSON だけ**。v8.6.0 / maintenance 等の他 scope は対象外
+- 例: v8.6.0 scope の例外文字列（`could not run collision check: {exc}`）には REPO 以外の絶対パス（REPO の値と一致しないため D-3 でも拾えない）が入りうるが、本検査では検出できない
+- AC-1 の対象を hooks scope と明記するのは範囲の明確化であり、hooks scope に対する検査（`isabs` 再帰 + D-3）は弱めない。他 scope への拡張は handoff の V2 候補に残す
 
 ## Replan Triggers
 

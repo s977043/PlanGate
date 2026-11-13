@@ -32,9 +32,9 @@
 
 ### 検証
 
-- [ ] T-5 変異注入 M-1〜M-3（test-cases.md）。各変異で TC-7（M-3 は TC-7b）が FAIL、戻して PASS
+- [ ] T-5 変異注入 M-1〜M-3（test-cases.md）。M-1 / M-2 は TC-7、M-3 は TC-7b（TC-03）が FAIL、戻して PASS（R-002）
   - owner: agent / depends_on: T-4
-  - 完了条件: 結果を evidence/test-runs/mutation.txt に記録。変異は commit しない
+  - 完了条件: 結果と各変異の stderr を evidence/test-runs/mutation.txt に記録（R-004）。変異は commit しない
   - rollback: `git checkout -- scripts/doctor_check.py tests/extras/ta-10-doctor-fix.sh`
 - [ ] T-6 `sh tests/run-tests.sh`（harness 経由）と main での対照実行
   - owner: agent / depends_on: T-5
