@@ -1,0 +1,88 @@
+## worktree HEAD=276f36a4b82394a004186cd125ae22c0ff5abd18
+### tests/extras/ta-10-doctor-fix.sh
+uptime-before:  3:43  up 17:45, 17 users, load averages: 2.72 3.59 11.35
+
+=== TA-10: doctor --fix (TASK-0069) ===
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/.claude/settings.example.json: No such file or directory
+[PASS] doctor-fix TC-2: dry-run does not create settings.json / .bak
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-3a: new-create behavior wrong (rc=2)
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-3b: backup rotation wrong (rc=2 rotated=)
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-3c: rotated backup collision overwrote existing (rc=2 pre_ok=1)
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-4: merge-only violated (rc=2)
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/.claude/settings.example.json: No such file or directory
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/tmpdir-real/tmp.l8o43qFd/.claude/settings.json: No such file or directory
+[FAIL] doctor-fix TC-5: not idempotent (rc=2)
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-E1: invalid JSON not handled safely (rc=2)
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-E2: partial-merge wrong (rc=2)
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/.claude/settings.example.json: No such file or directory
+[PASS] doctor-fix TC-E3: read-only dir → explicit error, no partial write
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/bin/plangate: No such file or directory
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/scripts/.: No such file or directory
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-1: unwired doctor behavior wrong (rc=127)
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/bin/plangate: No such file or directory
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/scripts/.: No such file or directory
+cp: /Users/user/Documents/GitHub/plangate/.claude/worktrees/plan-TASK-1408/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-6: gh/codex absence not handled as guidance-only (rc=127)
+[FAIL] doctor-fix TC-7: json scope behavior or privacy wrong
+rc=0
+uptime-after:  3:43  up 17:45, 17 users, load averages: 2.98 3.63 11.31
+### tests/extras/ta-62-t26-recurse-env-guard.sh
+uptime-before:  3:43  up 17:45, 17 users, load averages: 2.98 3.63 11.31
+
+=== TA-62: t26 recurse env guard (#1036) ===
+  [PASS] TC-S unset PG_T26_NO_RECURSE は ta-26 harness 分岐にのみ存在（無条件経路 0 / runner unset 集合に混入なし / runner は PG_HARNESS_SOURCED 非 export = export 行・set -a・;export 形を検査）
+  [PASS] TC-D leak/clean の harness 実行出力が完全一致（再帰防止 [SKIP] 0・非空実行）
+TA-62 standalone: 2 passed, 0 failed
+rc=0
+uptime-after:  3:44  up 17:46, 17 users, load averages: 4.67 4.04 10.82
+## worktree HEAD=9445df175e93fab31493274915bb35ab01cad4f1
+### tests/extras/ta-10-doctor-fix.sh
+uptime-before:  3:44  up 17:47, 17 users, load averages: 4.22 3.97 10.68
+
+=== TA-10: doctor --fix (TASK-0069) ===
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/.claude/settings.example.json: No such file or directory
+[PASS] doctor-fix TC-2: dry-run does not create settings.json / .bak
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-3a: new-create behavior wrong (rc=2)
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-3b: backup rotation wrong (rc=2 rotated=)
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-3c: rotated backup collision overwrote existing (rc=2 pre_ok=1)
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-4: merge-only violated (rc=2)
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/.claude/settings.example.json: No such file or directory
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/tmpdir-real/tmp.NsgrnHyn/.claude/settings.json: No such file or directory
+[FAIL] doctor-fix TC-5: not idempotent (rc=2)
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-E1: invalid JSON not handled safely (rc=2)
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-E2: partial-merge wrong (rc=2)
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/.claude/settings.example.json: No such file or directory
+[PASS] doctor-fix TC-E3: read-only dir → explicit error, no partial write
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/bin/plangate: No such file or directory
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/scripts/.: No such file or directory
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-1: unwired doctor behavior wrong (rc=127)
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/bin/plangate: No such file or directory
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/scripts/.: No such file or directory
+cp: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/a696fc05-eaad-4847-8870-9341782dc351/scratchpad/rt1650/ctrl/tests/.claude/settings.example.json: No such file or directory
+[FAIL] doctor-fix TC-6: gh/codex absence not handled as guidance-only (rc=127)
+[FAIL] doctor-fix TC-7: json scope behavior or privacy wrong
+rc=0
+uptime-after:  3:44  up 17:47, 17 users, load averages: 4.03 3.94 10.59
+### tests/extras/ta-62-t26-recurse-env-guard.sh
+uptime-before:  3:44  up 17:47, 17 users, load averages: 4.03 3.94 10.59
+
+=== TA-62: t26 recurse env guard (#1036) ===
+  [PASS] TC-S unset PG_T26_NO_RECURSE は ta-26 harness 分岐にのみ存在（無条件経路 0 / runner unset 集合に混入なし / runner は PG_HARNESS_SOURCED 非 export = export 行・set -a・;export 形を検査）
+  [PASS] TC-D leak/clean の harness 実行出力が完全一致（再帰防止 [SKIP] 0・非空実行）
+TA-62 standalone: 2 passed, 0 failed
+rc=0
+uptime-after:  3:46  up 17:48, 17 users, load averages: 4.18 4.00 10.08

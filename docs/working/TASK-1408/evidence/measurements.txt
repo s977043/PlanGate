@@ -1,0 +1,80 @@
+base=9445df175e93fab31493274915bb35ab01cad4f1
+canon=e5573cc89b76d5c493aa10d548d22ac7ed7abc2c
+expiry=3331e5c49751b268412d4db8e5862982ac0005d8 parent=50fe9d5f3c8188fc3aa0e7ea9d60c72dbcc92c0e
+######## 50fe9d5f3c8188fc3aa0e7ea9d60c72dbcc92c0e
+== M-1 (names, recursive) ==
+(none)
+== M-1 (content) ==
+(none)
+== M-2 ==
+== M-3 ==
+scripts/ai-loop/corpus_hash.py
+scripts/ai-loop/run_evidence.py
+scripts/ai-loop/test_corpus_hash.py
+scripts/ai-loop/test_run_evidence.py
+######## 3331e5c49751b268412d4db8e5862982ac0005d8
+== M-1 (names, recursive) ==
+(none)
+== M-1 (content) ==
+(none)
+== M-2 ==
+scripts/ai-loop-v2/decision_core.py
+scripts/ai-loop-v2/delivery_runtime.py
+scripts/ai-loop-v2/run_event.py
+scripts/ai-loop-v2/run_evidence.py
+scripts/ai-loop-v2/run_state.py
+scripts/ai-loop-v2/test_delivery_v2.py
+== M-3 ==
+scripts/ai-loop-v2/delivery_runtime.py
+scripts/ai-loop-v2/run_event.py
+scripts/ai-loop-v2/run_evidence.py
+scripts/ai-loop-v2/run_state.py
+scripts/ai-loop-v2/test_delivery_v2.py
+scripts/ai-loop/corpus_hash.py
+scripts/ai-loop/run_evidence.py
+scripts/ai-loop/test_corpus_hash.py
+scripts/ai-loop/test_run_evidence.py
+######## 9445df175e93fab31493274915bb35ab01cad4f1
+== M-1 (names, recursive) ==
+(none)
+== M-1 (content) ==
+(none)
+== M-2 ==
+scripts/ai-loop-v2/decision_core.py
+scripts/ai-loop-v2/delivery_runtime.py
+scripts/ai-loop-v2/limits.py
+scripts/ai-loop-v2/ratchet.py
+scripts/ai-loop-v2/run_event.py
+scripts/ai-loop-v2/run_evidence.py
+scripts/ai-loop-v2/run_state.py
+scripts/ai-loop-v2/scope_observer.py
+scripts/ai-loop-v2/test_delivery_v2.py
+scripts/ai-loop-v2/test_limits.py
+scripts/ai-loop-v2/test_ratchet.py
+== M-3 ==
+scripts/ai-loop-v2/delivery_runtime.py
+scripts/ai-loop-v2/ratchet.py
+scripts/ai-loop-v2/run_event.py
+scripts/ai-loop-v2/run_evidence.py
+scripts/ai-loop-v2/run_state.py
+scripts/ai-loop-v2/scope_observer.py
+scripts/ai-loop-v2/test_delivery_v2.py
+scripts/ai-loop-v2/test_ratchet.py
+scripts/ai-loop/corpus_hash.py
+scripts/ai-loop/run_evidence.py
+scripts/ai-loop/test_corpus_hash.py
+scripts/ai-loop/test_pbi_materializer.py
+scripts/ai-loop/test_run_evidence.py
+== controls: OK ==
+== 1402 canon diff (expect empty) ==
+== post-expiry canon commits (first-parent 3331e5c49751b268412d4db8e5862982ac0005d8..base) ==
+a3c9146d docs(ai-loop): make capability changes re-evaluation triggers (#1487)
+0122d6f9 docs(ai-loop-v2): converge Runtime Evidence RFC and Production Feedback guide (#1447)
+6d626360 Merge pull request #1441 from s977043/docs/ai-loop-v2-bounded-requirement-discovery
+a6d1ea5f docs(plan): #1392 V2 RunState CAS / atomic snapshot plan (#1406)
+== ME-4: other canon 6 files unchanged base..canon ==
+OK
+== ME-4: numstat docs/ai/ai-loop-v2/phase0-migration.md (deletions must be 0) ==
+39	0	docs/ai/ai-loop-v2/phase0-migration.md
+== ME-5: baseline block byte-equal base vs canon ==
+2d54753af1a331352405332e7323350ffb1057f8

@@ -34,6 +34,7 @@ closes #
 - [ ] I updated documentation when behavior changed.
 - [ ] I considered security, privacy, and backward compatibility impacts.
 - [ ] **If this PR addresses a tracked issue, I linked it above — a closing keyword (`closes #N` / `fixes #N` / `resolves #N`) when this PR fully resolves it, or a non-closing link (`Refs: #N` / `Part of #N`) when it is one slice and the issue stays open.**
+- [ ] **If this PR changes `docs/ai/ai-loop-v2/` canon 7 files (see `phase0-migration.md` §7), I attached I4 evidence that meets the minimum requirements in §7: `reviewed_at_sha`, an independent review, and machine evidence reproducible at a fixed commit (CI alone is not enough). This replaces re-measuring M-1 to M-3. Only a Human can confirm a change is non-normative, by naming it at C-4; if undecidable, it is normative.**
 
 ## Rollback / Detection
 

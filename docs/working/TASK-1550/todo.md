@@ -1,35 +1,50 @@
-# TASK-1550 — Work Breakdown (no C-3 approval yet)
+# TASK-1550 — EXECUTION TODO（C-3 未承認）
 
-## Investigation / Review (allowed before C-3)
+> 対応 plan: v0.2（2026-11-02 12:06 測定）。plan.md への反映は未了（[status.md](./status.md) の blocker 参照）。
 
-- [x] D-00: 既存PR #1547とIssue #1550、mainのCore Contract / mode-classification / responsibility-classesを照合。**計画の根拠としてのみ**記録。
-- [x] D-00b: `workflow-conductor`のHO分類と、`ai-dev-exec`がPR本文ownerでないことを確認。
-- [ ] D-01: `.github/workflows/sync-plugin-plangate.yml` の設定済みcaller→bodyは確認済み。次は**実runと生成PR**、通常Claude/Codex経路の稼働証拠を固定（候補ファイルの存在だけでは不可）。証跡として run ID と、job 内の `gh pr create` 分岐に到達したかを記録する。
-- [ ] D-02: #1547のHuman C-4/mergeとmainの採用状態を再確認。
-- [ ] D-03: 対象1経路とfiles / fixturesを決定。HOと判明したらHuman apply patchへ分離。depends_on: D-01, D-02。
-- [x] D-04: C-1（テンプレート準拠・[review-self.md](./review-self.md)）を実施。判定は同ファイルのとおり（FAIL を含む。D-01/D-03 後に再実施する）。
-- [ ] D-05: C-2 R1（[review-principles §7-quater](../../../.claude/rules/review-principles.md)）。設計妥当性レーン + コードベース整合レーンで plan / todo / test-cases を外部レビューし、指摘を `review-external.md` に `R-NNN` で追記集約、回避クラス台帳を作る。negative-control の点検を含む。depends_on: D-03, D-04（D-03 後の C-1 再実施）。
-- [ ] D-06: C-2 R2。新しい穴ではなく **R1 の是正そのもの**を疑う（是正が効いていない別経路 / 是正で生まれた穴 / fail-closed 化が正常系を壊していないか）。収束判定は「新しい回避クラス / 失敗クラスが出なくなったか」とし、指摘ゼロを条件にしない。新クラスが出たら塞いで台帳に追記し、次ラウンドを行う。打ち切り時は残存脅威モデルを書く。未解決の重要UnknownをC-3へ渡す。depends_on: D-05。
+## 準備（C-3 前に AI ができる範囲）
 
-## Execution (blocked until Human C-3)
+- [x] D-00: Issue #1550 / PR #1547 / mode-classification / responsibility-classes を照合。Owner: agent
+  - 完了条件: #1547 が MERGED（2026-10-11、`2ea049de`）であることを記録済み
+  - rollback: 不要（読取のみ）
+- [x] D-01: PR 作成経路 R-1〜R-10 と baseline（3/30・5/30・2/30）を測定。Owner: agent 🚩
+  - 完了条件: plan v0.2 §1 に測定日時・HEAD・コマンド・範囲を記録
+  - rollback: 不要（読取のみ）
+- [ ] D-01b: plan.md を v0.2 に置き換える。Owner: agent。depends_on: Human が `PLANGATE_HOOK_TASK=TASK-1550` でセッションを起動
+  - 完了条件: plan.md の `## Mode判定` 節と §1〜§3 が v0.2 と一致
+  - rollback: 当該 commit を `git revert`
+- [ ] D-01c: plan v0.2 で C-1 を再実施し review-self.md を更新。Owner: agent。depends_on: D-01b
+  - 完了条件: FAIL 0
+  - rollback: 当該 commit を `git revert`
+- [ ] D-02: C-2 R1（設計妥当性レーン + コードベース整合レーン）→ `review-external.md` に `R-NNN` で集約。Owner: agent。depends_on: D-01c
+  - 完了条件: 回避クラス台帳を作成
+  - rollback: 不要（レビュー記録のみ。commit 単位で revert 可）
+- [ ] D-03: C-2 R2（R1 の是正そのものを疑う）。収束判定は「新しいクラスが出なくなったか」。Owner: agent。depends_on: D-02
+  - 完了条件: 残存脅威モデルを記録
+  - rollback: 不要（同上）
 
-- [ ] H-01 (human): 対象パス・実装計画・テスト・HOを明示C-3承認する。**現状未承認**。depends_on: D-06。
-- [ ] T-01: fixture/testを先行し、期待されたFailure/Evidenceを記録。depends_on: H-01, D-03。
-  - rollback: T-01 の commit を `git revert` する（本体未変更のため、追加した fixture/test が消えるだけ）。
-- [ ] T-02: 1つの稼働PR body経路へ最小導入。depends_on: T-01。
-  - rollback: T-02 の commit を `git revert` する。対象が HO パスの場合は、AI は revert patch の作成までとし、逆適用は Human が行う（Human-owned）。
-- [ ] T-03: 既存CI/negativeテスト/配布整合を再検証。depends_on: T-02。
-  - rollback: 不要（検証のみ。検証記録の追記は commit 単位で `git revert` できる）。配布物に差分が出た場合は T-02 の rollback に従う。
-- [ ] T-04: 独立レビュー→指摘修正→再レビュー。depends_on: T-03。
-  - rollback: 不要（レビューのみ。指摘修正の commit は T-02 と同じ手順で revert する）。
-- [ ] H-02 (human): C-4レビューとmergeの実施。depends_on: T-04。
-- [ ] O-01: 実PR採用状況の観測・revert基準評価。depends_on: H-02。
+## 実装（Human C-3 後）
 
-## Stop Conditions
+- [ ] H-01 (human): C-3 同期承認。`approvals/c3.json` は Human が発行する。depends_on: D-03
+- [ ] T-01: fixture を先に書き、現行の `pr-decision` で FAIL することを確認する（TC-02〜TC-05）。Owner: agent。depends_on: H-01 🚩
+  - 完了条件: 失敗ログを `evidence/test-runs/` に保存
+  - rollback: T-01 の commit を `git revert`（追加した fixture が消えるだけ）
+- [ ] T-02: `.agents/skills/pr-decision/SKILL.md` に「PR 本文への投影」節（参照のみ・3 点）を追加。Owner: agent。depends_on: T-01
+  - 完了条件: TC-02〜TC-06 が PASS
+  - rollback: T-02 の commit を `git revert`
+- [ ] T-03: sync スクリプトでミラー再生成 → drift 検査。Owner: agent。depends_on: T-02 🚩
+  - 完了条件: TC-07 PASS（drift 0）
+  - rollback: T-02 と同じ commit 単位で revert し、再度 sync スクリプトを流す
+- [ ] T-04: 実装 PR の本文で `## Rollback / Detection` の 3 行を記入（TC-08 の最初の観測点）。Owner: agent。depends_on: T-03
+  - 完了条件: PR 本文に TODO が残っていない
+  - rollback: 不要（PR 本文の編集のみ）
+- [ ] H-02 (human): Phase 2（workflow-conductor への 1 行・HO）の採否。採る場合は AI が作った適用スクリプトを Human が実行。depends_on: T-03
+  - rollback: Human が適用スクリプトの逆 patch を適用（AI は revert patch の作成まで）
+- [ ] H-03 (human): C-4 / merge。depends_on: T-04, H-02
+- [ ] O-01: merge 後、TC-01 と同じ条件で baseline を再測定し status.md に記録。Owner: agent。depends_on: H-03 🚩
+  - 完了条件: 「設計 / 反映 / 実利用」を分けて記録。未観測なら `NOT VERIFIED`
+  - rollback: 不要（測定のみ）
 
-- HOパスへの無承認編集、生成経路の未確認、C-3未承認、scope横断、Issueリンク破損、PR本文に根拠のない成功主張があれば、実装タスクは開始/継続しない。
+## 依存関係（Agent ↔ Human）
 
-## Rollback
-
-- Docs-only planning artifact: このPR単位でrevert可能。
-- Runtime/HO patch: Human承認を取得したPlanの単位でrevert。権限変更や設定適用はHuman-owned。
+D-01b ← Human のセッション起動 / T-01 ← H-01 / H-03 ← T-04・H-02 / O-01 ← H-03
