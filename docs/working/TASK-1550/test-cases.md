@@ -1,59 +1,84 @@
-# TASK-1550 — Test Cases (design only)
+# TASK-1550 — Test Cases
 
-> Status: **Not run**. These are planned acceptance tests, not a claim that behavior is implemented. Test runner/fixture location is chosen only after the active PR creation path is verified and C-3 approved.
+> Status: **Not run**（TC-01 の baseline 測定のみ実施済み）。fixture の配置先は T-01 で `tests/run-tests.sh` の構成に合わせて決める。
 
-## AC → TC mapping
+## AC → TC
 
-| AC | Tests |
-| --- | --- |
-| AC-01 route evidence | TC-01, TC-02 |
-| AC-02 three-part projection | TC-03, TC-04 |
-| AC-03 docs/behavior/code/custom/negative | TC-03, TC-04, TC-05, TC-06, TC-07 |
-| AC-04 issue links and approval boundaries | TC-06, TC-08 |
-| AC-05 distribution parity | TC-09 |
-| AC-06 observational adoption | TC-10 |
-| AC-07 rollback/detection | TC-05, TC-08 |
+| AC | TC |
+|----|----|
+| AC-01 経路と baseline | TC-01, TC-10 |
+| AC-02 主経路での提示 | TC-02, TC-03, TC-08 |
+| AC-03 正本の単一性 | TC-04, TC-07 |
+| AC-04 境界を緩めない | TC-06, TC-09 |
+| AC-05 Evidence | TC-03, TC-05, TC-08 |
+| AC-06 設計 / 反映 / 実利用 | TC-08 |
 
-## Planned cases
+## ケース
 
-### TC-01 — Active route evidence (positive)
-- Input: 直近の実PR 1件について利用Agent/CLI/workflowとbody producerを追跡。
-- Expected: caller → body producer → API/CLI、main ref、実PR参照、権限分類が1対1で追跡できる。
-- Negative: file存在のみなら稼働証拠としては**採用しない**。
+### TC-01 — baseline の再現性（実測）
 
-### TC-02 — Unverified/legacy route (negative)
-- Input: `scripts/apply-task-0124-patches.sh`（Workflow初期生成用）などの稼働実績が未確認の経路、および設定済みの `.github/workflows/sync-plugin-plangate.yml` のrun未観測状態。
-- Expected: 初期生成用スクリプトは `bootstrap/legacy candidate`、Workflowは `configured / run unverified` に分け、ファイルの存在だけで優先対象とは確定しない。
+- 前提: なし
+- 入力: `gh pr list --repo s977043/plangate --state merged --limit 30 --json number,body,mergedAt,author`
+- 判定式: `## Rollback / Detection` 見出し（`(?m)^## Rollback / Detection`）/ 見出しに Rollback か Detection（`(?m)^#+ .*(Rollback|Detection)`）/ 3 行が TODO 以外
+- 期待: 測定日時・HEAD・範囲とともに 3 値を記録できる
+- 種別: 実測。2026-11-02 12:06 測定値 3/30・5/30・2/30（origin/main `0d8d9468`）
 
-### TC-03 — Pure documentation change (positive)
-- Input: 挙動やルールの適用が変わらないdocs-only PR。
-- Expected: Kill-switch = PR revert等、Detection = `N/A (no runtime behavior change)`、Observation = `N/A (no post-merge runtime change)`を理由付きで許容する。
+### TC-02 — Skill がテンプレートを参照する（positive）
 
-### TC-04 — Agent-behavior documentation (negative control)
-- Input: `CLAUDE.md` / `AGENTS.md` / Rule / Agent定義を変更するPR。
-- Expected: Detection signalを安易にN/Aにしない。HO対象ならC-3とHuman applyが必要、文面の追加で権限は増えない。
+- 入力: `.agents/skills/pr-decision/SKILL.md`
+- 期待: `.github/PULL_REQUEST_TEMPLATE.md` へのパスと、`Kill-switch` / `Detection signal` / `Observation window` の 3 語を含む
+- 種別: fixture（自動）
 
-### TC-05 — Code change with signal and rollback
-- Input: 実行挙動を変える変更。
-- Expected: 3要素、観測窓、発生時に元へ戻せる操作、観測できるCI/挙動シグナルを説明できる。
-- Negative: TODOが残っていれば完了と主張しない。
+### TC-03 — Rollback Plan → 3 行の対応（positive）
 
-### TC-06 — Custom body/closing keyword (compatibility)
-- Input: `Closes #123` / `Refs: #456`を持つ独自PR本文。
-- Expected: 本文・リンク語・レビュー履歴を壊さず最小情報を追加できる。自動approve/mergeは実行しない。
+- 入力: 同上
+- 期待: 判定レポートの `Rollback Plan` を `## Rollback / Detection` に写す指示がある
+- 種別: fixture（自動）
 
-### TC-07 — No second source of truth
-- Input: 共通PRテンプレートと選定された自動PR生成経路。
-- Expected: 意味が一致し、定義全文を別の場所に重複複製しない。テンプレート変更時のrecheck先が明示されている。
+### TC-04 — 例文を複製しない（negative）
 
-### TC-08 — Authorization and denial (negative)
-- Input: C-3未承認 / HO Human apply未了 / C-4未承認の各状態。
-- Expected: execution/HO write/mergeをそれぞれ拒否。PR本文の改善を権限変更に使わない。
+- 入力: 同上
+- 期待: テンプレートのコメント中の例文（`PG_T61_PARALLEL=1` / `no runtime behavior change`）を含まない。含めば FAIL
+- 種別: fixture（自動）
 
-### TC-09 — Claude/Codex/plugin parity
-- Input: 変更後のソース・生成物・配布物。
-- Expected: 対象経路のみ意図した更新。手動ミラー複製なし。機械的sync/parity検査で差分を説明できる。
+### TC-05 — 変異注入で検出力を確認
 
-### TC-10 — Real post-adoption verification
-- Input: Human merge後、対象経路から実際に作成されたPR。
-- Expected: 3要素が記述され、その内容が形式だけでなく当該変更に適しているとレビューできる。導入前referenceとの比較は条件を明記。事例未取得なら`NOT VERIFIED`。
+- 入力: TC-02〜TC-04 の検査に対し、(a) 参照パスを消した Skill、(b) 例文を貼った Skill
+- 期待: (a) で TC-02 が、(b) で TC-04 が FAIL する
+- 種別: fixture（自動）
+
+### TC-06 — closing keyword と承認語を壊さない（compatibility）
+
+- 入力: 追加節
+- 期待: `Closes` / `Refs` の扱いを変えない記述があり、`approve` / `merge` を AI に指示する文が無い
+- 種別: fixture（自動）+ 目視
+
+### TC-07 — ミラー一致
+
+- 入力: `scripts/sync-plugin-plangate.sh` と `scripts/install-plangate-skills-to-codex.sh --force` 実行後
+- 期待: `.codex/skills/pr-decision/` / `plugin/plangate/skills/pr-decision/` が正本と一致。既存 drift 検査が緑
+- 種別: integration（自動）
+
+### TC-08 — 実利用（post-adoption）
+
+- 入力: merge 後に AI が作成した PR
+- 期待: 3 行が当該変更に合う内容で記入されている。merge 後 30 件で TC-01 を再測定し前後を並べる。観測できなければ `NOT VERIFIED`
+- 種別: 実測（手動）
+
+### TC-09 — 承認境界（negative）
+
+- 入力: 実装 PR の diff
+- 期待: HO 12 カテゴリへの AI 編集 0 件、`.github/workflows/` への追加 0 件、`approvals/` の AI 作成 0 件
+- 種別: `git diff origin/main --name-only` で確認
+
+### TC-10 — 経路一覧の網羅（regression）
+
+- 入力: exec 着手時の origin/main で `git grep -n -E 'gh pr create|PULL_REQUEST_TEMPLATE'`
+- 期待: plan §1.1 の R-1〜R-10 以外のヒットが無い。あれば Replan
+- 種別: 実測（自動）
+
+## エッジケース
+
+- docs-only PR: テンプレートの `N/A (reason)` で足りる（Skill 側で再定義しない — TC-04）
+- Agent の挙動を変える docs: テンプレートの記述に従い signal を書く（同上）
+- bot の同期 PR（R-6 / R-7）: 今回の対象外。TC-01 の母集団には含まれる（2/30）ので比較時に分けて数える

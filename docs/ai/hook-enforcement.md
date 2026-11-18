@@ -337,6 +337,27 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 > | **守る** | `Edit\|Write` 経路の、**字句上**の表記揺れ（上記 7 変換クラスとその複合）による HO 迂回（#1101 適用後） |
 > | **守らない** | `Bash` 経路（#1104）/ FS エイリアス・シンボリックリンク（上記 3・#1264。repo 外 symlink 経由の到達は上記 5・#1234）/ **worktree 配下の HO パス（上記 4・#1277）** / **監査ログ（`hook-events.log`）が書けない環境（`log_event` が `set -eu` 下で失敗し block（exit 2）に到達しない・#1278。rc は `/bin/sh` の実体依存で、bash 系は rc=1 = fail-open、dash・ash 系はリダイレクト失敗のみ rc=2＝理由トークンなし。`_audit` のファイル化（`mkdir -p` 失敗）は dash でも rc=1。上記 6 の表を参照し「rc=2 だから守られている」と読まないこと）** / hook を配線していない導入先（plugin 配布物に `scripts/hooks/` は含まれない）/ `PLANGATE_BYPASS_HOOK=1` |
 >
+> **未承認 TASK の plan.md 初回作成（#1197 案 B / #1649 で適用済み）**
+>
+> patch 文書 [`1197-eh3-plan-create-patch.md`](../working/_reports/1197-eh3-plan-create-patch.md) は
+> #1649（`87838321`）で**適用済み**である（`tests/fixtures/eh3-plan-create-pending-1197.flag` は削除済み）。
+> no-task 経路では、次の条件をすべて満たす `Write` だけを rc=0（`PLAN_CREATE_ALLOW`。
+> hook-events.log と skip-decision-log.jsonl の両方に記録）にする。
+> それ以外は下表のとおり plan.md を block する。
+>
+> - stdin payload の `tool_name` が `"Write"`（Edit / MultiEdit、env / 引数で対象を渡す経路は対象外）
+> - 絶対パスで、worktree root からの相対パスが `docs/working/TASK-<id>/plan.md` に厳密一致し、root より下に symlink が無い
+> - 対象が存在しない。全 worktree に `approvals/` が無い。git 履歴（`--all --reflog --full-history`）に plan.md も approvals も無い。shallow clone でない
+> - STRICT でない、maintenance.json が無い
+>
+> **残存脅威**（完全性を主張しない）: Bash 経路（#1104 open）、TOCTOU、
+> untracked な approvals の発見はベストエフォート（prunable / prune 済み / 別 clone の worktree は見えない）、
+> 兄弟 worktree の untracked plan.md、reflog 失効後の履歴、file_path に孤立サロゲートを含む
+> payload の既存 OUTSIDE_REPO_SKIP（#1647）。保証の主体は exec 段階の plan_hash 拒否で、Human 発行の
+> c3.json が exec する checkout にあることが前提。task レーンは c3.json が無いと STRICT でも
+> plan.md 編集を通す。bin/plangate 側の legacy c3.json の fail-open は #1646。
+> 回帰網: `tests/extras/ta-119-eh3-plan-create.sh`。
+
 > EH-3 の HO block は**多層防御の 1 層**にすぎない。承認境界の最終的な保証主体は
 > **C-4 Human レビュー**と **GitHub branch protection** であり、本 hook の block を
 > 単独の保証と見なさないこと。

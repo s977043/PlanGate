@@ -1,0 +1,32 @@
+### head c571a65c ta-62-t26-recurse-env-guard
+before: 11:44  up 4 days,  4:18, 16 users, load averages: 17.38 15.45 15.07
+rc=0 elapsed=174s fail_lines=0 pass_lines=2
+after: 11:47  up 4 days,  4:21, 16 users, load averages: 15.28 14.91 14.90
+### head c571a65c ta-65-eh3-ho-task-context
+before: 11:47  up 4 days,  4:21, 16 users, load averages: 15.28 14.91 14.90
+rc=0 elapsed=42s fail_lines=0 pass_lines=17
+after: 11:47  up 4 days,  4:22, 16 users, load averages: 13.77 14.65 14.81
+### head c571a65c ta-70-py-sh-misinvocation-guard
+before: 11:47  up 4 days,  4:22, 16 users, load averages: 13.77 14.65 14.81
+rc=0 elapsed=24s fail_lines=0 pass_lines=9
+after: 11:48  up 4 days,  4:22, 16 users, load averages: 13.82 14.61 14.79
+### head c571a65c ta-71-ci-static-lint
+before: 11:48  up 4 days,  4:22, 16 users, load averages: 13.82 14.61 14.79
+rc=0 elapsed=33s fail_lines=0 pass_lines=27
+after: 11:48  up 4 days,  4:22, 16 users, load averages: 12.20 14.09 14.59
+### control 9445df17 ta-62-t26-recurse-env-guard
+before: 11:48  up 4 days,  4:22, 16 users, load averages: 12.20 14.09 14.59
+rc=1 elapsed=180s fail_lines=1 pass_lines=1
+after: 11:51  up 4 days,  4:25, 16 users, load averages: 28.04 20.62 17.14
+### control 9445df17 ta-65-eh3-ho-task-context
+before: 11:51  up 4 days,  4:25, 16 users, load averages: 28.04 20.62 17.14
+rc=0 elapsed=62s fail_lines=0 pass_lines=17
+after: 11:52  up 4 days,  4:27, 16 users, load averages: 19.16 19.38 16.91
+### control 9445df17 ta-70-py-sh-misinvocation-guard
+before: 11:52  up 4 days,  4:27, 16 users, load averages: 19.16 19.38 16.91
+rc=0 elapsed=35s fail_lines=0 pass_lines=9
+after: 11:53  up 4 days,  4:27, 16 users, load averages: 14.44 18.20 16.58
+### control 9445df17 ta-71-ci-static-lint
+before: 11:53  up 4 days,  4:27, 16 users, load averages: 14.44 18.20 16.58
+rc=0 elapsed=32s fail_lines=0 pass_lines=27
+after: 11:54  up 4 days,  4:28, 16 users, load averages: 11.14 16.96 16.20

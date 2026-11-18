@@ -1,6 +1,7 @@
 # ai-loop V2
 
 > **Status**: Phase 0 **MERGED**（PR #1273・Human C-4 DONE）/ Independent Review **DONE（R1 I1 ×2 + R2 I1 / `reviewed_at_sha` = `f8f1e8b8`。[`phase0-migration.md`](./phase0-migration.md) §7 が正本）** / Phase 0.1 **CANON_HARDENING**（#1275）
+> **Canon exception**: I1 例外は 2026-09-29（UTC）に失効した（[`phase0-migration.md`](./phase0-migration.md) §7、TASK-1408）。以後の canon 7 本の規定変更は I4 を要する
 > **North Star**: [`north-star.md`](./north-star.md)
 > **Migration**: [`phase0-migration.md`](./phase0-migration.md)
 > **Responsibility model**: [`loop-graph-harness.md`](./loop-graph-harness.md)

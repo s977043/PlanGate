@@ -16,7 +16,7 @@ exec
 > C-3 Gate: APPROVED（Human、`bin/plangate approve`、2026-10-29T10:09:18Z、`plan_hash` `sha256:ed637f48…`。origin/main `46685615` の plan.md の sha256 と一致することを照合済み）。c3.json は承認に使った worktree に untracked で保管されている。plan Revision 2.8 は PR #1619（`62b9a5df`）、exec 第 1 歩の `limits.py` は PR #1622（`46685615`）で main に merge 済み。
 > exec 開始済み（第 1 歩 = #1622 merge）。以降のタスク（records / progress assessment / decision / event draft adapter / caller migration 等）は PF-1〜PF-8・#1391 event contract consumable・#1392 RunState input shape frozen・#1422 B-8 / B-13 の語彙決定待ち（todo.md「Preflight」、status.md「残タスク」の BLOCKED 行）。
 > 以下は 2026-10-22 時点の記述（履歴）。
-> Revision 2.7（PF-5 Human 決定 R-085〜R-088、2026-10-22）を確定反映。改訂後 plan の sha256 は `404c432a60157932cda967b4c3d90c77979c6d00df874a295828bfd8b0af35b3` で、既存 c3.json（Revision 2.6、`ec2a0db8…`）とは一致しない＝Human の c3.json 再発行待ち。再承認後も下記 exec 前依存が残る。
+> Revision 2.7（PF-5 Human 決定 R-085〜R-088、2026-10-22）を確定反映。改訂後 plan の sha256 は `404c432a60157932cda967b4c3d90c77979c6d00df874a295828bfd8b0af35b3` で、既存 c3.json（Revision 2.6、`ec2a0db8…`）とは一致しない＝当時は Human の c3.json 再発行待ちだった（解消済み: 2026-10-29 に Rev2.10 / `sha256:ed637f48…` で APPROVED、上記）。下記 exec 前依存は現在も残る。
 > 前回 C-3 Gate: APPROVED（Human、2026-10-21T09:15:23Z = JST 18:15、Revision 2.6、`plan_hash` `sha256:ec2a0db8…`）。Mode = high-risk。
 > - blocker: exec 前依存（#1391 / #1392 / #1422 の owner 実装、PF-2〜PF-8）が未解消（[dependency-reconciliation.md](dependency-reconciliation.md)）
 > - owner: #1391 / #1392 / #1422 の各 owner（担当割り当ては Human）
@@ -34,7 +34,7 @@ exec
 | ファイル | フェーズ依存 | 説明 |
 |---------|------------|------|
 | pbi-input.md | plan, review | 要件・受入基準 |
-| plan.md | exec, review | 実行計画 Revision 2.7（2026-10-22 PF-5 反映、sha256 `404c432a…`、C-3 再承認待ち。前回 Revision 2.6 は `ec2a0db8…` で APPROVED） |
+| plan.md | exec, review | 実行計画 Revision 2.10（sha256 `ed637f48…`、2026-10-29 C-3 APPROVED。履歴: Revision 2.7 `404c432a…` / 2.6 `ec2a0db8…`） |
 | status.md | status | フェーズ履歴（2026-10-21 新規） |
 | todo.md | exec | タスク一覧・進捗 |
 | test-cases.md | exec, review | テストケース定義（DI / DV / DD / DP / PR / AV / DC / IT） |
