@@ -129,7 +129,7 @@ class SeedInventoryTests(unittest.TestCase):
 
     def test_non_seed_heading_without_date_is_accepted(self):
         self.seeds.write_text(
-            f"# Seeds\n\n## 概要\n\n## {SEED_A}\n- confirmed_by: human\n### 補足\n", encoding="utf-8"
+            f"# Seeds\n\n## 概要\n\n## {SEED_A}\n- confirmed_by: human\n\n### 補足\n", encoding="utf-8"
         )
         result = MODULE.inventory(self.seeds, self.digest, 1)
         self.assertEqual(result["entries_with_confirmation_marker"], 1)
@@ -203,6 +203,327 @@ class SeedInventoryTests(unittest.TestCase):
         self.digest.write_text(f"﻿## 対象エントリ\n\n- {SEED_A}\n", encoding="utf-8")
         result = MODULE.inventory(self.seeds, self.digest, 1)
         self.assertEqual(result["unindexed_entries"], [SEED_B])
+
+    def write_seeds(self, tail: str) -> None:
+        self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: human\n\n{tail}", encoding="utf-8")
+
+    def count(self) -> int:
+        return MODULE.inventory(self.seeds, self.digest, 1)["entries_with_confirmation_marker"]
+
+    def test_tc_r4_02_seed_inside_html_comment_is_not_counted(self):
+        self.write_seeds(f"<!--\n## {SEED_B}\n- confirmed_by: human\n-->\n")
+        self.assertEqual(self.count(), 1)
+
+    def test_tc_r4_03_name_starting_with_negative_word_is_rejected(self):
+        for value in ("Na Yeon", "No Kim"):
+            with self.subTest(value=value):
+                self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: {value}\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "confirmation marker"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_html_01_unclosed_html_comment_is_rejected(self):
+        self.write_seeds(f"<!--\nnote\n\n## {SEED_B}\n- reason: drafted\n")
+        with self.assertRaisesRegex(ValueError, "unclosed HTML"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_html_02_single_line_comment_seed_is_not_counted(self):
+        self.write_seeds(f"<!-- ## {SEED_B} -->\n")
+        self.assertEqual(self.count(), 1)
+
+    def test_tc_html_03_confirmation_inside_comment_is_not_accepted(self):
+        self.write_seeds(f"## {SEED_B}\n<!--\n- confirmed_by: human\n-->\n")
+        with self.assertRaisesRegex(ValueError, "confirmation marker"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_html_04_div_block_ends_at_blank_line(self):
+        self.write_seeds(f"<div>\n## 2026-06-09 — hidden\n</div>\n\n## {SEED_B}\n- confirmed_by: human\n")
+        self.assertEqual(self.count(), 2)
+
+    def test_tc_html_06_div_block_interrupts_paragraph(self):
+        self.write_seeds("text\n<div class=\"note\">\n## 2026-06-09 — hidden\n</div>\n")
+        self.assertEqual(self.count(), 1)
+
+    def test_tc_html_05_fence_and_comment_nesting(self):
+        self.write_seeds(f"```\n<!--\n```\n\n## {SEED_B}\n- confirmed_by: human\n")
+        self.assertEqual(self.count(), 2)
+        self.write_seeds(f"<!--\n```\n-->\n\n## {SEED_B}\n- confirmed_by: human\n")
+        self.assertEqual(self.count(), 2)
+
+    def test_tc_blk_01_to_03_out_of_scope_date_headings_are_rejected(self):
+        for tail in (
+            f"> ## {SEED_B}\n\n- confirmed_by: human\n",
+            f"- ## {SEED_B}\n\n- confirmed_by: human\n",
+            f"{SEED_B}\n---\n- confirmed_by: human\n",
+            f"{SEED_B}\n===\n- confirmed_by: human\n",
+        ):
+            with self.subTest(tail=tail):
+                self.write_seeds(tail)
+                with self.assertRaisesRegex(ValueError, "canonical"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_blk_04_indented_code_seed_is_not_counted(self):
+        self.write_seeds(f"## 概要\n\n    ## {SEED_B}\n    - confirmed_by: human\n")
+        self.assertEqual(self.count(), 1)
+
+    def test_tc_blk_04b_indented_heading_in_list_item_is_rejected(self):
+        self.write_seeds(f"- item\n\n    ## {SEED_B}\n")
+        with self.assertRaisesRegex(ValueError, "canonical"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_blk_05_four_space_fence_does_not_open(self):
+        self.write_seeds(f"## 概要\n\n    ```\n\n## {SEED_B}\n- confirmed_by: human\n")
+        self.assertEqual(self.count(), 2)
+
+    def test_tc_blk_05b_fence_inside_list_item_closes_with_the_item(self):
+        self.write_seeds(f"- item\n\n    ```\n\n## {SEED_B}\n- confirmed_by: human\n")
+        self.assertEqual(self.count(), 2)
+
+    def test_tc_blk_06_crlf_matches_lf(self):
+        self.seeds.write_bytes(f"## {SEED_A}\r\n- confirmed_by: human\r\n\r\n## {SEED_B}\r\n- confirmed_by: human\r\n".encode())
+        self.digest.write_bytes(f"## 対象エントリ\r\n\r\n- {SEED_A}\r\n".encode())
+        self.assertEqual(MODULE.inventory(self.seeds, self.digest, 1)["unindexed_entries"], [SEED_B])
+
+    def test_tc_inv_01_02_invisible_characters_in_heading_are_rejected(self):
+        for heading in (
+            "## 2026-06-09​ — task-C",
+            "## 2026-06-09 — task​C",
+            "## 2026-06-09 — task﻿C",
+            "## 2026-06-09 — task⁠C",
+            "​## 2026-06-09 — task-C",
+            "## ２０２６-06-09 — task-C",
+        ):
+            with self.subTest(heading=heading):
+                self.write_seeds(f"{heading}\n- confirmed_by: human\n")
+                with self.assertRaisesRegex(ValueError, "canonical"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_inv_03_invisible_character_in_confirmation_is_rejected(self):
+        for value in ("​no", "hu​man", "human "):
+            with self.subTest(value=value):
+                self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: {value}\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "confirmation marker"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_inv_04_invisible_character_in_digest_index_is_rejected(self):
+        self.digest.write_text(f"## 対象エントリ\n\n- {SEED_A}​\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "seed identity format"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_neg_01_ordinary_names_are_accepted(self):
+        for value in ("naoki", "nobu", "masatake.komine（「confirm」指示にて）"):
+            with self.subTest(value=value):
+                self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: {value}\n", encoding="utf-8")
+                self.assertEqual(self.count(), 1)
+
+    def test_tc_neg_02_negative_with_separator_is_rejected(self):
+        for value in ("no, later", "no　後で", "no\t後で"):
+            with self.subTest(value=value):
+                self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: {value}\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "confirmation marker"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_nested_confirmation_does_not_hide_a_second_marker(self):
+        self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: human\n  - confirmed_by: no\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "confirmation marker|nested container"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_digest_section_rejects_non_list_blocks(self):
+        self.digest.write_text(f"## 対象エントリ\n\n- {SEED_A}\n\n<!--\n- 2026-06-09 — ghost\n-->\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "unrecognized record"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r1_01_list_item_end_closes_inner_block(self):
+        for opener, closer in (("  ```", "```"), ("  <!--", "-->")):
+            with self.subTest(opener=opener):
+                self.write_seeds(f"- item\n\n{opener}\n  x\n\n## {SEED_B}\n- confirmed_by: pending\n{closer}\n")
+                with self.assertRaises(ValueError):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+        self.write_seeds(f"- item\n\n  ```\n  x\n\n## {SEED_B}\n- confirmed_by: human\n")
+        self.assertEqual(self.count(), 2)
+
+    def test_adv_r1_02_top_level_fence_keeps_strict_close(self):
+        # トップレベルの fence は 4 空白以上の行では閉じない（リスト内の許容幅を流用しない）
+        self.write_seeds(f"```\n    ```\n## {SEED_B}\n- confirmed_by: human\n```\n")
+        self.assertEqual(self.count(), 1)
+
+    def test_adv_r5_fence_right_after_list_is_a_boundary(self):
+        self.write_seeds("- note\n```\nx\n```\n")
+        with self.assertRaisesRegex(ValueError, "container boundary"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r5_m17_list_fence_closes_with_list_indent(self):
+        # リスト内の fence は列 2 を基準に閉じる。閉じたあとのリスト内見出しは守備範囲外として拒否される
+        self.write_seeds("- item\n\n  ```\n  x\n     ```\n  ## 2026-09-09 — HIDDEN\n")
+        with self.assertRaisesRegex(ValueError, "canonical"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r5_c1_invisible_prefixed_list_like_line_is_not_a_list(self):
+        for prefix in (" ", "​"):
+            with self.subTest(prefix=repr(prefix)):
+                self.write_seeds(f"{prefix}- note\n  ```\n## 2026-09-09 — HIDDEN\n- confirmed_by: bob\n")
+                with self.assertRaisesRegex(ValueError, "unclosed code fence"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+        self.write_seeds(" - note\n  <!--\n## 2026-09-09 — HIDDEN\n- confirmed_by: bob\n")
+        with self.assertRaisesRegex(ValueError, "unclosed HTML"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+        self.write_seeds(" - note\n  <div>\n## 2026-09-09 — HIDDEN\n- confirmed_by: bob\n")
+        self.assertEqual(self.count(), 1)
+
+    def test_adv_r1_03_inline_markup_in_confirmation_is_rendered_first(self):
+        for value in ("<!-- pending -->", "`pending`", "**pending**", "<!-- human", "<b></b>"):
+            with self.subTest(value=value):
+                self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: {value}\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "confirmation marker"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r1_04_non_seed_section_ends_marker_ownership(self):
+        self.write_seeds(f"## {SEED_B}\n\n## Notes\n- confirmed_by: human\n")
+        with self.assertRaisesRegex(ValueError, "confirmation marker"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r1_05_closing_hash_sequence_is_not_canonical(self):
+        for heading in (f"## {SEED_B} ##", f"## {SEED_B} #  ", f"## {SEED_B} "):
+            with self.subTest(heading=heading):
+                self.write_seeds(f"{heading}\n- confirmed_by: human\n")
+                with self.assertRaisesRegex(ValueError, "canonical"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r2_01_block_opened_right_after_list_paragraph_closes_with_item(self):
+        for opener in ("  ```", "  <div>"):
+            with self.subTest(opener=opener):
+                self.seeds.write_text(
+                    f"## {SEED_A}\n- confirmed_by: human\n{opener}\n## {SEED_B}\n- confirmed_by: pending\n```\n",
+                    encoding="utf-8",
+                )
+                with self.assertRaises(ValueError):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r2_02_setext_heading_ends_marker_ownership(self):
+        for underline in ("=====", "-----"):
+            with self.subTest(underline=underline):
+                self.seeds.write_text(f"## {SEED_A}\n\nNotes\n{underline}\n\n- confirmed_by: human\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "confirmation marker"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r2_03_inline_structure_in_confirmation_is_rejected(self):
+        for value in ("&#112;ending", "[pending](x)", "\\-", "&#x200B;", "human&amp;co"):
+            with self.subTest(value=value):
+                self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: {value}\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "confirmation marker"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r3_01_block_opened_on_marker_line_is_rejected(self):
+        for opener in ("- ```", "> ```", "- <!--", "1. ~~~", "> - <div>"):
+            with self.subTest(opener=opener):
+                self.write_seeds(f"{opener}\n  x\n  ```\n  ## 2026-09-09 — HIDDEN\n  ```\n")
+                # D-1c 以降、番号付きリストと入れ子は内容オフセット / 入れ子の規則で先に拒否される
+                with self.assertRaisesRegex(ValueError, "marker line|content offset|nested container"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_adv_r3_02_negative_value_variants_are_rejected(self):
+        for value in ("pending.", "ｐｅｎｄｉｎｇ", "no。", "TBD!"):
+            with self.subTest(value=value):
+                self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: {value}\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "confirmation marker"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected(self):
+        cases = {
+            "CB-01": "- note\n> q\n  ```\n## 2026-09-09 — HIDDEN\n- confirmed_by: bob\n",
+            "CB-02": "- note\n```\nx\n```\n  ```\n## 2026-09-09 — HIDDEN\n",
+            "CB-03": "- note\n***\n  ```\n## 2026-09-09 — HIDDEN\n",
+            "CB-04": "- note\n<div>\n",
+            "CB-05": f"- note\n## {SEED_B}\n- confirmed_by: human\n",
+            "CB-06": "> q\n- item\n",
+            "CB-07": "> q\n***\n",
+        }
+        for case, tail in cases.items():
+            with self.subTest(case=case):
+                self.write_seeds(tail)
+                with self.assertRaisesRegex(ValueError, "container boundary"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_cb_n1_to_n3_container_continuations_are_accepted(self):
+        cases = {
+            "N1-quote": "> a\n> b\n",
+            "N1-list": "- a\n- b\n",
+            "N1-indent": "- a\n  b\n",
+            "N2-lazy": "- a\nlazy text\n",
+            "N3-blank": f"- a\n\n## {SEED_B}\n- confirmed_by: human\n",
+        }
+        for case, tail in cases.items():
+            with self.subTest(case=case):
+                self.write_seeds(tail)
+                MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_nest_rejected(self):
+        cases = {
+            "NEST-A": "- a\n  > b\n\n  ```\n## 2026-01-01 — TASK-1\n- confirmed_by: alice\n  ```\n\n"
+            f"## {SEED_B}\n- confirmed_by: bob\n",
+            "NEST-B": "- a\n  > b\n\n  <div>\n## 2026-01-01 — TASK-1\n- confirmed_by: alice\n\n"
+            f"## {SEED_B}\n- confirmed_by: bob\n",
+            "NEST-03": "> - a\n",
+            "NEST-04": "- > a\n",
+            "NEST-05": "- a\n  - b\n",
+            "NEST-06": "> a\n> > b\n",
+        }
+        for case, tail in cases.items():
+            with self.subTest(case=case):
+                self.write_seeds(tail)
+                with self.assertRaisesRegex(ValueError, "nested container"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_nest_07_ordered_list_nesting_is_rejected(self):
+        # 番号付きリストは T-19 の内容オフセット規則で先に拒否される
+        self.write_seeds("1. a\n   - b\n")
+        with self.assertRaisesRegex(ValueError, "nested container|content offset"):
+            MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_tc_nest_normal_cases_are_accepted(self):
+        cases = {
+            "N1": ("> a\n> b\n", 1),
+            "N2": ("- a\n- b\n- c\n", 1),
+            "N3": (f"- a\n\n  ```\n  x\n  ```\n\n## {SEED_B}\n- confirmed_by: human\n", 2),
+        }
+        for case, (tail, expected) in cases.items():
+            with self.subTest(case=case):
+                self.write_seeds(tail)
+                self.assertEqual(self.count(), expected)
+
+    def test_t19_list_content_offset_other_than_two_is_rejected(self):
+        for tail in (" - a\n", "1. a\n", "-  a\n", "2) a\n", "+\ta\n"):
+            with self.subTest(tail=tail):
+                self.write_seeds(tail)
+                with self.assertRaisesRegex(ValueError, "content offset"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_t21_non_canonical_second_marker_is_counted(self):
+        # 入れ子でない形の 2 本目のマーカー（別の箇条記号 / 地の文）も確認マーカー候補として数える
+        for second in ("* confirmed_by: no", "confirmed_by: no"):
+            with self.subTest(second=second):
+                self.seeds.write_text(f"## {SEED_A}\n- confirmed_by: human\n{second}\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "confirmation marker"):
+                    MODULE.inventory(self.seeds, self.digest, 1)
+
+    def test_t19_nested_code_line_does_not_change_container(self):
+        # リスト内 fence の中身（"  > b"）はコードであり、入れ子でも container の更新対象でもない
+        self.write_seeds(f"- a\n\n  ```\n  > b\n  ```\n\n## {SEED_B}\n- confirmed_by: human\n")
+        self.assertEqual(self.count(), 2)
+
+    def test_tc_struct_01_no_whole_document_regex(self):
+        source = SOURCE.read_text(encoding="utf-8")
+        self.assertIn("re.compile", source)  # positive control: the probe reads the real module
+        for forbidden in ("re.MULTILINE", "re.DOTALL", "(?m)", "(?s)", "finditer"):
+            self.assertNotIn(forbidden, source)
+
+    def test_tc_struct_02_imports_are_standard_library(self):
+        import ast
+        import sys
+        tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
+        names = {a.name.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
+        names |= {n.module.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.module}
+        self.assertTrue(names)
+        self.assertEqual(names - set(sys.stdlib_module_names), set())
 
 
 if __name__ == "__main__":

@@ -1,0 +1,76 @@
+.....................................FFFFFFF...................
+======================================================================
+FAIL: test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected (__main__.SeedInventoryTests.test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected) (case='CB-01')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 419, in test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected
+    with self.assertRaisesRegex(ValueError, "container boundary"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected (__main__.SeedInventoryTests.test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected) (case='CB-02')
+----------------------------------------------------------------------
+ValueError: seed has missing or ambiguous confirmation marker: 2026-09-09 — HIDDEN
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 419, in test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected
+    with self.assertRaisesRegex(ValueError, "container boundary"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "container boundary" does not match "seed has missing or ambiguous confirmation marker: 2026-09-09 — HIDDEN"
+
+======================================================================
+FAIL: test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected (__main__.SeedInventoryTests.test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected) (case='CB-03')
+----------------------------------------------------------------------
+ValueError: seed has missing or ambiguous confirmation marker: 2026-09-09 — HIDDEN
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 419, in test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected
+    with self.assertRaisesRegex(ValueError, "container boundary"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "container boundary" does not match "seed has missing or ambiguous confirmation marker: 2026-09-09 — HIDDEN"
+
+======================================================================
+FAIL: test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected (__main__.SeedInventoryTests.test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected) (case='CB-04')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 419, in test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected
+    with self.assertRaisesRegex(ValueError, "container boundary"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected (__main__.SeedInventoryTests.test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected) (case='CB-05')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 419, in test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected
+    with self.assertRaisesRegex(ValueError, "container boundary"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected (__main__.SeedInventoryTests.test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected) (case='CB-06')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 419, in test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected
+    with self.assertRaisesRegex(ValueError, "container boundary"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected (__main__.SeedInventoryTests.test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected) (case='CB-07')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 419, in test_tc_cb_01_to_07_container_boundary_without_blank_is_rejected
+    with self.assertRaisesRegex(ValueError, "container boundary"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 57 tests in 0.151s
+
+FAILED (failures=7)

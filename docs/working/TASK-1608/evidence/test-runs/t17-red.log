@@ -1,0 +1,134 @@
+..................................FFFFFE...................F.FFFFFF.......
+======================================================================
+ERROR: test_t19_nested_code_line_does_not_change_container (__main__.SeedInventoryTests.test_t19_nested_code_line_does_not_change_container)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 502, in test_t19_nested_code_line_does_not_change_container
+    self.assertEqual(self.count(), 2)
+                     ~~~~~~~~~~^^
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 211, in count
+    return MODULE.inventory(self.seeds, self.digest, 1)["entries_with_confirmation_marker"]
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/improvement_seed_delta.py", line 372, in inventory
+    seeds = read_declared_seeds(seeds_path)
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/improvement_seed_delta.py", line 314, in read_declared_seeds
+    for kind, line in classify(path.read_text(encoding="utf-8-sig")):
+                      ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/improvement_seed_delta.py", line 205, in classify
+    container = next_container(container, shape, shape_column, after_blank)
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/improvement_seed_delta.py", line 179, in next_container
+    raise ValueError("container boundary without a blank line is not supported")
+ValueError: container boundary without a blank line is not supported
+
+======================================================================
+FAIL: test_t19_list_content_offset_other_than_two_is_rejected (__main__.SeedInventoryTests.test_t19_list_content_offset_other_than_two_is_rejected) (tail=' - a\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 496, in test_t19_list_content_offset_other_than_two_is_rejected
+    with self.assertRaisesRegex(ValueError, "content offset"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_t19_list_content_offset_other_than_two_is_rejected (__main__.SeedInventoryTests.test_t19_list_content_offset_other_than_two_is_rejected) (tail='1. a\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 496, in test_t19_list_content_offset_other_than_two_is_rejected
+    with self.assertRaisesRegex(ValueError, "content offset"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_t19_list_content_offset_other_than_two_is_rejected (__main__.SeedInventoryTests.test_t19_list_content_offset_other_than_two_is_rejected) (tail='-  a\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 496, in test_t19_list_content_offset_other_than_two_is_rejected
+    with self.assertRaisesRegex(ValueError, "content offset"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_t19_list_content_offset_other_than_two_is_rejected (__main__.SeedInventoryTests.test_t19_list_content_offset_other_than_two_is_rejected) (tail='2) a\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 496, in test_t19_list_content_offset_other_than_two_is_rejected
+    with self.assertRaisesRegex(ValueError, "content offset"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_t19_list_content_offset_other_than_two_is_rejected (__main__.SeedInventoryTests.test_t19_list_content_offset_other_than_two_is_rejected) (tail='+\ta\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 496, in test_t19_list_content_offset_other_than_two_is_rejected
+    with self.assertRaisesRegex(ValueError, "content offset"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_nest_07_ordered_list_nesting_is_rejected (__main__.SeedInventoryTests.test_tc_nest_07_ordered_list_nesting_is_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 478, in test_tc_nest_07_ordered_list_nesting_is_rejected
+    with self.assertRaisesRegex(ValueError, "nested container|content offset"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_nest_rejected (__main__.SeedInventoryTests.test_tc_nest_rejected) (case='NEST-A')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 472, in test_tc_nest_rejected
+    with self.assertRaisesRegex(ValueError, "nested container"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_nest_rejected (__main__.SeedInventoryTests.test_tc_nest_rejected) (case='NEST-B')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 472, in test_tc_nest_rejected
+    with self.assertRaisesRegex(ValueError, "nested container"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_nest_rejected (__main__.SeedInventoryTests.test_tc_nest_rejected) (case='NEST-03')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 472, in test_tc_nest_rejected
+    with self.assertRaisesRegex(ValueError, "nested container"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_nest_rejected (__main__.SeedInventoryTests.test_tc_nest_rejected) (case='NEST-04')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 472, in test_tc_nest_rejected
+    with self.assertRaisesRegex(ValueError, "nested container"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_nest_rejected (__main__.SeedInventoryTests.test_tc_nest_rejected) (case='NEST-05')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 472, in test_tc_nest_rejected
+    with self.assertRaisesRegex(ValueError, "nested container"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_tc_nest_rejected (__main__.SeedInventoryTests.test_tc_nest_rejected) (case='NEST-06')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ad2411a5b95c1b1ca/scripts/test_improvement_seed_delta.py", line 472, in test_tc_nest_rejected
+    with self.assertRaisesRegex(ValueError, "nested container"):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 65 tests in 0.442s
+
+FAILED (failures=12, errors=1)
