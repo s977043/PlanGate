@@ -8,7 +8,7 @@
 
 ## 2026-11-22 更新（2026-10-30 からの差分）
 
-測定: 2026-11-22、`origin/main` = `9d55ae5d`（`git ls-remote` と一致）。issue は `gh issue view` / `gh issue list`、plan は `git show origin/main:<path> | shasum -a 256` で取得した。
+測定: 2026-11-22、`origin/main` = `9d55ae5d`（`git ls-remote` と一致）。issue は `gh issue view` / `gh issue list`、plan は `git show origin/main:<path> | shasum -a 256` で取得した。c3.json の照合・Human 決定（H-6 / H-10 / H-12）・#1657 / #1659 への参照は 2026-11-23 の追記で、各行に日付を付けている。
 
 ### 判定
 
@@ -21,7 +21,7 @@
 | #1621 | `dc32f87c` | 日次 Runtime Evidence トリアージの Gap Analysis | なし（クリティカルパス外） |
 | #1626 | `2c037648` | TASK-1391 / 1392 / 1393 の working doc を main の事実に合わせる | TASK-1391 status.md に C-3 APPROVED を記録（§2 で「未更新」としていた点は解消）。H-7 / H-9 は下表のとおり残る |
 | #1635 | `7c3adc96` | TASK-1393 の状態同期・局所検証・byte 上限の反例 | #1623 の入力。`evidence/byte-bound-review-2026-11-03.md` は、71 文字の ASCII ID でも canonical JSON では最大 428 byte（制御文字の escape）になり、16 件の配列で 1,185 byte の想定に対し実測 6,845 byte になることを示した（非権威の診断 Evidence） |
-| #1650 / #1653 | `90047151` / `8a689907` | canon I1 例外の失効（2026-09-29 UTC）を記録し I4 へ移行（TASK-1408） | 以後の canon 7 本の規定変更は I4 を要する。失効後に merge された 4 commit の扱いは #1643 で Human 裁定待ち |
+| #1650 / #1653 | `90047151` / `8a689907` | canon I1 例外の失効（2026-09-29 UTC）を記録し I4 へ移行（TASK-1408） | 以後の canon 7 本の規定変更は I4 を要する。`3331e5c4..9445df17` に入った 4 commit の扱いは #1643 で Human 裁定待ち。この 2 本と #1652（`ae56b75f`）は `9445df17` より後の canon commit で、その I4 要否の判定材料は 2026-11-23 に #1659 として別に作った |
 
 ### C-3 と plan の一致（`origin/main` で再測定）
 
@@ -76,18 +76,18 @@
 |---|---|---|
 | H-5 | 決着（照合済み） | `c3-1392/` の c3.json の `plan_hash` が現行 plan の sha256 `f02d69cf…` と一致（上記「c3.json の実物照合」） |
 | H-6 | 決着（保留） | Human 決定 2026-11-23: 選択肢 3（保留）。#1395 に着手するまで決めない |
-| H-7 | 本 PR で是正 | TASK-1392/INDEX.md:20 の「C-3 の再承認が必要」に、:16 の承認がそれにあたることを追記 |
+| H-7 | 是正済み（#1656、2026-11-23） | TASK-1392/INDEX.md:20 の「C-3 の再承認が必要」に、:16 の承認がそれにあたることを追記 |
 | H-8 | 残ギャップ（未再測定） | #1622 本文に #1329 preflight を課さない理由が追記されたかは今回測っていない |
-| H-9 | 本 PR で是正 | TASK-1393/todo.md:27（Rev 2.6）と :34（Rev 2.10）を、c3.json の実物（`ec2a0db8…` / `ed637f48…`）を根拠に `[x]` にした |
+| H-9 | 是正済み（#1656、2026-11-23） | TASK-1393/todo.md:27（Rev 2.6）と :34（Rev 2.10）を、c3.json の実物（`ec2a0db8…` / `ed637f48…`）を根拠に `[x]` にした |
 | H-10 | 決着（c） | Human 決定 2026-11-23: 選択肢 c（現状維持。#1391 / #1623 の順序は exec 時に決める）。#1391 exec は plan:181 の byte 再検査に届く前に止めて再確認する。#1635 の反例が前提 |
-| H-11（新設） | 未決着（材料あり） | #1643 の裁定（4 commit ごとに、事後 I4 か例外扱いか）。#1391 exec の前提ではない（上記「#1391 exec の blocker の再分類」）。AC-1 の再測定と判定表の下書きは PR #1657 |
+| H-11（新設） | 未決着（材料あり） | #1643 の裁定（4 commit ごとに、事後 I4 か例外扱いか）。#1391 exec の前提ではない（上記「#1391 exec の blocker の再分類」）。AC-1 の再測定と判定表の下書きは PR #1657（`docs/working/_reports/1643-canon-post-expiry-commits-draft.md`、#1658 で一部是正）。#1643 の範囲外にある `9445df17` 以後の 3 commit（#1652 / #1650 / #1653）の判定材料は PR #1659（`docs/working/_reports/canon-post-9445df17-commits-draft.md`）。どちらも裁定欄は空欄 |
 | H-12（新設） | 決着 | Human 決定 2026-11-23: T1 では M-1 / M-2 / M-3 を exec 時点の main で実行して出力を記録し、「失効済みのため判定条件ではない（`phase0-migration.md`:356）」と併記して #1329 preflight を満たす。plan は変えないので C-3 の再承認は不要 |
 
 ### 次の一手（推奨順）
 
 1. #1391 exec の開始 — Human が c3.json を配置して `PLANGATE_HOOK_TASK=TASK-1391` で起動する → AI が T1（reviewed_at_sha / base SHA と、H-12 のとおり M-1〜M-3 の参考記録）から始める
 2. #1391 exec が plan:181 の byte 再検査に届く前に、#1623 との順序を再確認する（H-10 = c）
-3. H-11（#1643）— クリティカルパスとは独立。Phase 1 exit の確認項目に効く。材料は PR #1657
+3. H-11（#1643 と、範囲外の 3 commit）— クリティカルパスとは独立。Phase 1 exit の確認項目に効く。材料は PR #1657 と PR #1659
 
 ## 結論
 
