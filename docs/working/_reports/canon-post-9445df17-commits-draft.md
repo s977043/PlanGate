@@ -91,7 +91,7 @@ ae56b75f00f748e133c958b75f8ec67dcb853125 2026-11-13T06:55:24+09:00 mine_take | d
   - `+- [ ] \`9445df17\` より後の canon 7 本の規定変更が、すべて I4（§7 の最低要件）で採用されている。例外は置かない`（Phase 1 の exit criteria を追加している）
 - 裁定のときに考慮しうる事実:
   - 本 commit は本書の判定表が使う I4 の最低要件そのものを導入した commit である。**自分が導入した要件で自分を測ることになる**点は、Human が裁定のときに考慮しうる。
-  - 本 commit の canon 差分は、TASK-1408 の canon commit `e5573cc8`（親 `9445df17`）の追記と一致する。`git diff 6d1f7a6b origin/pr-1650-head -- docs/ai/ai-loop-v2` の差分は #1652 の 1 行（main の取り込みで入ったもの）だけで、`git diff <PR head 5631e140> 90047151` は空（squash の tree は PR head と同一）。
+  - 本 commit の canon 差分は、TASK-1408 の canon commit `e5573cc8`（親 `9445df17`）の追記と一致する。`git diff 6d1f7a6b 5631e140 -- docs/ai/ai-loop-v2` の差分は #1652 の 1 行（main の取り込みで入ったもの）だけで、`git diff 5631e140 90047151` は空（squash の tree は PR head `5631e140` と同一）。
   - PR head `5631e140` は「Merge branch 'main' into docs/TASK-1408-plan」（committer = `GitHub`、2026-11-12T22:28:37Z。下記の裁定を status.md に記録した `5f05ffa6` の 54 秒後）。一方、`docs/working/TASK-1408/status.md:24` と `handoff.md:62` は「Human 裁定（2026-11-13）により main を取り込まず、照合点は evidence head `6d1f7a6b` に固定」と記録している。照合点を `6d1f7a6b` に固定したことと、PR head で main を取り込んだことは両立しうるが、**記録の文言（main を取り込まず）と branch の実際（取り込んだ）が一致していない**。誰が取り込み操作をしたかは GitHub 上から判別できない。
 
 ### 3-3. `8a689907`（#1653）docs(TASK-1408): #1650 merge 後の記録を追従する
@@ -143,4 +143,4 @@ ae56b75f00f748e133c958b75f8ec67dcb853125 2026-11-13T06:55:24+09:00 mine_take | d
 - **行っていないこと**: 3 件の裁定、non-normative の確定、独立性の確定、I4 証跡の作成、canon 本文・`phase0-migration.md`・TASK-1408 配下・既存レポートの変更、issue と PR へのコメント。`docs/working/TASK-1408/evidence/` の check.sh は再実行していない（本書は記録の有無を照らしただけ）。
 - **範囲外の観察 1**: #1650 は canon 外の `.github/PULL_REQUEST_TEMPLATE.md` も変更している。このパスは Hardening Override の対象カテゴリ外だが、canon の I4 要求を PR ごとに自己申告させる項目そのものである。本書の論点（canon 7 本の I4）とは別で、判定していない。
 - **範囲外の観察 2**: 1643 下書き（#1657）の §1-2 には、#1447 / #1487 の `s977043` 名義の review を「author と同じアカウント」を理由に独立レビューの証跡から除外する記述が残っている。是正は PR #1658（本書の測定時点で OPEN）で扱われている。本書は #1658 の是正後の読み方（独立性は未確認）に合わせた。
-- **範囲外の観察 3**: 本書の測定のために、PR #1650 の head を `git fetch origin pull/1650/head` でローカルの参照 `origin/pr-1650-head` として取得した（origin には何も書いていない）。
+- **範囲外の観察 3**: 本書の測定のために、PR #1650 の head（`5631e140`）を `git fetch origin pull/1650/head` で取得した（origin には何も書いていない）。上記の比較は SHA で書いてあるので、この fetch をすれば誰でも再現できる。
