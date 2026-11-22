@@ -17,7 +17,7 @@ BLOCKED
 
 > **2026-11-02 追記（事実更新）**: `scripts/ai-loop-v2/limits.py` は PR #1622（merge commit `46685615`、2026-10-29T16:19:12Z）で main に入った。2026-10-23 追記（C-3 APPROVED）の blocker のうち「`limits.py` が main に無い」は解消した（この追記で上書き。元の記述は履歴として残す）
 
-> **2026-10-23 追記（#1393 PF-5 への追従、R-105〜R-108）**: PF-5 の Human 決定（2026-10-22、TASK-1393 R-085〜R-088）に合わせ、plan「Size and cost bound」の terminal reserve を event 全体基準・`TERMINAL_RESERVE >= 1 event かつ >= MAX_DECISION_EVENT_BYTES`（envelope overhead 0）・定数の出典 `limits.py` に改めた。**plan が変わったので plan_hash が変わり、C-3 の再承認（Human による `approvals/c3.json` の発行）が必要**。簡易 C-1 は **PASS with WARN**
+> **2026-10-23 追記（#1393 PF-5 への追従、R-105〜R-108）**: PF-5 の Human 決定（2026-10-22、TASK-1393 R-085〜R-088）に合わせ、plan「Size and cost bound」の terminal reserve を event 全体基準・`TERMINAL_RESERVE >= 1 event かつ >= MAX_DECISION_EVENT_BYTES`（envelope overhead 0）・定数の出典 `limits.py` に改めた。**plan が変わったので plan_hash が変わり、C-3 の再承認（Human による `approvals/c3.json` の発行）が必要**（→ 上の 2026-10-23 追記の APPROVED がこの再承認にあたる。c3.json の `plan_hash` が現行 plan の sha256 `f02d69cf…` と一致することを 2026-11-23 に照合）。簡易 C-1 は **PASS with WARN**
 
 > **2026-10-22 追記（C-3 準備の改訂、R-099〜R-104）**: Human 決定 P1〜P4（2026-10-21、すべて推奨案 a）を記録し、#1422 の owner 凍結（B-3 / B-4 / B-5 = #1392）、load 時の `SnapshotInvalid` は INCONCLUSIVE より厳しい（PASS 不可）、#1393 I-11 / PF-5 への参照、#1391 の現状（OPEN・TASK-1391 は C-3 未実施）を plan / todo / test-cases に 1 回で反映。簡易 C-1 は **PASS with WARN**。残るのは Human による `approvals/c3.json` の発行。issue #1392 は 2026-10-22 時点で OPEN
 
