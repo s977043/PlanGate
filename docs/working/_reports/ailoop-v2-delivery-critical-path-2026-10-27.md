@@ -3,7 +3,91 @@
 > 初版の測定基準: `origin/main` = `7cf715c623602ece11ad0db43d5938664780963e`（2026-10-27 取得）。
 > **更新（2026-10-30）**: `origin/main` = `46685615dcb396b1048443136e6dca6a468b44c1`（#1619 / #1622 merge 後）に合わせて §結論・§1・§2・§3・§4・§5・§6・§7 を更新した。更新箇所には「（2026-10-30 更新）」と書く。§3.1 の出典表と §3.3 の案の比較は 2026-10-27 時点の分析として残し、現状との差を §3 冒頭に注記した。
 > issue の状態は 2026-10-27 に `gh issue view` で取得した値（#1391 / #1393 は 2026-10-30 に再確認し、いずれも OPEN・更新日時は変わらず）。
+> **更新（2026-11-22）**: `origin/main` = `9d55ae5dc22dcfb0865f3f3f97110a88814a686e` で再測定し、差分を下の「2026-11-22 更新」節にまとめた。§結論〜§7 の本文は 2026-10-30 時点の記述として残す。
 > 本レポートは判断材料であって、承認・実行許可ではない。実装・plan 改訂・c3.json の発行はしていない。
+
+## 2026-11-22 更新（2026-10-30 からの差分）
+
+測定: 2026-11-22、`origin/main` = `9d55ae5d`（`git ls-remote` と一致）。issue は `gh issue view` / `gh issue list`、plan は `git show origin/main:<path> | shasum -a 256` で取得した。
+
+### 判定
+
+**Delivery First Release は BLOCKED のまま。** 2026-10-30（`46685615`）以降、`scripts/ai-loop-v2/` への commit は 0 件（`git log 46685615..origin/main -- scripts/ai-loop-v2`。同じコマンドで `7cf715c6..46685615` を測ると #1622 が出るので、検出はできている）。owner 実装（#1391 / #1392 / #1393）は 3 本とも main に無い。
+
+### 期間中に main へ入った関連 commit（すべて docs）
+
+| PR | commit | 内容 | クリティカルパスへの影響 |
+|---|---|---|---|
+| #1621 | `dc32f87c` | 日次 Runtime Evidence トリアージの Gap Analysis | なし（クリティカルパス外） |
+| #1626 | `2c037648` | TASK-1391 / 1392 / 1393 の working doc を main の事実に合わせる | TASK-1391 status.md に C-3 APPROVED を記録（§2 で「未更新」としていた点は解消）。H-7 / H-9 は下表のとおり残る |
+| #1635 | `7c3adc96` | TASK-1393 の状態同期・局所検証・byte 上限の反例 | #1623 の入力。`evidence/byte-bound-review-2026-11-03.md` は、71 文字の ASCII ID でも canonical JSON では最大 428 byte（制御文字の escape）になり、16 件の配列で 1,185 byte の想定に対し実測 6,845 byte になることを示した（非権威の診断 Evidence） |
+| #1650 / #1653 | `90047151` / `8a689907` | canon I1 例外の失効（2026-09-29 UTC）を記録し I4 へ移行（TASK-1408） | 以後の canon 7 本の規定変更は I4 を要する。失効後に merge された 4 commit の扱いは #1643 で Human 裁定待ち |
+
+### C-3 と plan の一致（`origin/main` で再測定）
+
+| TASK | plan.md の sha256（先頭 16 桁） | plan の最終 commit | 2026-10-30 からの変化 | exec の blocker（main 上の記録） |
+|---|---|---|---|---|
+| TASK-1391 | `d46411248590749d` | `62b9a5df`（#1619） | なし。APPROVED の記録と一致したまま | #1329 preflight の記録 / reviewed_at_sha の記録（TASK-1391/status.md:46、未チェック） |
+| TASK-1392 | `f02d69cf7c8b9b29` | `d9211850`（#1606） | なし | #1391 consumable / #1329 preflight（INDEX.md） |
+| TASK-1393 | `ed637f48bdf91d7c` | `62b9a5df`（#1619） | なし。フェーズは exec | Preflight PF-1〜PF-8（依存解消後） |
+
+**c3.json の実物照合（2026-11-23、読み取りのみ）**: c3.json は各 worktree に untracked で残っている。`jq '{task_id,c3_status,plan_hash,approved_at}'` で読み、上表の plan sha256 と比べた。
+
+| TASK | 現行 plan と一致する c3.json | `approved_at` | 同じ TASK の古い c3.json（現行 plan とは不一致） |
+|---|---|---|---|
+| TASK-1391 | `.claude/worktrees/c3-1393-rev28/` | 2026-10-29T10:09:24Z | `agent-a7a396766f7d26d03/`（`d4f69f26…`、2026-10-22） |
+| TASK-1392 | `.claude/worktrees/c3-1392/` | 2026-10-23T00:19:01Z | `agent-ad06d31d2dc237b62/`（`96621188…`、2026-10-21） |
+| TASK-1393 | `.claude/worktrees/c3-1393-rev28/` | 2026-10-29T10:09:18Z | `agent-a9df828d1806c6920/`（Rev 2.6 `ec2a0db8…`、2026-10-21）/ `agent-a7e97659bc213969e/` と `c3-1393-rev27/`（Rev 2.7 `404c432a…`、2026-10-22 と 2026-10-27） |
+
+3 本とも `c3_status` は `APPROVED` で、現行 plan と一致する c3.json がある（探索範囲は `.claude/worktrees/*/docs/working/TASK-139[123]/approvals/c3.json`。c3.json は untracked なので repository からは検証できない）。exec 用の worktree はまだ決まっておらず、そこへの配置は済んでいない。AI は c3.json を複製しない（EH-13）ので、exec の前に Human が配置する必要がある。
+
+**§6 H-3 の訂正**: H-3 では「Rev 2.7 のまま承認された記録は無い」と書いたが、Rev 2.7（`404c432a…`）に対する c3.json が 2 つある（2026-10-22T03:31:31Z と 2026-10-27T18:02:34Z）。その後 Rev 2.10 が承認されたので、現状への影響は無い。
+
+### #1391 exec の blocker の再分類
+
+§5 と TASK-1391/status.md:21 は、#1391 exec の blocker を「#1329 preflight 記録 / reviewed_at_sha 記録、`owner`: Human」としている。一次ソースを読み直すと、この 2 つは exec の T1 に含まれる AI のタスクだった。
+
+- TASK-1391/todo.md:64〜65: `🤖 reviewed_at_sha / base SHA 記録` と `🤖 #1329 preflight（M-1/M-2/M-3 before）記録`。どちらも `rollback: 不要`
+- TASK-1391/plan.md:240〜244（T1 — Preconditions）: 同じ 2 項目を exec の最初の作業として挙げている
+- #1329 の M-1 / M-2 / M-3 は、`phase0-migration.md` §7 の判定コマンドを実行して出力を記録する作業で、手順そのものは AI が行える
+
+ただし、記録の意味づけは未確定である。`phase0-migration.md`:356（「再測定の終了」）は、失効後は §7 の再測定が判定条件ではなく、以後は I4 で判定すると定めている。TASK-1391 plan は失効前の baseline を前提に「M-1 / M-2 / M-3 before」の記録を求めている。そのため、T1 で何を記録すれば exec 前提を満たすかを Human に確認し、2026-11-23 に決着した（H-12: 実測を参考記録として残し、失効済みで判定条件ではないと併記する）。
+
+したがって #1391 exec を始めるのに要る Human の操作は、次の 2 つの手順になる:
+
+1. 現行 plan と一致する c3.json（`c3-1393-rev28/` 配下の TASK-1391）を exec 用の worktree に配置する
+2. `PLANGATE_HOOK_TASK=TASK-1391` でセッションを起動する
+
+#1643（失効後 4 commit の I4 扱い）は TASK-1391 の plan / todo / status から参照されておらず、#1391 exec の前提ではない。I1 失効後の #1329 preflight の値の意味（失効を検出する目的はすでに果たされている）については、plan に書かれたとおり記録し、解釈は変えない。
+
+### issue の状態（2026-11-22）
+
+§1 の 15 件はすべて OPEN。2026-10-30 以降に更新があったのは #1623（2026-11-02）だけ。新たにクリティカルパスに関係する issue:
+
+| # | 状態 | 最終更新 (UTC) | 関係 |
+|---|---|---|---|
+| #1643 canon 7: I1 例外の失効後に merge された 4 commit の I4 扱い | OPEN | 2026-11-07 | Human 裁定待ち。TASK-1408 handoff の既知課題 |
+| #1408 canon I1 例外失効の記録と I4 移行 | OPEN | 2026-09-23 | #1650 / #1653 で記録済み。handoff の総合判定は WARN で、残因は AC-6 の I4 充足判定（Human 判断。TASK-1408/handoff.md:47〜49） |
+| #1329 canon I1 例外の失効後 I4 へ移行 | OPEN | 2026-10-06 | #1391 / #1392 の exec 前提「#1329 preflight の記録」。失効後の記録の意味づけは未確定（H-12） |
+
+### Human 判断事項（§6）の現状
+
+| ID | 2026-11-22 の状態 | 根拠 |
+|---|---|---|
+| H-5 | 決着（照合済み） | `c3-1392/` の c3.json の `plan_hash` が現行 plan の sha256 `f02d69cf…` と一致（上記「c3.json の実物照合」） |
+| H-6 | 決着（保留） | Human 決定 2026-11-23: 選択肢 3（保留）。#1395 に着手するまで決めない |
+| H-7 | 本 PR で是正 | TASK-1392/INDEX.md:20 の「C-3 の再承認が必要」に、:16 の承認がそれにあたることを追記 |
+| H-8 | 残ギャップ（未再測定） | #1622 本文に #1329 preflight を課さない理由が追記されたかは今回測っていない |
+| H-9 | 本 PR で是正 | TASK-1393/todo.md:27（Rev 2.6）と :34（Rev 2.10）を、c3.json の実物（`ec2a0db8…` / `ed637f48…`）を根拠に `[x]` にした |
+| H-10 | 決着（c） | Human 決定 2026-11-23: 選択肢 c（現状維持。#1391 / #1623 の順序は exec 時に決める）。#1391 exec は plan:181 の byte 再検査に届く前に止めて再確認する。#1635 の反例が前提 |
+| H-11（新設） | 未決着（材料あり） | #1643 の裁定（4 commit ごとに、事後 I4 か例外扱いか）。#1391 exec の前提ではない（上記「#1391 exec の blocker の再分類」）。AC-1 の再測定と判定表の下書きは PR #1657 |
+| H-12（新設） | 決着 | Human 決定 2026-11-23: T1 では M-1 / M-2 / M-3 を exec 時点の main で実行して出力を記録し、「失効済みのため判定条件ではない（`phase0-migration.md`:356）」と併記して #1329 preflight を満たす。plan は変えないので C-3 の再承認は不要 |
+
+### 次の一手（推奨順）
+
+1. #1391 exec の開始 — Human が c3.json を配置して `PLANGATE_HOOK_TASK=TASK-1391` で起動する → AI が T1（reviewed_at_sha / base SHA と、H-12 のとおり M-1〜M-3 の参考記録）から始める
+2. #1391 exec が plan:181 の byte 再検査に届く前に、#1623 との順序を再確認する（H-10 = c）
+3. H-11（#1643）— クリティカルパスとは独立。Phase 1 exit の確認項目に効く。材料は PR #1657
 
 ## 結論
 
@@ -174,6 +258,8 @@ TASK-1392 (C-3 記録上有効) ── #1391 consumable + #1329 ──> #1392 mo
 クリティカルパス外（並行して進めてよい / Delivery の判定には使わない）: #1465 / #1468 / #1473 / #869 / #1376。
 
 ## 6. Human 判断事項
+
+> 2026-10-30 時点の表。現状は冒頭の「2026-11-22 更新」節の「Human 判断事項（§6）の現状」を参照する。
 
 | ID | 問い | 選択肢 | 推奨 | 影響 |
 |---|---|---|---|---|

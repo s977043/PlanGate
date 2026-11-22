@@ -24,14 +24,14 @@
 
 - [x] #1516 scope-observer の導入と Ratchet の private `_canonical_path` 依存解消
 - [x] Ratchet/TA-92 の provisional `DecisionError/decide` からの移行範囲を Human 裁定（2026-10-21、R-081: PF-1 に追加。Revision 2.6）
-- [ ] Revision 2.6 に対する c3.json を Human が再発行（AI は発行しない）
+- [x] Revision 2.6 に対する c3.json を Human が再発行（AI は発行しない）（2026-10-21T09:15:23Z、`plan_hash` `ec2a0db8…`。2026-11-23 に c3.json の実物で照合）
 - [x] #1422 B-1〜B-13 の owner / validation timing を Human 決定（2026-10-21 部分凍結、R-082。B-8 / B-13 は未凍結 gap）
 - [ ] #1422 B-8 / B-13 の語彙・event 形状が #1391 plan（C-3）で決まる
 - [ ] #1391 event contract consumable
 - [ ] #1392 RunState input shape frozen
 - [ ] #1392 derives the transition from (state, action) (request on PR #1406) or this plan's Transition ownership is revisited
 - [x] #1391 decision_made payload keys and I-11 limits agreed (plan PF-5, Human decision 2026-10-22, R-085〜R-088, Revision 2.7)
-- [ ] Revision 2.10 に対する c3.json を Human が再発行（AI は発行しない、R-092）
+- [x] Revision 2.10 に対する c3.json を Human が再発行（AI は発行しない、R-092）（2026-10-29T10:09:18Z、`plan_hash` `ed637f48…`。2026-11-23 に c3.json の実物で照合）
 - [ ] exec: `scripts/ai-loop-v2/limits.py`（葉 module）を作成し `MAX_INPUT_REFS = 256` / `MAX_REQUIRED_VERIFIERS = 16` / `MAX_REF_CHARS = 71` の 3 定数を fixture 固定（R-086 / R-087 / R-091）
 - [ ] follow-up #1623: byte 系 3 定数（`MAX_DECISION_EVENT_BYTES` / `DECISION_FIXED_OVERHEAD` / `ENVELOPE_OVERHEAD`）と I-11 の byte 検査（DI-45 / DC-13）を V2 `decision_made` 構造の確定後に実装（R-091）
 - [ ] #1395 budget 確定時に `MAX_INPUT_REFS >= budget 最大件数` を検証（R-087）
