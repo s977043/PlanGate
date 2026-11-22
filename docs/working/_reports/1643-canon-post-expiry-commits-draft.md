@@ -64,7 +64,7 @@ a6d1ea5f59b7dc03e6a99a07256e7140f0ee58e1 2026-09-29T09:04:39+09:00 mine_take | d
 | #1487 | `a3c9146d` | 2026-10-05T00:48:24Z | `s977043` | `s977043` | （空） | COMMENTED / copilot（quota 超過で未実行）、COMMENTED / `s977043`（"Final review (loop 3)"） | **0** |
 
 - 4 件とも **author = mergedBy = `s977043`**、APPROVED の review は **0 件**。issue 記載の値と一致した。
-- #1447 と #1487 には `s977043` 名義の COMMENTED review がある。**author と同じアカウント**で投稿されているため、作成者以外による独立レビューの証跡としては数えられない（`evaluation-trust-boundary.md` §4。誰が・どの context で書いたかは GitHub 上からは判別できない）。
+- #1447 と #1487 には `s977043` 名義の COMMENTED review がある。author と同じアカウントからの投稿だが、`evaluation-trust-boundary.md` §4 の Independence Level は context・role・run の分離で定義されており（I1 = same model / separate context + role + run）、別アカウントでの投稿は要件ではない。同一アカウントであることだけでは不適格と言えない。一方、どの context・role・run で書かれたかは GitHub 上の情報からは判別できていないので、**独立性は未確認**として記録する。なお I4 は Human と機械の独立証跡の両方を要する（§4 の I4 行）ので、この review だけで I4 を満たすことにはならない。
 - #1487 の commit には `Co-authored-by: GPT-5.6 Sol <noreply@openai.com>` の trailer がある。
 - I4 の機械証跡（固定 commit で再現でき、作成者の外で再実行したコマンドと出力）は、4 PR の review・本文・commit のいずれにも、本測定では見つからなかった（PR 本文とコメントは今回は読んでいない。§5 を参照）。
 
