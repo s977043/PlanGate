@@ -144,5 +144,5 @@ I4 の充足記録をどこに置くかは §7 の規定（`docs/working/TASK-14
 ## 5. 本書で行っていないこと・範囲外の観察
 
 - **行っていないこと**: 4 件の裁定、non-normative の確定、I4 証跡の作成、canon 本文と `phase0-migration.md` の変更、issue と PR へのコメント。4 PR の本文と会話コメント（review 以外）は読んでいない。PR 本文に I4 相当の記録があるかどうかは未確認。
-- **範囲外の観察 1**: 測定範囲の終点 `9445df17` より後に、canon に触れた first-parent commit が 3 本ある（`ae56b75f` #1652 / `90047151` #1650 / `8a689907` #1653）。issue #1643 の範囲（`3331e5c4..9445df17`）の外にあるため判定していない。これらに I4 が要るかどうかは別途の確認事項。
+- **範囲外の観察 1**: 測定範囲の終点 `9445df17` より後に、canon に触れた first-parent commit が 3 本ある（`ae56b75f` #1652 / `90047151` #1650 / `8a689907` #1653）。issue #1643 の範囲（`3331e5c4..9445df17`）の外にあるため判定していない。これらの I4 要否の判定材料は `docs/working/_reports/canon-post-9445df17-commits-draft.md`（PR #1659）にある。
 - **範囲外の観察 2**: #1441 は canon 外の `.claude/rules/working-context.md` も変更している（`git diff --stat 6d626360^1 6d626360`）。このパスは Hardening Override の対象カテゴリ（`.claude/rules/*.md`）にあたる。本書の論点（canon 7 本の I4）とは別の境界であり、判定していない。
