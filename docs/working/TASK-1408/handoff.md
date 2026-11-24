@@ -59,7 +59,7 @@ evidence_head: 6d1f7a6b5ff52cda320e7ed99fdb9ad0ccf3a311（T-10 独立 worker が
 | CI の markdownlint v25 での結果が未確認（ローカルは 0.18.1 で 0 error） | minor | open | No |
 | 失効後 4 commit の扱いは未裁定 | — | #1643 で Human 裁定 | No |
 | run-tests の head `c571a65c`（§6）が `9c5b3262..5dae38c0` に含まれず、PR 内容に対する結果と確認できない（PR #1650 レビュー指摘 6） | minor | PR head `276f36a4` で取り直した（単独・直列、rc=1、1552 passed / 3 failed）。タイムアウト 2 件は負荷に帰属。TA-10 TC-7 は対照 `9445df17` でも同じ FAIL が出ており、既知 issue #1651（OPEN）として本変更に帰属しない（§6）。`c571a65c` のログは PR 外の SHA で測った参考値として残す。判定は WARN のまま | No |
-| PR は `BEHIND`（base `9445df17`）。main 取り込みで `canon..head` の固定が崩れ REPRO-CHECK が FAIL する見込み（未実行。指摘 7） | major | **Human 裁定済み（2026-11-13）**: main を取り込まず、照合点は evidence head `6d1f7a6b` に固定する | No |
+| PR は `BEHIND`（base `9445df17`）。main 取り込みで `canon..head` の固定が崩れ REPRO-CHECK が FAIL する見込み（未実行。指摘 7） | major | **Human 裁定済み（2026-11-13）**: main を取り込まず、照合点は evidence head `6d1f7a6b` に固定する。（2026-11-24 追記）ただし裁定の後、PR の最終 head は main を取り込んだ merge commit `5631e140` になった（status.md の 2026-11-13 07:28 行）。REPRO-CHECK への影響は未確認 | No |
 
 ## 3. V2 候補
 
