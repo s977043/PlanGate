@@ -4,7 +4,52 @@
 > **更新（2026-10-30）**: `origin/main` = `46685615dcb396b1048443136e6dca6a468b44c1`（#1619 / #1622 merge 後）に合わせて §結論・§1・§2・§3・§4・§5・§6・§7 を更新した。更新箇所には「（2026-10-30 更新）」と書く。§3.1 の出典表と §3.3 の案の比較は 2026-10-27 時点の分析として残し、現状との差を §3 冒頭に注記した。
 > issue の状態は 2026-10-27 に `gh issue view` で取得した値（#1391 / #1393 は 2026-10-30 に再確認し、いずれも OPEN・更新日時は変わらず）。
 > **更新（2026-11-22）**: `origin/main` = `9d55ae5dc22dcfb0865f3f3f97110a88814a686e` で再測定し、差分を下の「2026-11-22 更新」節にまとめた。§結論〜§7 の本文は 2026-10-30 時点の記述として残す。
+> **更新（2026-11-25）**: `origin/main` = `39219a612c9da8597e7f9c52c14be982f9a745e8` で再測定し、実行計画を下の「2026-11-25 更新」節にまとめた。2026-11-22 更新節はその時点の記述として残す。
 > 本レポートは判断材料であって、承認・実行許可ではない。実装・plan 改訂・c3.json の発行はしていない。
+
+## 2026-11-25 更新（実行計画）
+
+測定: 2026-11-25、`origin/main` = `39219a61`（`git ls-remote` と一致）。
+
+### 判定
+
+**Delivery First Release は BLOCKED のまま。** `scripts/ai-loop-v2/` への commit は 2026-10-30（`46685615`）以降 0 件。関連 issue（#870 / #1391 / #1392 / #1393 / #1395 / #1383 / #1623 / #1643 / #1329）はすべて OPEN で、2026-11-07 以降の更新なし。
+
+### 2026-11-22 からの進捗
+
+| 項目 | 状態 | 一次ソース |
+|---|---|---|
+| TASK-1391 の C-3 | c3.json を exec 用 worktree `.claude/worktrees/exec-1391` に Human が配置（2026-11-24）。`plan_hash` は plan.md の sha256 `d4641124…` と一致（読み取りで照合） | `jq` / `shasum -a 256` |
+| TASK-1391 exec T1 | **完了**。commit `ca4af956`（ブランチ `feat/1391-phase1b-exec`、push 済み、PR なし）。`reviewed_at_sha` = `62b9a5df`、base SHA = `a21dff26`、#1329 preflight は M-1〜M-3 の出力を参考記録（H-12） | `git ls-remote origin refs/heads/feat/1391-phase1b-exec` |
+| TASK-1391 exec T2 以降 | 未着手。T1 を実行したセッションは終了している | exec-1391 の `git status` / `git log` |
+| #1408 の記録 | 裁定後に main が取り込まれた事実を #1662 で追記（merge `39219a61`） | — |
+
+### バイト上限が #1391 のどこに効くか（H-10 の具体化）
+
+- TASK-1391 plan P1B-7（plan.md:181）は `MAX_INPUT_REFS` と `MAX_DECISION_EVENT_BYTES` を #1393 から import し、`validate_append` の append-only 層で再検査すると定めている
+- main の `scripts/ai-loop-v2/limits.py` にあるのは `MAX_INPUT_REFS` / `MAX_REQUIRED_VERIFIERS` / `MAX_REF_CHARS` の 3 定数だけ。`MAX_DECISION_EVENT_BYTES` / `DECISION_FIXED_OVERHEAD` / `ENVELOPE_OVERHEAD` は無く、`test_limits.py:25` がこの 3 つを別扱い（`BYTE_CONSTANTS`）にしている（`git grep '^MAX_' origin/main -- scripts/ai-loop-v2/limits.py`）
+- したがって P1B-7 のうち **件数上限（`MAX_INPUT_REFS`）の再検査は今すぐ実装できる**。**バイト上限の再検査だけが #1623 を待つ**。P1B-1〜P1B-13 の他の差分はバイト上限に依存しない
+
+### 最適化した実行順
+
+H-10 = c（順序は exec 時に決める）の範囲で、#1391 の exec を**バイト再検査の手前で区切る**。plan の内容・範囲は変えないので、plan_hash も C-3 も変わらない。
+
+1. **#1391 exec スライス A**（AI、`PLANGATE_HOOK_TASK=TASK-1391` のセッション）: T2 RED → T3 GREEN を P1B-1〜P1B-13 について進める。P1B-7 は件数上限まで。バイト上限の再検査は RED を書いて skip にしておき、理由に「#1623 待ち（H-10 = c）」を残す
+2. **ここで 1 回止めて Human 確認**（H-10 = c の約束どおり）: バイト再検査を #1391 の中で後から入れるか、#1623 の PR に含めるかを決める
+3. **#1623**（#1393 担当）: スライス A で `decision_made` の payload / envelope 構造が確定するので、最悪ケースの event を組んで byte 系 3 定数を fixture 固定する。#1635 の反例（71 文字 ID 16 件で 6,845 byte）を前提にする
+4. **#1391 exec スライス B**: バイト再検査を GREEN にし、T4 mutation → T5 docs → T6 review（敵対レビュー R1 / R2）→ PR → C-4
+5. **#1392 exec**: #1391 が consumable になってから（`state_conflict` 改名・payload・旧名廃止は #1392 の exec で入れる。TASK-1391 plan P1B-8）
+6. **#1393 core exec**（PF-1〜PF-8）→ **#1395** owner-backed E2E → #1383 / #870
+
+並行してよいもの（クリティカルパス外）: #1643 と #1659 の canon commit の裁定（Human）。
+
+### Human の操作をまとめた手順（往復を減らすため）
+
+| いつ | 操作 |
+|---|---|
+| いま | exec-1391 で `PLANGATE_HOOK_TASK=TASK-1391 claude` を起動し、スライス A（T2 から、P1B-7 は件数上限まで）を指示する |
+| スライス A 完了時 | バイト再検査の置き場所（#1391 の後半 / #1623 の PR）を決める |
+| 以後 TASK ごと | TASK を指定して起動し直す必要がある。#1655（ブランチ名から TASK を導出）が入れば不要になる。#1655 は HO パス（`scripts/hooks/`）の変更なので適用は Human |
 
 ## 2026-11-22 更新（2026-10-30 からの差分）
 
