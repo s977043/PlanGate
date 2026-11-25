@@ -34,7 +34,7 @@
 
 H-10 = c（順序は exec 時に決める）の範囲で、#1391 の exec を**バイト再検査の手前で区切る**。plan の内容・範囲は変えないので、plan_hash も C-3 も変わらない。
 
-1. **#1391 exec スライス A**（AI、`PLANGATE_HOOK_TASK=TASK-1391` のセッション）: T2 RED → T3 GREEN を P1B-1〜P1B-13 について進める。P1B-7 は件数上限まで。バイト上限の再検査は RED を書いて skip にしておき、理由に「#1623 待ち（H-10 = c）」を残す
+1. **#1391 exec スライス A**（AI、`PLANGATE_HOOK_TASK=TASK-1391` のセッション）: T2 RED → T3 GREEN を P1B-1〜P1B-13 について進める。P1B-7 は件数上限まで。バイト上限の再検査は RED を書いて skip にしておき、理由に「#1623 待ち（H-10 = c）」を残す。skip を外すのは #1623 のバイト系定数が main に入った後だけで、スライス B で必ず GREEN にする（plan.md:33 の「skip marker による自動有効化はしない」と同じ型の穴を作らない）
 2. **ここで 1 回止めて Human 確認**（H-10 = c の約束どおり）: バイト再検査を #1391 の中で後から入れるか、#1623 の PR に含めるかを決める
 3. **#1623**（#1393 担当）: スライス A で `decision_made` の payload / envelope 構造が確定するので、最悪ケースの event を組んで byte 系 3 定数を fixture 固定する。#1635 の反例（71 文字 ID 16 件で 6,845 byte）を前提にする
 4. **#1391 exec スライス B**: バイト再検査を GREEN にし、T4 mutation → T5 docs → T6 review（敵対レビュー R1 / R2）→ PR → C-4
