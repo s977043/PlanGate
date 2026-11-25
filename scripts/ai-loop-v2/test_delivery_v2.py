@@ -57,12 +57,16 @@ def context(revision=0):
     }
 
 
+BOUND_PAYLOAD = {
+    "loop_contract_ref": "sha256:" + "d" * 64,
+    "required_verifiers": ["deterministic.tests"],
+    "evidence_ref": "plan:bound",
+}
+
+
 def plan_event(seq=1):
     return finalize_event(
-        draft(
-            "plan_contract_bound",
-            {"plan_hash": P, "source_sha": S, "evidence_ref": "plan:bound"},
-        ),
+        draft("plan_contract_bound", copy.deepcopy(BOUND_PAYLOAD)),
         context(),
         seq,
     )
@@ -115,6 +119,7 @@ class EventContractTests(unittest.TestCase):
                         "observation": "fail",
                         "fingerprint": "fp",
                         "evidence_refs": ["v-missing"],
+                        "verification_ref": "v-missing",
                         "cause_hypothesis": "bug",
                         "repairability": "repairable",
                         "result": "open",
@@ -153,10 +158,7 @@ class StateStoreTests(unittest.TestCase):
         }
 
     def _draft(self):
-        return draft(
-            "plan_contract_bound",
-            {"plan_hash": P, "source_sha": S, "evidence_ref": "plan:bound"},
-        )
+        return draft("plan_contract_bound", copy.deepcopy(BOUND_PAYLOAD))
 
     def test_crash_windows_recover_without_duplicate_visible_effect(self):
         for failpoint in ("journal", "event", "state"):
@@ -564,7 +566,7 @@ import run_evidence as REV  # noqa: E402
 from unittest import mock  # noqa: E402
 from run_event import digest, validate_append, validate_event_draft  # noqa: E402
 
-L_REF = "sha256:" + "d" * 64
+L_REF = BOUND_PAYLOAD["loop_contract_ref"]
 P2 = "sha256:" + "e" * 64
 S2 = "4" * 40
 PASSED = {

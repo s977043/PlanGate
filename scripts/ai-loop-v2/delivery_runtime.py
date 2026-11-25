@@ -13,8 +13,11 @@ from __future__ import annotations
 import copy
 
 from decision_core import assess_progress, decide
-from run_evidence import project_run_evidence
+from run_event import digest
+from run_evidence import UnusableStreamError, project_run_evidence
 from run_state import DurableRunStore
+
+_DECISION_VERDICTS = {"pass": "pass", "fail": "fail"}
 
 
 def _draft(event_type, payload):
@@ -28,12 +31,24 @@ def _append(store, state_name, event_type, payload):
     )
 
 
-def _spec_payload(event):
+def _verdicts(required_verifiers, verifications):
+    verdicts = {}
+    for verifier_id in required_verifiers:
+        latest = next(
+            (value for value in reversed(verifications) if value["verifier_id"] == verifier_id),
+            None,
+        )
+        if latest is not None:
+            verdicts[verifier_id] = _DECISION_VERDICTS.get(latest["status"], "unavailable")
+    return verdicts
+
+
+def _spec_payload(event, contract):
     event_type = event["type"]
     if event_type == "plan_contract_bound":
         return {
-            "plan_hash": event["plan_hash"],
-            "source_sha": event["source_sha"],
+            "loop_contract_ref": digest(contract),
+            "required_verifiers": list(contract["required_verifiers"]),
             "evidence_ref": event["evidence_ref"],
         }
     if event_type == "worker_completed":
@@ -65,6 +80,7 @@ def _spec_payload(event):
     if event_type == "pr_convergence_recorded":
         return {
             "convergence": copy.deepcopy(event["convergence"]),
+            "observed_artifact_ref": event.get("observed_artifact_ref"),
             "evidence_refs": copy.deepcopy(event["evidence_refs"]),
         }
     raise ValueError(event_type)
@@ -97,6 +113,7 @@ def run_spec_fixture(trace, root):
     plan_verified = False
     progress_count = 0
     terminal = False
+    contract_bound_seq = None
 
     # Stage-2 decision/progress records are oracle values only. They are not
     # supplied to the owner-backed runtime.
@@ -113,8 +130,20 @@ def run_spec_fixture(trace, root):
                 merged.append(path)
         changed_paths = merged
 
-    def _record_decision(state_name, decision):
+    def _record_decision(state_name, decided_in_state, decision):
         nonlocal terminal
+        decision = dict(
+            decision,
+            input_last_event_seq=len(store.read_events()),
+            contract_bound_seq=contract_bound_seq,
+            decided_in_state=decided_in_state,
+            failure_fingerprints=list(dict.fromkeys(f["fingerprint"] for f in failures)),
+            verdicts=_verdicts(contract["required_verifiers"], verifications),
+        )
+        if current_artifact is not None:
+            decision["artifact_ref"] = current_artifact
+        elif decision.get("outcome") == "MERGE_READY":
+            raise ValueError("MERGE_READY without current artifact")
         _append(store, state_name, "decision_made", {"decision": decision})
         if decision.get("outcome") is not None:
             terminal = True
@@ -124,10 +153,11 @@ def run_spec_fixture(trace, root):
             # A terminal outcome ends the run; later stimuli are not processed.
             break
         event_type = spec["type"]
-        payload = _spec_payload(spec)
+        payload = _spec_payload(spec, contract)
 
         if event_type == "plan_contract_bound":
-            _append(store, "PLAN_VERIFYING", event_type, payload)
+            _, bound_event = _append(store, "PLAN_VERIFYING", event_type, payload)
+            contract_bound_seq = bound_event["event_seq"]
             continue
 
         if event_type == "verification_recorded":
@@ -142,33 +172,24 @@ def run_spec_fixture(trace, root):
                     "verification not bound to current artifact: "
                     + verification["id"]
                 )
-            state_name = (
-                "PLAN_VERIFYING"
-                if verification["verifier_id"] == "specification.plan"
-                else "VERIFYING"
+            is_plan = verification["verifier_id"] == "specification.plan"
+            plan_passed = (
+                is_plan
+                and verification["status"] == "pass"
+                and verification["bound_artifact_ref"] == binding["plan_hash"]
             )
+            if plan_passed:
+                state_name = "EXECUTING"
+            elif is_plan:
+                state_name = "PLAN_VERIFYING"
+            else:
+                state_name = "VERIFYING"
             _append(store, state_name, event_type, payload)
             verifications.append(verification)
-            if verification["verifier_id"] == "specification.plan":
-                if (
-                    verification["status"] != "pass"
-                    or verification["bound_artifact_ref"] != binding["plan_hash"]
-                ):
+            if is_plan:
+                if not plan_passed:
                     raise ValueError("plan verification failed")
                 plan_verified = True
-                _append(
-                    store,
-                    "EXECUTING",
-                    "decision_made",
-                    {
-                        "decision": {
-                            "action": "continue",
-                            "inputs": [verification["id"]],
-                            "outcome": None,
-                            "stop_reasons": [],
-                        }
-                    },
-                )
             continue
 
         if not plan_verified:
@@ -212,6 +233,7 @@ def run_spec_fixture(trace, root):
                 )
                 _record_decision(
                     "DIAGNOSING" if decision["outcome"] else "REPAIRING",
+                    "DIAGNOSING",
                     decision,
                 )
             else:
@@ -222,7 +244,7 @@ def run_spec_fixture(trace, root):
                     failures=failures,
                     current_artifact_ref=current_artifact,
                 )
-                _record_decision("REPAIRING", decision)
+                _record_decision("REPAIRING", "DIAGNOSING", decision)
 
         elif event_type == "artifact_changed":
             _observe_paths(payload["changed_paths"])
@@ -246,15 +268,18 @@ def run_spec_fixture(trace, root):
                 pr_convergence=payload,
                 changed_paths=changed_paths,
             )
-            _record_decision("PR_CONVERGING", decision)
+            _record_decision("PR_CONVERGING", "PR_CONVERGING", decision)
 
         else:
             raise ValueError(event_type)
 
     events = store.read_events()
-    projection = project_run_evidence(
-        events, binding["harness_manifest_ref"]
-    )
+    try:
+        projection = project_run_evidence(
+            events, binding["harness_manifest_ref"]
+        )
+    except UnusableStreamError as exc:
+        raise ValueError("delivery produced no usable event stream") from exc
     return {
         "state": store.read_state(),
         "events": events,

@@ -114,7 +114,11 @@ def project(trace):
         "stop_reasons": stop_reasons,
         "verification_result_refs": verification_refs,
         "failure_record_refs": failure_refs,
-        "evidence_status": "ready" if outcome is not None else "partial",
+        "evidence_status": (
+            "partial" if outcome is None
+            else "ready" if outcome == "MERGE_READY"
+            else "terminal_unready"
+        ),
     }
 
 
@@ -205,6 +209,10 @@ def validate_common(trace):
                 req(reasons == [], "MERGE_READY must not carry failure stop reason")
             elif outcome in {"HUMAN_ESCALATED", "BLOCKED"}:
                 req(bool(reasons), "non-success terminal outcome requires stop reason")
+            if outcome == "MERGE_READY" or "artifact_ref" in decision:
+                ref = decision.get("artifact_ref")
+                req(isinstance(ref, str) and SHA256_RE.fullmatch(ref) is not None,
+                    "decision artifact_ref")
 
     terminal_events = [
         event for event in events
@@ -273,20 +281,14 @@ def validate_initial_plan_gate(trace):
     req(plan_verify["verification"]["bound_artifact_ref"] == binding["plan_hash"],
         "Plan Verification bound to wrong plan")
 
-    plan_verification_id = plan_verify["verification"]["id"]
-    plan_decision = next((
-        e for e in events
-        if e["type"] == "decision_made"
-        and plan_verification_id in e["decision"].get("inputs", [])
-    ), None)
-    req(plan_decision is not None, "Plan Gate decision missing")
-    req(plan_decision["decision"]["action"] == "continue", "Plan Gate must continue")
-    req(plan_decision["decision"].get("outcome") is None, "Plan Gate cannot terminate success")
-
     worker = next((e for e in events if e["type"] == "worker_completed"), None)
     req(worker is not None, "Worker event missing")
-    req(plan_verify["seq"] < plan_decision["seq"] < worker["seq"],
-        "Execute started before Initial Plan Verification / Plan Gate")
+    req(plan_verify["seq"] < worker["seq"],
+        "Execute started before Initial Plan Verification")
+    req(not any(
+        e["type"] == "decision_made" and plan_verify["seq"] < e["seq"] < worker["seq"]
+        for e in events
+    ), "Plan Gate must not record a decision_made")
 
 
 def validate_repair(trace):
@@ -355,6 +357,8 @@ def validate_repair(trace):
         "MERGE_READY decision must consume PR convergence evidence")
     req(final_det["id"] in final["inputs"],
         "MERGE_READY decision must consume fresh deterministic PASS")
+    req(convergence_event.get("observed_artifact_ref") == final.get("artifact_ref"),
+        "MERGE_READY artifact_ref must match observed convergence head")
 
 
 def validate_no_progress(trace):
@@ -431,65 +435,63 @@ m["events"] = [e for e in m["events"] if not (
     and e["verification"].get("verifier_id") == "specification.plan"
 )]
 m["expected_projection"]["verification_result_refs"].remove("pv1")
-plan_decision = next(e for e in m["events"] if e["type"] == "decision_made")
-plan_decision["decision"]["inputs"] = ["plan:contract-bound"]
 expect_reject("Initial Plan Verification skipped", m, validate_repair)
 
 # Mutation 2: Worker self-report becomes terminal success.
 m = copy.deepcopy(repair)
-m["events"][3]["decision"] = {"action": "stop", "outcome": "MERGE_READY", "stop_reasons": []}
+m["events"][2]["decision"] = {"action": "stop", "outcome": "MERGE_READY", "stop_reasons": []}
 expect_reject("worker self-report completion", m, validate_repair)
 
 # Mutation 3: Independent model PASS causes the loop to continue instead of repair.
 # Keep this non-terminal so it cannot be killed merely by taxonomy-axis checks.
 m = copy.deepcopy(repair)
-m["events"][7]["decision"] = {
+m["events"][6]["decision"] = {
     "action": "continue", "inputs": ["v1", "v2"], "outcome": None, "stop_reasons": []
 }
 expect_reject("model PASS overrides deterministic FAIL", m, validate_repair)
 
 # Mutation 4: Fresh verification is inconclusive but treated as enough.
 m = copy.deepcopy(repair)
-m["events"][9]["verification"]["status"] = "inconclusive"
+m["events"][8]["verification"]["status"] = "inconclusive"
 expect_reject("inconclusive treated as PASS", m, validate_repair)
 
 # Mutation 5: Fresh PASS is actually bound to stale artifact.
 m = copy.deepcopy(repair)
-m["events"][9]["verification"]["bound_artifact_ref"] = m["events"][8]["before_artifact_ref"]
+m["events"][8]["verification"]["bound_artifact_ref"] = m["events"][7]["before_artifact_ref"]
 expect_reject("stale verification reused after repair", m, validate_repair)
 
 # Mutation 6: Harness identity changes during the run.
 m = copy.deepcopy(repair)
-m["events"][6]["harness_manifest_ref"] = "sha256:" + "9" * 64
+m["events"][5]["harness_manifest_ref"] = "sha256:" + "9" * 64
 expect_reject("active-run harness drift", m, validate_repair)
 
 # Mutation 7: Test fixture tries to encode an auto merge side effect.
 m = copy.deepcopy(repair)
 m["events"].append({
-    "seq": 13, "type": "merge_executed", "state": "PR_CONVERGING",
+    "seq": 12, "type": "merge_executed", "state": "PR_CONVERGING",
     "revision": 9, "harness_manifest_ref": m["harness_manifest_ref"],
 })
 expect_reject("auto merge side effect", m, validate_repair)
 
 # Mutation 8: NO_PROGRESS is derived from retry count only.
 m = copy.deepcopy(no_progress)
-m["events"][10]["progress"] = {"retry_count": 2, "no_progress": True}
+m["events"][9]["progress"] = {"retry_count": 2, "no_progress": True}
 expect_reject("retry-count-only no progress", m, validate_no_progress)
 
 # Mutation 9: Terminal Outcome event also carries a Lifecycle State.
 m = copy.deepcopy(no_progress)
-m["events"][11]["state"] = "WAITING_HUMAN"
+m["events"][10]["state"] = "WAITING_HUMAN"
 expect_reject("terminal outcome mixed with lifecycle state", m, validate_no_progress)
 
 # Mutation 10: NO_PROGRESS is incorrectly stored as a Lifecycle State.
 m = copy.deepcopy(no_progress)
-m["events"][10]["state"] = "NO_PROGRESS"
+m["events"][9]["state"] = "NO_PROGRESS"
 expect_reject("NO_PROGRESS used as lifecycle state", m, validate_no_progress)
 
 # Mutation 11: Meaningful artifact delta is incorrectly called no progress.
 m = copy.deepcopy(no_progress)
-m["events"][7]["after_artifact_ref"] = "sha256:" + "b" * 64
-m["events"][10]["progress"]["artifact_changed"] = True
+m["events"][6]["after_artifact_ref"] = "sha256:" + "b" * 64
+m["events"][9]["progress"]["artifact_changed"] = True
 expect_reject("meaningful artifact delta mislabeled no-progress", m, validate_no_progress)
 
 # Mutation 12: FailureRecord is removed but the Decision still references it.
@@ -502,31 +504,31 @@ expect_reject("missing FailureRecord reference", m, validate_repair)
 
 # Mutation 13: HUMAN_ESCALATED without a Stop Reason.
 m = copy.deepcopy(no_progress)
-m["events"][11]["decision"]["stop_reasons"] = []
+m["events"][10]["decision"]["stop_reasons"] = []
 m["expected_projection"]["stop_reasons"] = []
 expect_reject("human escalation without stop reason", m, validate_no_progress)
 
 # Mutation 14: MERGE_READY ignores PR convergence evidence.
 m = copy.deepcopy(repair)
-m["events"][11]["decision"]["inputs"] = ["v3"]
+m["events"][10]["decision"]["inputs"] = ["v3"]
 expect_reject("MERGE_READY missing PR convergence evidence", m, validate_repair)
 
 # Mutation 15: progress fingerprints are self-consistent but do not bind to FailureRecords.
 m = copy.deepcopy(no_progress)
-m["events"][10]["progress"]["previous_failure_fingerprint"] = "fake:same"
-m["events"][10]["progress"]["current_failure_fingerprint"] = "fake:same"
+m["events"][9]["progress"]["previous_failure_fingerprint"] = "fake:same"
+m["events"][9]["progress"]["current_failure_fingerprint"] = "fake:same"
 expect_reject("progress fingerprint provenance detached", m, validate_no_progress)
 
 # Mutation 16: a new blocker exists but the run still claims NO_PROGRESS.
 m = copy.deepcopy(no_progress)
-m["events"][7]["introduced_blockers"] = ["blocker:new"]
-m["events"][10]["progress"]["introduced_blockers"] = ["blocker:new"]
+m["events"][6]["introduced_blockers"] = ["blocker:new"]
+m["events"][9]["progress"]["introduced_blockers"] = ["blocker:new"]
 expect_reject("introduced blocker mislabeled no-progress", m, validate_no_progress)
 
 # Mutation 17: events continue after a terminal outcome.
 m = copy.deepcopy(no_progress)
 m["events"].append({
-    "seq": 13,
+    "seq": 12,
     "type": "repair_attempted",
     "state": "REPAIRING",
     "revision": 9,
@@ -542,10 +544,32 @@ expect_reject("event after terminal outcome", m, validate_no_progress)
 
 # Mutation 18: Repair is explicitly outside the approved scope.
 m = copy.deepcopy(repair)
-m["events"][8]["changed_paths"] = ["outside://forbidden.py"]
+m["events"][7]["changed_paths"] = ["outside://forbidden.py"]
 expect_reject("repair outside approved scope", m, validate_repair)
 
-print("  [PASS] 18 mutation classes killed")
+# Mutation 19 (D-16): the plan-gate decision_made is reintroduced.
+m = copy.deepcopy(repair)
+m["events"].insert(2, {
+    "seq": 2, "type": "decision_made", "state": "EXECUTING", "revision": 1,
+    "harness_manifest_ref": m["harness_manifest_ref"],
+    "decision": {"action": "continue", "inputs": ["pv1"], "outcome": None,
+                 "stop_reasons": []},
+})
+for index, event in enumerate(m["events"], start=1):
+    event["seq"] = index
+expect_reject("plan-gate decision reintroduced", m, validate_repair)
+
+# Mutation 20 (D-13): MERGE_READY decision loses its artifact_ref.
+m = copy.deepcopy(repair)
+del m["events"][10]["decision"]["artifact_ref"]
+expect_reject("MERGE_READY without artifact_ref", m, validate_repair)
+
+# Mutation 21 (D-8): non-MERGE_READY terminal projected as ready.
+m = copy.deepcopy(no_progress)
+m["expected_projection"]["evidence_status"] = "ready"
+expect_reject("HUMAN_ESCALATED projected as ready", m, validate_no_progress)
+
+print("  [PASS] 21 mutation classes killed")
 PY
 ); then
   _T87_RC=0

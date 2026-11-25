@@ -41,7 +41,7 @@
       "f1",
       "f2"
     ],
-    "evidence_status": "ready"
+    "evidence_status": "terminal_unready"
   },
   "events": [
     {
@@ -73,21 +73,6 @@
     },
     {
       "seq": 3,
-      "type": "decision_made",
-      "state": "EXECUTING",
-      "revision": 1,
-      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
-      "decision": {
-        "action": "continue",
-        "inputs": [
-          "pv1"
-        ],
-        "outcome": null,
-        "stop_reasons": []
-      }
-    },
-    {
-      "seq": 4,
       "type": "worker_completed",
       "state": "VERIFYING",
       "revision": 2,
@@ -96,7 +81,7 @@
       "evidence_ref": "worker:attempt-1"
     },
     {
-      "seq": 5,
+      "seq": 4,
       "type": "verification_recorded",
       "state": "VERIFYING",
       "revision": 2,
@@ -113,7 +98,7 @@
       }
     },
     {
-      "seq": 6,
+      "seq": 5,
       "type": "failure_recorded",
       "state": "DIAGNOSING",
       "revision": 3,
@@ -125,13 +110,14 @@
         "evidence_refs": [
           "v1"
         ],
+        "verification_ref": "v1",
         "cause_hypothesis": "implementation defect in changed artifact",
         "repairability": "repairable",
         "result": "open"
       }
     },
     {
-      "seq": 7,
+      "seq": 6,
       "type": "decision_made",
       "state": "REPAIRING",
       "revision": 4,
@@ -147,7 +133,7 @@
       }
     },
     {
-      "seq": 8,
+      "seq": 7,
       "type": "repair_attempted",
       "state": "REPAIRING",
       "revision": 5,
@@ -161,7 +147,7 @@
       "changed_paths": []
     },
     {
-      "seq": 9,
+      "seq": 8,
       "type": "verification_recorded",
       "state": "VERIFYING",
       "revision": 6,
@@ -178,7 +164,7 @@
       }
     },
     {
-      "seq": 10,
+      "seq": 9,
       "type": "failure_recorded",
       "state": "DIAGNOSING",
       "revision": 7,
@@ -190,13 +176,14 @@
         "evidence_refs": [
           "v2"
         ],
+        "verification_ref": "v2",
         "cause_hypothesis": "same implementation defect remains",
         "repairability": "repairable",
         "result": "repeated"
       }
     },
     {
-      "seq": 11,
+      "seq": 10,
       "type": "progress_assessed",
       "state": "DIAGNOSING",
       "revision": 7,
@@ -213,7 +200,7 @@
       "id": "p1"
     },
     {
-      "seq": 12,
+      "seq": 11,
       "type": "decision_made",
       "revision": 8,
       "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
