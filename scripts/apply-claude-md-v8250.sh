@@ -31,7 +31,7 @@
 set -eu
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 F="${PLANGATE_APPLY_FILE:-${ROOT}/CLAUDE.md}"
-RELEASE_DATE="TBD"
+RELEASE_DATE="2026-11-26"
 PREV_TAG="v8.24.0"
 usage() { echo "usage: $0 --dry-run|--apply|--verify|--rollback" >&2; exit 1; }
 [ $# -eq 1 ] || usage
