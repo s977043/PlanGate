@@ -10,7 +10,7 @@ English: A lightweight governance harness for AI coding agents. Start by checkin
 **導入しただけでは hook 強制は有効になりません。** 配布するのは agent / skill / command / rule の定義です。
 ゲートの機械的な保護は別途設定・検証が必要です。設定を変える前に [Hooks の設定について](#hooks-の設定について) を確認してください。
 
-- **Version**: v8.24.0
+- **Version**: v8.25.0
 - **Source**: <https://github.com/s977043/plangate>
 
 ## Install

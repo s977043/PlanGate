@@ -10,6 +10,151 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.25.0 - TBD
+
+feat: EH-3 の no-task セッションで未承認 TASK の plan.md 初回作成を許可し、plugin skill の検証規約（CI と同じ経路・変更前でも成立する期待値の無効化）と plugin README の導入・成功確認・撤去手順を整える
+
+v8.24.0 タグ以降、main へ蓄積した変更を `071198ba`（#1663 の merge commit）まで反映する。
+主題は **no-task セッションで ai-loop の入口（plan.md の初回作成）を塞がないこと**、
+**「通った」の根拠を CI と同じ経路と変更前後の差に置くこと**、
+**plugin の試し方・成功確認・やめ方を導入経路ごとに分けること**。
+
+- 収録範囲は **v8.24.0..`071198ba` の 64 commit・PR 64 件**
+  （実測: `git rev-list --count v8.24.0..071198ba`。PR は first-parent の件名末尾の `(#NNNN)` を全数抽出して一意 64 件、番号の無い commit は 0 件）
+- 配布物（`plugin/`）の変更は **12 ファイル・追加 246 行・削除 53 行**、触れた commit は 11 件
+  （実測: `git diff --shortstat v8.24.0..071198ba -- plugin/` / `git rev-list --count v8.24.0..071198ba -- plugin/`）。
+  11 ファイルは Markdown（README / rules / agents / skills）、残る 1 ファイル `skills/ai-loop-cycle/scripts/gh_exec.py` は docstring の 1 行のみ。
+  `plugin.json` は本リリース準備で 8.25.0 に bump する
+- **`bin/plangate` と `schemas/` の変更は 0 行**（実測: `git diff --numstat v8.24.0..071198ba -- bin/plangate schemas/` が空）。
+  `scripts/hooks/` は `check-plan-hash.sh`（EH-3）の追加 139 行・削除 0 行のみ（#1649）。`CLAUDE.md` は最新リリース節のみ本リリース準備で更新する
+- 破壊的変更を宣言した commit は **0 件**（実測: `v8.24.0..071198ba` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
+- **semver は minor**（Human 決定 2026-11-25）
+
+（数値はいずれも **終端 `071198ba` 時点の測定値**であり、本リリース準備 PR 自身の commit は含まない）
+**PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。
+
+### ⚠️ 更新前に必ずお読みください
+
+> **対象: `scripts/hooks/check-plan-hash.sh`（EH-3）を settings に配線している利用者**（1.）、**`plangate` プラグインを導入している利用者**（2. / 3.）、
+> **`scripts/templates/pre-push.sample` を `.git/hooks/pre-push` に入れている利用者**（4.）。
+> `bin/plangate` の挙動と schema は変えていません。
+
+#### 1. EH-3 が no-task セッションで plan.md の初回作成を許可します（#1649 / #1197 案 B）
+
+`PLANGATE_HOOK_TASK` を設定していない（no-task）セッションでも、次の条件を**すべて**満たす `Write` だけは
+EH-3 が rc=0 で通します（`PLAN_CREATE_ALLOW`。`hook-events.log` と `skip-decision-log.jsonl` の両方に記録）。
+従来はこの場合も block していたため、**block の範囲が狭まる変更**です。
+
+- stdin payload の `tool_name` が `"Write"`（Edit / MultiEdit、env や引数で対象を渡す経路は対象外）
+- 絶対パスで、worktree root からの相対パスが `docs/working/TASK-<id>/plan.md` に厳密一致し、root より下に symlink が無い
+- 対象が存在しない。全 worktree に `approvals/` が無い。git 履歴（`--all --reflog --full-history`）に plan.md も approvals も無い。shallow clone でない
+- STRICT でない。maintenance.json が無い
+
+既存 plan.md の改変は従来どおり block されます。**残存脅威**（完全性は主張しません）: Bash 経路（#1104 open）、TOCTOU、
+untracked な approvals の発見はベストエフォート、兄弟 worktree の untracked plan.md、reflog 失効後の履歴、
+file_path に孤立サロゲートを含む場合（#1647 open）。詳細は `docs/ai/hook-enforcement.md` の EH-3 節。
+
+- **plugin 経由の導入には影響しません**（plugin 配布物に `scripts/hooks/` は含まれない）。plugin の `ai-loop-cycle` skill には、
+  no-task セッションの 3 分岐（plan 作成の入口の案内 / 続行 / `PLANGATE_HOOK_TASK` を設定した再起動の案内と escalate）と、
+  迂回の禁止（CLI での直接書き込み・Bash 経路・`PLANGATE_BYPASS_HOOK`・削除して再作成）の記述が加わります（#1649 / #1652）
+
+#### 2. plugin skill の検証規約が厳しくなります（#1631 / #1638）
+
+`/plugin update` で届くのは文面ですが、**V-1 や handoff の判定結果が変わりえます**。
+
+- **変更前のコードでも満たされる期待値は、変更の証拠として無効**（#1631 / #1599）。`acceptance-review` は WARN とし、
+  期待値の置換（変更前後の差分比較など）をフォローアップとして必須記録する。置換できない場合は FAIL。
+  `ai-dev-plan` の test-cases / C-1 の参照（C1-TEST-14）にも同じ確認を加えた（C-1 の ID の追加・改番は無い）
+- **lint / typecheck / test / build は CI が実際に呼ぶコマンド経由で実行する**（#1631 / #1598）。`diff-audit` の Phase 11 と
+  `acceptance-review` の根拠ログが対象。ツールを直接実行した場合は CI 経路との差を記録し、差を説明できない結果は PASS にしない
+- **`ai-dev-verify` の導入先での settings タスクロックの扱い**（#1638）。従来の「`N/A（hook 非配布）` と handoff に明記」を廃し、
+  上流リポジトリの clone が必要な旨を告げて停止する。clone しない場合は status.md に **degrade（doctor 未検証）** を記録し、
+  PASS 扱いにしない。完了扱いにするかは Human が判断する
+
+#### 3. Codex での導入手順に `codex plugin add` が加わります（#1637）
+
+plugin README の Codex 方法 A は、従来「`marketplace add` で登録が完了する」と案内していましたが、
+**`codex plugin marketplace add s977043/PlanGate` の後に `codex plugin add plangate@plangate` で導入する**手順に改めました。
+導入状態は `codex plugin list --json` の `installed` / `enabled` で確認します。
+
+- plugin README の Claude Code 節は Marketplace を推奨経路に一本化し、`install.sh` は代替経路としました（#1625 / #1628）。
+  Marketplace 版と `install.sh` を同じプロジェクトで併用すると、agents / skills / commands / rules が二重に配置されます
+- 撤去手順（「やめ方と残るもの」）を追加しました（#1637）。**`install.sh --uninstall` は、導入前からあったファイルを削除対象に含めうる
+  既知の問題があります（#1636 open）**。必ず `--dry-run` で削除候補を確認し、導入前からあるファイルや編集済みファイルが含まれる場合は実行しないでください
+
+#### 4. opt-in の pre-push ガードの helper に stdin を渡しません（#1570 / #1558）
+
+`scripts/templates/pre-push.sample` は `while read` のループ内で `scripts/check-branch-not-merged.sh` を stdin を閉じずに呼んでいたため、
+helper が stdin を読むと後続の ref 行が消費され、保護ブランチへの push が検査されずに通りうる状態でした。helper の呼び出しを `</dev/null` にしました。
+
+- **インストール済みの `.git/hooks/pre-push` は自動では更新されません**。是正を使うには再インストールが要ります
+  （手順: `docs/ai/direct-push-prevention.md`）
+
+### EH-3 と ai-loop
+
+- **EH-3 の no-task 経路での plan.md 初回作成許可**（#1649）。patch 文書 `docs/working/_reports/1197-eh3-plan-create-patch.md` を
+  適用スクリプト `scripts/apply-eh3-plan-create-1197.sh` で HO として適用した（同 PR の HO 適用 commit）。回帰網 `ta-119`（変異注入つき）を追加し、許可分岐の入口に plan.md の字句判定を置いて
+  plan.md 以外の Write で追加の子プロセスを起動しないようにした。`docs/ai/hook-enforcement.md` と rollout-policy の記述を適用後の状態に同期した（#1652）
+- **ai-loop V2 の canon I1 例外の失効を記録し、I4 へ移行**（#1650 / #1653 / #1662。TASK-1408）。
+  `.github/PULL_REQUEST_TEMPLATE.md` に、canon 7 ファイルを変える PR は `phase0-migration.md` §7 の最小要件を満たす I4 evidence を添付する旨のチェック項目を加えた
+- **ai-loop V2 の `limits.py`**（#1622 / #1393）。`MAX_INPUT_REFS=256` / `MAX_REQUIRED_VERIFIERS=16` / `MAX_REF_CHARS=71` の 3 定数を
+  葉 module に置き、`test_limits.py` を CI の `ta-118` として実行する（#1624）
+- `gh_exec.py` のトークン権限の注記を GitHub 公式に合わせた（#1630。docstring のみ）
+- docs: 日次 Runtime Evidence トリアージの Gap Analysis（#1621 / #1620）、Delivery First Release のクリティカルパスと Human 判断材料（#1617 / #1656 / #1663）、
+  AIDLE の task-nature routing と既存ゲートの対照（#1589）、ai-loop V2 運用の仮説-1（#1596）
+
+### plugin の案内文（skills / rules / agents / README）
+
+- 検証規約の強化（#1631 / #1638。上記 ⚠️ 2.）
+- 導入経路・成功確認・撤去手順の整理（#1625 / #1628 / #1637。上記 ⚠️ 3.）。初回の体験を「計画の確認まで」で止め、
+  exec は C-3 の Human 承認後の別操作であること、導入先には `bin/plangate` が配布されず exec の機械的な停止が働かないことを明記した
+- **C-3 の外部レビュー Decision の対応づけの範囲を限定**（#1567）。「未知値・欠落は人間 C-3 強制」を外部レビューを実施した場合に限り、
+  C-2 を省いた場合は対象外と明記した。受け皿の `review_decision` は schema / CLI とも未接続（#1562）で `c3.json` には書かない。
+  `workflow-conductor` agent に「degrade を status.md に記録し、CLI で検証済みとは記録しない」を戻した（HO として Human が適用）。
+  `docs/ai/review-gate-decision-mapping.md` の Status を「規範のみ・受け皿は未接続」に直した（#1566）
+- `ho-apply-script` skill を feature ブランチ前提に直し、`origin` を fetch してから base を検証する雛形にした。
+  落とし穴 12（workflow patch の適用順序のデッドロック）を追加（#1614 / #1616）
+
+### 配布・リリースのスクリプト
+
+- **`scripts/sync-plugin-plangate.sh` の fail-open の是正**: 経路 2 の mass-delete guard の基準を構築時のカウントにする（#1582 / #1009。
+  スペース / glob 文字を含む正本名で基準が過大になり guard が効かなかった）、stale 参照を TSV の basename と完全一致で照合する（#1584 / #1583）、
+  TAB / 改行を含む名前を ref map に書く前に拒否する（#1610 / #1609）。`ta-26` に回帰を追加
+- **`release-prep.sh --check` が作業ツリーに書き込まないようにした**（#1580 / #1496）。`sync-release-docs.sh` に書き込みなしの `--check`
+  （同期済み rc=0 / 未同期 rc=2）を加え、`docs/changelog.md` が未同期なら NG と同期コマンドを表示するだけにした。回帰は `ta-117`
+- **growth harness の seed → digest 差分の読み取り専用インベントリ**（#1574 / #1545）と、その構造判定をブロック状態機械へ置き換える
+  TASK-1608 の計画と実装（#1611）。いずれも fail-closed のテストつき（`ta-116`）
+
+### テストと CI
+
+- `ta-61` の並列ループで、実 repo の固定パスへ書き込む子を排他実行にした（#1571 / #1557）
+- Interactive Review Browser E2E の Chromium の cold start を待機予算の外で済ませた（#1569 / #1556。CDP port の待機上限は 60 秒、
+  `PLANGATE_CDP_PORT_TIMEOUT_MS` で上書き可）
+- `ta-62` の leak / clean ドライバを同時に起動する（#1577 / #1293）。ratchet の git fixture で自動 gc / maintenance を止める（#1579 / #1578）
+- Plan Deliberation schema の回帰で、required キーの欠落と誤った invalid 理由を検出する（#1554 / #1505）
+- GitHub Actions の更新: `github/codeql-action` v4.38.2 → v4.39.3、`actions/upload-artifact` v4.6.2 / v7.0.1 → v7.0.2、
+  `actions/setup-python` v7.0.0 → v7.1.0、`DavidAnson/markdownlint-cli2-action` v24.2.0 → v25.0.0、
+  `ossf/scorecard-action` v2.4.4 → v2.6.0（#1568 / #1590 / #1613 / #1629 / #1645 / #1661）
+
+### 設計・方針・運用（docs のみ）
+
+- Verification-First と River Review の適応方針（#1644）、E2E の探索と検証の権限の整理（#1587）、
+  WF-06 Retro の L1 を opt-in・Human 確認つきの下書きとして明示（#1573 / #1544）、
+  サブエージェント委譲の定型に連番テストの番号割当と closing keyword の照合を追加（#1581）
+- 保守コスト削減調査レポートと HO 適用手順（#1591 / #1586）、`apply-*` スクリプト 41 本の適用状態の棚卸し（#1632）
+- working context の計画・状態同期: TASK-1391（#1602）、TASK-1392（#1597 / #1606 / #1607）、TASK-1393（#1595 / #1605 / #1619 / #1635）、
+  TASK-1391〜1393 の事実合わせ（#1626）、TASK-1544（#1612）、TASK-1550（#1634）、TASK-1651（#1654）
+- `docs/working/_reports/` の判定材料の下書きと相互参照（#1657 / #1658 / #1659 / #1660）、2026-05 レポートの相対リンクの修正（#1603）
+
+### 既知の課題
+
+- **#1636**: `install.sh --uninstall` が、導入時にスキップした既存ファイルまで manifest に含めて削除しうる（修正 PR #1639 は open）
+- **#1646**: `bin/plangate exec` が plan_hash の欠落・接頭辞不正・plan.md 不在の `c3.json` を受理し、task_id も照合しない
+- **#1647**: EH-3 で file_path に孤立サロゲートを含むと jq が parse error になり、`OUTSIDE_REPO_SKIP` で素通りする
+- **#1641**: EH-3 で TASK 文脈ありのとき、別 TASK の承認済み plan を編集でき、hash 不一致が tool を止めない
+- **#1104**: ファイル書き込みガードは Edit / Write にのみ配線され、Bash 経由の書き込みは解析されない（#1649 の許可分岐も Bash 経路は対象外）
+- **#1562**: v8.24.0 で `release-prep.sh --check` を NOT READY のまま tag した原因の適用待ち apply 3 本は open のまま
+
 ## v8.24.0 - 2026-10-12
 
 feat: 計画レビューに答えられる対話 HTML とその検証器（opt-in）を追加し、ai-loop V2 の Ratchet を決定論的な scope observer へ移し、導入先 project root の案内・pre-push ガードの push 先判定・Test job の高速化（ta-61 並列化）を入れる
