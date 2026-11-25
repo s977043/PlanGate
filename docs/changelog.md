@@ -10,7 +10,7 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
-## v8.25.0 - TBD
+## v8.25.0 - 2026-11-26
 
 feat: EH-3 の no-task セッションで未承認 TASK の plan.md 初回作成を許可し、plugin skill の検証規約（CI と同じ経路・変更前でも成立する期待値の無効化）と plugin README の導入・成功確認・撤去手順を整える
 
