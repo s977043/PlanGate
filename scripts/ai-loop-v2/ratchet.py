@@ -39,6 +39,7 @@ FORBIDDEN_KEYS = {
     "raw_transcript", "transcript", "chain_of_thought", "hidden_cot",
     "hidden_reasoning", "secret", "token", "api_key", "password",
 }
+ADMITTED_EVIDENCE_STATUSES = {"ready", "terminal_unready", "partial"}
 
 
 class RatchetError(ValueError):
@@ -84,6 +85,10 @@ def manifest_ref(manifest):
     return canonical_digest(manifest)
 
 
+class RunEvidenceStatusError(RatchetError):
+    pass
+
+
 def build_failure_instance(source):
     required = {
         "run_id", "event_ref", "event", "failure_record", "run_evidence"
@@ -94,6 +99,8 @@ def build_failure_instance(source):
         raise RatchetError("RunEvidence")
     if not source["run_id"] or source["run_evidence"].get("run_id") != source["run_id"]:
         raise RatchetError("source run_id does not match RunEvidence run_id")
+    if source["run_evidence"].get("evidence_status") not in ADMITTED_EVIDENCE_STATUSES:
+        raise RunEvidenceStatusError("RunEvidence evidence_status")
     try:
         event = validate_event(source["event"])
     except EventContractError as exc:
@@ -429,6 +436,13 @@ def _evaluate_verification_skipped(bundle, sealed_plan, *, repository_observatio
             build_failure_instance(source)
             for source in bundle.get("sources", [])
         ]
+    except RunEvidenceStatusError:
+        return _finish(
+            bundle,
+            sealed_plan,
+            "INCONCLUSIVE",
+            ["SOURCE_RUN_EVIDENCE_STATUS"],
+        )
     except RatchetError:
         return _finish(
             bundle,
