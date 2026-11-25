@@ -20,6 +20,7 @@
 | 2026-10-29 19:09 | C-3 | C-3 Gate: APPROVED（Human、`bin/plangate approve`、`approved_at` 2026-10-29T10:09:24Z、`plan_hash` `sha256:d4641124…`。c3.json は承認に使った worktree に untracked で保管。origin/main の plan.md の sha256 と一致を照合済み） |
 | 2026-10-30 00:58 | BLOCKED | plan を変更した PR #1619（`62b9a5df`）が main に merge。plan_hash は上記と一致のまま。exec は下記「残タスク」の前提待ち（`blocker`: #1329 preflight 記録 / reviewed_at_sha 記録 / `owner`: Human / `unblock_condition`: 残タスクの exec 前提をすべて満たす） |
 | 2026-11-24 19:18 | exec | T1 開始。`reviewed_at_sha` / base SHA と #1329 preflight を下記「T1 記録」に記録 |
+| 2026-11-25 12:00 | BLOCKED | スライス A 着手前に plan 矛盾を検出（review-external R-066 / R-067）。Human 決定: 案 1（plan-gate decision 廃止）/ `contract_bound_seq` は decision のみ。`blocker`: plan Revision 2.5 反映 + 再 C-3 / `owner`: Human / `unblock_condition`: 新 c3.json を exec-1391 に配置。コード変更なし |
 
 ## #1393 PF-5 の合意（2026-10-22、Human 決定 / TASK-1393 R-085〜R-088）
 
