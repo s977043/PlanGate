@@ -474,6 +474,23 @@ class RatchetVerticalSliceTests(unittest.TestCase):
                     result["experiment_result"],
                 )
 
+    def test_unknown_run_evidence_status_is_not_admitted(self):
+        for status in ("invalid", "done", None):
+            with self.subTest(status=status):
+                value = copy.deepcopy(self.base)
+                run_evidence = value["sources"][0]["run_evidence"]
+                if status is None:
+                    run_evidence.pop("evidence_status")
+                else:
+                    run_evidence["evidence_status"] = status
+                rebind_sources(value)
+                result = self.evaluate_bound(value)["experiment_result"]
+                self.assertNotEqual(result["result"], "PASS", result)
+                self.assertTrue(
+                    any("evidence_status" in code.lower() for code in result["reason_codes"]),
+                    result,
+                )
+
     # --- bound evaluation (the test supplies its own sealed plan) ---------
 
     def evaluate_bound(self, value):
