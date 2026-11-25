@@ -131,7 +131,18 @@ ID は plan の `P1B-n` に読み替える（上節の B-n は旧ラベル。pla
 ## Revision 2.5（exec 着手前実測 / R-066〜R-067）
 
 - [x] 指摘集約（review-external R-066 / R-067）と確定反映
-- [ ] 👤 再 C-3（Human、`bin/plangate approve TASK-1391 --force`）
-- [ ] 🤖 RED: EV-32b / EV-21a / EV-28l（改訂）/ EV-28o（改訂）— rollback: test 追加の revert
-- [ ] 🤖 GREEN: plan-gate decision の廃止（`delivery_runtime.py` L159-170・2 fixture の decision 削除と seq 詰め・ta-87 L277-289）— rollback: producer / fixture / ta-87 の commit を同時に revert
+- [x] 👤 再 C-3（Human、`bin/plangate approve TASK-1391 --force`）
+- [x] 🤖 RED: EV-32b / EV-21a / EV-28l（改訂）/ EV-28o（改訂）— rollback: test 追加の revert
+- [x] 🤖 GREEN: plan-gate decision の廃止（`delivery_runtime.py` L159-170・2 fixture の decision 削除と seq 詰め・ta-87 L277-289）— rollback: producer / fixture / ta-87 の commit を同時に revert
+
+## スライス A（2026-11-26、実行計画 2026-11-25 更新）
+
+上の各節の RED / GREEN 項目のうち、スライス A で完了したものをここに集約する（mutation / 文書 / レビューはスライス B）。
+
+- [x] 🤖 RED（`ad5bd1c3`）: P1B-1〜P1B-11 の EV / PJ 各ケース（A+L）と PJ-23a。R-009 は実行再現（`ready`）
+- [x] 🤖 GREEN（`9eed4608`）: `run_event.py` / `run_evidence.py` / `delivery_runtime.py`、delivery fixture 2 本、ta-87 の複製 oracle、`verification-skipped.json`（L133 と digest 再計算）
+- [x] 🤖 GREEN（`05d1c046`）: `ratchet.py` の `evidence_status` 受理検査、`evolution-input-non-success.json`、`artifact-responsibilities.md` L57 / L63
+- [x] 🤖 P1B-7 件数上限（`MAX_INPUT_REFS`）の append-only 再検査と EV-34
+- [ ] 🤖 P1B-7 バイト上限（`MAX_DECISION_EVENT_BYTES`）: RED は skip（「#1623 待ち（H-10 = c）」）。#1623 の定数が main に入った後にだけ skip を外す — rollback: skip を戻す
+- [ ] 👤 バイト再検査の置き場所（#1391 後半 / #1623 の PR）の決定
 - [ ] 🤖 mutation 32 — rollback: 不要
