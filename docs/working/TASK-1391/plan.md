@@ -3,7 +3,7 @@
 ## Current verdict
 
 ```text
-Planning: GO (Revision 2.4, C-3 待ち。C-2 R1 反映済み: R-020〜R-041 / C-2 R2 反映済み: R-042〜R-048 / C-2 R3 反映済み: R-049〜R-055 / R3 後スコープ検証 反映済み: R-056〜R-061)
+Planning: GO (Revision 2.5, 再 C-3 待ち。C-2 R1 反映済み: R-020〜R-041 / C-2 R2 反映済み: R-042〜R-048 / C-2 R3 反映済み: R-049〜R-055 / R3 後スコープ検証 反映済み: R-056〜R-061 / exec 着手前実測 反映済み: R-066〜R-067)
 Phase 1A (initial implementation): MERGED via #1402 (3331e5c4)
 Phase 1B (this plan): differential changes against 3331e5c4; exec after Human C-3
 Exec: BLOCKED until #1393 PF-5 agreement fixes MAX_* values + the module that defines them (D-6)
@@ -34,6 +34,8 @@ Formal JSON Schema: DEFERRED (D-4)
 - D-13: decision の `artifact_ref` が必須なのは `MERGE_READY` の decision だけで、EV-28g の比較対象はそれとする。他の decision では任意で、あれば形式（sha256 ref）を検査する。`delivery_runtime.py` L118 / L162 と ta-87 L107 / L197 を Files に加える（D-10 の decision 側「必須」を本決定で狭める。convergence の `observed_artifact_ref` 必須は D-10 のまま）
 - D-14: ratchet に `evidence_status ∈ {ready, terminal_unready, partial}` の受理検査を足し、不正値を拒否する RED を置く。これで PJ-23 と mutation 28 に検出力を持たせる。`ratchet.py` を Files に加える
 - D-15（Human / 2026-10-28、R-064）: ref / identifier / fingerprint（本 plan の「sha256 ref」を含む）の形は `sha256:` + 小文字 hex 64 桁の ASCII 文字列（正規表現 `^sha256:[0-9a-f]{64}$`、長さ 71）。形式外（非 ASCII・大文字 hex・桁数違い・接頭辞なし）は拒否する。文字種の正本は本 plan で、#1393 の `MAX_REF_CHARS` はこの長さ 71 に従う。verifier_id は sha256 形の対象外（ASCII かつ長さ ≤ 71、Human 決定 2026-10-29、#1393 R-092 / 本 plan R-065）
+- D-16（Human / 2026-11-25、R-066）: `PLAN_VERIFYING` の decision は出さない（TASK-1393 plan L299 / I-1 と整合）。`delivery_runtime.py` L159-170 の plan-gate `continue` decision を廃止し、`PLAN_VERIFYING -> EXECUTING` は `decision_made` を伴わない遷移とする。`decided_in_state` の値域 `{VERIFYING, DIAGNOSING, PR_CONVERGING}` は変えない
+- D-17（Human / 2026-11-25、R-067）: `contract_bound_seq` を持つのは `decision_made.decision` だけ。envelope（`COMMON_ACCEPTED_KEYS`）は変えない
 
 ## Mode判定
 
@@ -110,7 +112,7 @@ invalid になるのを避けるため。`input_last_event_seq` の隣接性は 
 
 - 現状: `validate_stream` の `binding drift`（L288-292。L284-287 は seq 連続検査）が全イベントの `run_id` / `harness_manifest_ref` / `plan_hash` / `source_sha` を先頭イベントと比較する
 - 変更: 2 本目以降の `plan_contract_bound` をセグメント境界として受理する。各セグメント内は `plan_hash` / `source_sha` が当該 bound と一致すること。`run_id` と `harness_manifest_ref` は stream 全体で不変（変化は invalid）
-- 各イベントは `contract_bound_seq`（直前の bound の event_seq）を持ち、#1391 は `contract_bound_seq == 直前の bound の event_seq` だけを検査する。Replan を許すかどうかの state 条件は #1392、Replan の意味は #1393 が所有する
+- `decision_made.decision` は `contract_bound_seq`（直前の bound の event_seq）を持ち（D-17。他のイベントと envelope は持たない）、#1391 は `contract_bound_seq == 直前の bound の event_seq` だけを検査する。Replan を許すかどうかの state 条件は #1392、Replan の意味は #1393 が所有する
 - 検査層: whole-stream（append と load の両方）
 
 ### P1B-2 seq adjacency（R-022 / #1422 B-3）
@@ -173,8 +175,8 @@ invalid になるのを避けるため。`input_last_event_seq` の隣接性は 
 - payload `decision` のキー集合（閉集合）: `action` / `inputs` / `outcome` / `stop_reasons` / `input_last_event_seq` / `contract_bound_seq` / `decided_in_state` / `artifact_ref` / `failure_fingerprints` / `verdicts`
   - 後ろ 3 つは TASK-1393 plan L85 / L184 が「payload から取る」とする値（`previous_artifact_ref` / fingerprint set / `previous_verdicts`）の受け皿。名前は本 plan で提案し、#1393 PF-5 の key mapping 合意で確定する（合意で名前が変われば exec 前に本節を改める。D-6 で exec はそれまで BLOCKED）
   - `artifact_ref` は **`outcome == MERGE_READY` の decision でのみ必須**、他の decision では任意で、あれば sha256 ref 形式を検査する（D-13 / R-060。D-10 の「必須」を狭める）。閉集合検査（`run_event.py` L166-168 の `set(value) != required`）は「必須キー ⊆ キー集合 ⊆ 必須 + 任意キー」に改める
-  - producer は `delivery_runtime.py` の decision 構築 **2 箇所**（R-056 で全数化）: L116-118 `_record_decision`（L213 / L225 / L249 から呼ばれ、L249 の PR_CONVERGING が `MERGE_READY` を出しうる）は `current_artifact` が非 null のとき `artifact_ref` を入れる。L159-170 の plan-gate `continue`（`current_artifact = None` の時点、L92）は `artifact_ref` を入れない（D-13 により任意）。`MERGE_READY` を出す経路で `current_artifact` が null なら producer 側で `ValueError`（ref 欠落の MERGE_READY を作らない）
-  - 複製 oracle: ta-87 L107 / L197 の `decision_made` 分岐（decision の再構築・キー照合）を同じ規則に更新する。fixture: `repair-convergence.json` L214 の MERGE_READY decision に `artifact_ref` を追加。`no-progress-stop.json` の decision（L76 / L135 / L217）は非 MERGE_READY のため追加しない（任意キー不在のまま valid であることを EV-28l で固定）
+  - producer は `delivery_runtime.py` の decision 構築 **2 箇所**（R-056 で全数化）: L116-118 `_record_decision`（L213 / L225 / L249 から呼ばれ、L249 の PR_CONVERGING が `MERGE_READY` を出しうる）は `current_artifact` が非 null のとき `artifact_ref` を入れる。L159-170 の plan-gate `continue` decision は廃止する（D-16。plan verification の append 後、`decision_made` なしで `EXECUTING` へ遷移する）。`MERGE_READY` を出す経路で `current_artifact` が null なら producer 側で `ValueError`（ref 欠落の MERGE_READY を作らない）
+  - 複製 oracle: ta-87 L107 / L197 の `decision_made` 分岐（decision の再構築・キー照合）を同じ規則に更新する。fixture: `repair-convergence.json` L214 の MERGE_READY decision に `artifact_ref` を追加。fixture の plan-gate decision（`repair-convergence.json` L74 / `no-progress-stop.json` L76）は削除し、後続イベントの `seq` を詰める（D-16）。`no-progress-stop.json` の残る decision（L135 / L217）は非 MERGE_READY のため `artifact_ref` を追加しない（EV-28l）。ta-87 L277-289 の「Plan Gate decision」検査は「plan verification（pass・plan_hash に束縛）が worker_completed より前にあり、その間に `decision_made` が無い」へ改める（D-16）
   - `decided_in_state ∈ {VERIFYING, DIAGNOSING, PR_CONVERGING}`、`verdicts` の値 `∈ {pass, fail, unavailable}`、`failure_fingerprints` は重複なし list
 - `input_last_event_seq` は P1B-2
 - `inputs` は直前の `decision_made` 以降の ref を含むこと。**latest prior decision の選択は #1395、#1391 は stream 上でその一致を検証するだけ**（R-026）
@@ -223,16 +225,16 @@ invalid になるのを避けるため。`input_last_event_seq` の隣接性は 
 
 - `scripts/ai-loop-v2/run_event.py`（L49 `EVENT_PAYLOAD_KEYS["pr_convergence_recorded"]` に `observed_artifact_ref` を追加 — R-062）
 - `scripts/ai-loop-v2/run_evidence.py`
-- `scripts/ai-loop-v2/delivery_runtime.py`（P1B-11 の例外処理、P1B-3 の binding 参照、L65 / L238 で convergence `observed_artifact_ref` を出す — D-10。decision `artifact_ref` は L118 `_record_decision` で出し、L162 plan-gate `continue` では出さない — D-13 / R-056）
+- `scripts/ai-loop-v2/delivery_runtime.py`（P1B-11 の例外処理、P1B-3 の binding 参照、L65 / L238 で convergence `observed_artifact_ref` を出す — D-10。decision `artifact_ref` は L118 `_record_decision` で出す — D-13 / R-056。L159-170 の plan-gate decision は廃止 — D-16）
 - `scripts/ai-loop-v2/ratchet.py`（`evidence_status ∈ {ready, terminal_unready, partial}` の受理検査を追加。現状 `evidence_status` を一度も読まない — D-14 / R-057）
 - `tests/fixtures/ai-loop-v2/ratchet/verification-skipped.json`（L133 `HUMAN_ESCALATED` の `evidence_status` を `terminal_unready` に — D-8 の値域に揃える / R-059。L133 変更後、同 fixture の事前計算 digest（`run_evidence_refs` L36 / L43、`source_set_digest` L50、`evaluation_plan_digest` L73）を `ratchet.py` の `canonical_digest`（L57）系関数で再計算して更新する。`test_ratchet.py` には `rebind_sources` を通さず base fixture を評価するテストがあるため、更新しないと digest 不一致で落ちる — R-063）
 - `scripts/ai-loop-v2/test_delivery_v2.py`（既存テストの更新と RED 追加。`terminal_unready` の期待値 — D-8。`test_run_event.py` / `test_run_evidence.py` は存在しないため作らない）
 - `scripts/ai-loop-v2/test_ratchet.py`（`ratchet.py` の `validate_event` 依存の回帰確認、`terminal_unready` 受理の GREEN — D-11。現行 L468 付近が非成功 terminal を `ready` で扱う箇所）
 - `tests/fixtures/ai-loop-v2/ratchet/evolution-input-non-success.json`（`HUMAN_ESCALATED` / `BLOCKED` の `evidence_status` を `terminal_unready` に — D-11）
 - `docs/ai/ai-loop-v2/artifact-responsibilities.md`（L57 値域 / L63 定義に `terminal_unready` — D-11）
-- `tests/extras/ta-87-ai-loop-v2-delivery-e2e.sh`（L260-263 の binding 参照、L117 の複製 oracle の `evidence_status` 判定 — D-8、L107 / L197 の decision 複製構築に D-13 の `artifact_ref` 規則 — R-056）
+- `tests/extras/ta-87-ai-loop-v2-delivery-e2e.sh`（L260-263 の binding 参照、L117 の複製 oracle の `evidence_status` 判定 — D-8、L107 / L197 の decision 複製構築に D-13 の `artifact_ref` 規則 — R-056、L277-289 の Plan Gate 検査を D-16 に追従）
 - `tests/extras/ta-93-ai-loop-v2-owner-backed-delivery.sh`（新 ready 条件での再実行。必要なら fixture 更新）
-- `tests/fixtures/ai-loop-v2/delivery/*.json`（新 ready 条件で再実行。期待値が変わるなら更新。`no-progress-stop.json` L44 は `terminal_unready` — D-11。convergence / decision に必須 ref を追加 — D-10。EV-28h はこの更新後の状態で固定）
+- `tests/fixtures/ai-loop-v2/delivery/*.json`（新 ready 条件で再実行。期待値が変わるなら更新。`no-progress-stop.json` L44 は `terminal_unready` — D-11。convergence / decision に必須 ref を追加 — D-10。plan-gate decision の削除と seq の詰め直し — D-16。EV-28h はこの更新後の状態で固定）
 - `docs/ai/ai-loop-v2-delivery-adapter.md`（P1B-13）
 - 新規 TA は作らない（既存 ta-87 / ta-93 を更新する）
 
@@ -286,3 +288,4 @@ invalid になるのを避けるため。`input_last_event_seq` の隣接性は 
 - #1393 PF-5 で decision_made の key 名が本 plan の提案と変わる（P1B-7 を改めて再 C-3）
 - #1392 が「accepted stream は `validate_append` 経由のみ」を不変条件として保てない（R-045）
 - #1395 の policy / blockers producer が入った（EV-28b / EV-28f の有効化は #1391 plan 改訂 + 再 C-3 — D-12）
+- #1393 が `PLAN_VERIFYING` の decision を受理する slice に入った（D-16 を見直す）

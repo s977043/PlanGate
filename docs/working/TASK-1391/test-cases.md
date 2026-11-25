@@ -250,3 +250,18 @@ EV-28j の Expected は本節で置き換える（D-13）: 対象は **`outcome 
 29. `ratchet.py` の受理検査自体を外す（PJ-23a で検出）
 30. decision `artifact_ref` の必須条件を `MERGE_READY` 限定から全 decision に広げる（EV-28l で検出）/ 任意キーの形式検査を外す（EV-28m で検出）
 31. EV-28g の比較対象を「最新の decision」に変える（EV-28n で検出）
+
+## Revision 2.5 追加（exec 着手前実測 / R-066〜R-067）
+
+EV-28l / EV-28o の Expected は本節で置き換える（D-16）。
+
+| ID | 由来 | 層 | Input | Expected（assert） |
+|---|---|---|---|---|
+| EV-28l（改訂） | R-056 / R-066 / D-16 | A+L | 非 MERGE_READY の decision（`no-progress-stop.json` L135 / L217 の形）に `artifact_ref` が無い | A: 受理。L: `no-progress-stop.json` は `== "terminal_unready"` |
+| EV-28o（改訂） | R-056 / R-066 / D-16 | — | `delivery_runtime` の plan-gate 経路と repair 経路を実行 | plan verification から `worker_completed` までに `decision_made` が無い。`MERGE_READY` decision は `decision["artifact_ref"] == convergence["observed_artifact_ref"]` |
+| EV-32b | R-066 / D-16 | A+L | `decided_in_state="PLAN_VERIFYING"` の decision | A: `EventContractError`。L: `== "invalid"` |
+| EV-21a | R-067 / D-17 | A+L | `decision_made` 以外のイベント（payload または envelope）に `contract_bound_seq` | reject（未知キー） |
+
+### Mutation targets（追加）
+
+32. producer に plan-gate decision を戻す（EV-32b / EV-28o で検出）

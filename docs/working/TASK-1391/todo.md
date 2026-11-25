@@ -127,3 +127,11 @@ ID は plan の `P1B-n` に読み替える（上節の B-n は旧ラベル。pla
 - [ ] 🤖 L133 変更後に `verification-skipped.json` の digest（L36 / L43 / L50 / L73）を `ratchet.py` の関数で再計算して更新（R-063）— rollback: L133 変更と同じ commit で revert（digest だけ戻すと不一致）
 - [ ] 🤖 RED → GREEN: `EVENT_PAYLOAD_KEYS["pr_convergence_recorded"]` に `observed_artifact_ref`、EV-18b（R-062）— rollback: `run_event.py` の当該 commit を revert
 - [ ] 🤖 mutation 28（改訂）〜31。各変異の前に対象コードの存在を確認（R-057）— rollback: 不要
+
+## Revision 2.5（exec 着手前実測 / R-066〜R-067）
+
+- [x] 指摘集約（review-external R-066 / R-067）と確定反映
+- [ ] 👤 再 C-3（Human、`bin/plangate approve TASK-1391 --force`）
+- [ ] 🤖 RED: EV-32b / EV-21a / EV-28l（改訂）/ EV-28o（改訂）— rollback: test 追加の revert
+- [ ] 🤖 GREEN: plan-gate decision の廃止（`delivery_runtime.py` L159-170・2 fixture の decision 削除と seq 詰め・ta-87 L277-289）— rollback: producer / fixture / ta-87 の commit を同時に revert
+- [ ] 🤖 mutation 32 — rollback: 不要

@@ -339,3 +339,5 @@ D-6 の exec BLOCKED 条件のうち「PF-5 合意」と「module 位置」は�
 |---|---|---|---|
 | R-066 | open | — | 改訂差分案を Human に提示済み。plan.md への反映は Human |
 | R-067 | open | — | 同上 |
+| R-066 | reflected | 本 commit（Refs: R-066） | Human 指示 2026-11-25「a」で AI が反映: plan D-16 / P1B-7 / Files / Replan triggers、test-cases Revision 2.5（EV-28l・EV-28o 改訂、EV-32b、mutation 32）、todo Revision 2.5 |
+| R-067 | reflected | 本 commit（Refs: R-067） | plan D-17 / P1B-1 L113、test-cases EV-21a |
