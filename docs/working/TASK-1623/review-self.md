@@ -42,3 +42,21 @@
 ## 自動修正ログ
 
 なし。
+
+## 簡易 C-1 再実行（Rev 2 / 2026-11-26 17:42）
+
+> 対象: plan.md Rev 2（D-1 反映）/ todo.md / test-cases.md / status.md。作成者と同一の AI セルフレビュー。
+
+**判定: WARN**（FAIL 0 / WARN 2）
+
+| ID | 判定 | 所見 |
+|---|---|---|
+| R-C1-01 | 解消 | Q-1 は D-1（案 B）で決定。前半は AC-2 を対象外とし、AC 文面は不変 |
+| R-C1-02 | 解消（計画上） | MC-1（Open 維持・`Refs` のみ）/ MC-2（#1391 PR CI での実行確認）/ MC-3（main で skip しない）を前半受入条件に明記、TC-08/09・T-11・RT-7 に写像。実行は exec 後 |
+| C1-PLAN-01 受入基準網羅性 | PASS | AC ごとのスライス割当表あり。AC-2 は後半と明記し前半で合格扱いしない（Stop Condition） |
+| C1-PLAN-02 Unknowns | WARN（残） | Q-2（可変 field 上限）が未確定。定数値を書かない Stop Condition あり |
+| C1-PLAN-06 依存関係 | WARN（新） | T-11（MC-2）は前半を取り込んだ #1391 PR の CI run に依存し、本 TASK 単独で完結しない。MC-2 を CI 既存収集経路で満たせない場合は HO（`.github/workflows/`）に当たる（RT-6） |
+| C1-PLAN-09 Replan 機械値 | PASS | RT-7 は機械値（実行行 0 件）。RT-1/RT-3 は Human・回数基準のまま |
+| C1-SCOPE | PASS | Files は前半に限定、後半は参考扱い |
+
+C-2 で特に見てほしい点: MC-3 の「main で skip せず固定 SHA 写像を検査」が、写像と実 validator を突き合わせない main 上では自己参照の検査にならないか（同型の素通り）。

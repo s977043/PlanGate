@@ -2,12 +2,13 @@
 
 ## 受入基準 → テストケース マッピング
 
-| AC | TC |
-|---|---|
-| AC-1 最悪ケース event の組み立てと byte 計算が fixture で再現 | TC-01, TC-02, TC-03, TC-E01, TC-E02, TC-E03 |
-| AC-2 I-11 が上限超過を `DecisionInputError` にする | TC-04, TC-05, TC-E04 |
-| 派生 AC-3 #1392 reserve が同じ定数を参照 | TC-06 |
-| 回帰（`test_no_byte_constants` の置換）| TC-07 |
+| AC | TC | スライス |
+|---|---|---|
+| AC-1 最悪ケース event の組み立てと byte 計算が fixture で再現 | TC-01, TC-02, TC-03, TC-E01, TC-E02, TC-E03 | 前半 |
+| AC-2 I-11 が上限超過を `DecisionInputError` にする | TC-04, TC-05, TC-E04 | 後半 |
+| 派生 AC-3 #1392 reserve が同じ定数を参照 | TC-06 | 前半（契約 fixture） |
+| 回帰（`test_no_byte_constants` の置換）| TC-07 | 前半 |
+| 前半マージ条件 MC-1〜MC-3（plan.md） | TC-08, TC-09 | 前半 |
 
 ## テストケース一覧
 
@@ -27,8 +28,19 @@
 ### TC-03: drift 照合
 
 - 入力: fixture の構造写像と実 validator（`6756a597`、マージ後は main）
-- 期待: 同じ event の byte 数が一致。構造キーが増減したら FAIL
+- 期待: 同じ event の byte 数が一致。構造キーが増減したら FAIL。main 上（V2 構造なし）でも skip せず固定 SHA 写像を検査する（MC-3）
 - 種別: unit
+
+### TC-08: ズレ検出テストが #1391 PR の CI で実行される（MC-2）
+
+- 入力: 前半を取り込んだ #1391 PR の CI run ログ
+- 期待: TC-03 のテスト名の実行行があり PASS（skipped / 未収集なら FAIL）
+- 種別: 手動確認（ログ evidence 保存）
+
+### TC-09: #1623 Open 維持（MC-1）
+
+- 期待: 前半 PR 本文に closing keyword がない（`Refs #1623` のみ）、マージ後 issue #1623 が Open
+- 種別: 手動確認
 
 ### TC-04: I-11 上限ちょうどは受理
 
@@ -60,7 +72,7 @@
 
 ## 自動化可否
 
-全件自動化可。TC-04 / 05 は #1393 core（`DecisionInputError`）が main に入るまで実行不可（案 B なら #1623-b）。
+TC-01〜07 は自動化可、TC-08 / 09 は手動確認。TC-04 / 05 / E04 は後半（#1623-b、#1393 core で `DecisionInputError` 導入後）で実行し、前半では実行しない。
 
 ## 検証結果（V-1 で記入）
 
