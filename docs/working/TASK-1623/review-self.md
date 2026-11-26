@@ -145,3 +145,25 @@ C-2 で特に見てほしい点: MC-3 の「main で skip せず固定 SHA 写�
 | §7-quater | 推移記録 | R2:4, R3:3, R4:1。R4 の新クラス（gate の判定材料が gate の後に作られる）は是正済み。完全性は主張しない |
 
 残 WARN: Q-2 未確定 / C-3・C-4 の Human 依存 / TASK-1391 文書への D-4 記載が未実施 / 前半〜#1391 後半の構造ズレ未検出期間と ta-118 で検出しない実質未検査。
+
+## 簡易 C-1 再実行（Rev 7 / 2026-11-26、C-2 R5 反映後）
+
+> 対象: plan.md Rev 7（R-029〜R-032 を反映、commit `45811756`）/ todo.md / test-cases.md。作成者と同一の AI セルフレビュー。
+
+**判定: WARN**（FAIL 0 / WARN 4）
+
+| ID | 判定 | 所見 |
+|---|---|---|
+| R-029 mc2a-c4 の鮮度 | 解消（計画上） | T-05c の depends_on に T-09・T-11 を追加し C-4 前の最後に作るタスクにした。fixture blob SHA と PR head SHA を記録し H-03b で現 head と照合（TC-12） |
+| R-030 mc2a-c3 と tip | 解消（計画上） | T-00 で tip SHA と RT-2 diff を `mc2a-c3.txt` に同時記録。T-02 は記録 tip からの変化の再確認に変更。2026-11-26 実測: `git diff 6756a597 3a7373f0 -- scripts/ai-loop-v2/run_event.py` は空 |
+| R-031 正本循環 | 解消 | plan の引き継ぎ節から文面を除き、ID と 1 行要約（正本でない旨明記）と正本 `c4-preconditions.md`（`3a7373f0`）の参照だけにした。両方を同じ変更で更新する規則を記載。`grep "H-1391-[1-6]:" plan.md` 0 件 |
+| R-032 TASK-1391 todo からの参照 | WARN（Human 待ち） | exec 開始条件として H-01e を追加。TASK-1391 の status / todo の未 commit 変更の扱いは Human が決める |
+| R-027 補足 | 解消 | AC-4 / Files / T-05b / TC-10 に行頭固定の正規表現・要約行限定を記載 |
+| C1-PLAN-01 受入基準網羅性 | PASS | AC 割当は不変。TC-12 / TC-13 に R-029〜R-032 の期待を追加 |
+| C1-PLAN-02 Unknowns | WARN（残） | Q-2 未確定（RT-3・Stop Condition あり） |
+| C1-PLAN-06 依存関係 | WARN（残・更新） | exec 開始は H-03 と H-01e に依存。T-05c は T-09・T-11（前半 PR の CI）の後で、C-4 直前に Human 確認が集中する |
+| C1-SCOPE | PASS | 変更は `docs/working/TASK-1623/` のみ。TASK-1391 は変更していない |
+| 残存脅威 | WARN（残） | 前半〜#1391 後半の構造ズレ未検出期間、早期 return・トートロジー assert |
+| §7-quater | 推移記録 | R2:4, R3:3, R4:1, R5:1（正本循環）。R-029 / R-030 は R4 クラスの同型の是正漏れ。新クラスが 1 件ずつ出続けており完全性は主張しない |
+
+残 WARN: Q-2 未確定 / Human 依存（H-01e の TASK-1391 todo 追記・C-4 前の H-03b 集中）/ 前半〜#1391 後半の構造ズレ未検出期間と ta-118 で検出しない実質未検査。

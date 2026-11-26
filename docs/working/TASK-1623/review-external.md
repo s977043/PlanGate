@@ -110,10 +110,10 @@
 | R-026 | reflected | 5b92ff27 | plan H-1391-1/2 書き直し・受け渡し・MC-4、todo T-05d、TC-13 |
 | R-027 | reflected | 5b92ff27 | plan AC-4・MC-2b・残存脅威モデル・Files・WB4・Verification・RT-7、todo T-05b/T-11、TC-08/TC-10 |
 | R-028 | reflected | 5b92ff27 | plan AC-1 割当・残存脅威モデル・WB3、TC-01 |
-| R-029 | pending | — | — |
-| R-030 | pending | — | — |
-| R-031 | pending | — | — |
-| R-032 | pending | — | — |
+| R-029 | reflected | 45811756 | plan MC-2a（C-4 時点）、todo T-05c/H-03b/依存、TC-12 |
+| R-030 | reflected | 45811756 | plan MC-2a（C-3 時点、例: tip `3a7373f0` で diff 空）、todo T-00/T-02、TC-12 |
+| R-031 | reflected | 45811756 | plan 引き継ぎ節（正本 `TASK-1391/c4-preconditions.md` @ `3a7373f0` を参照、改訂規則）・受け渡し・Human 境界、todo H-01d、TC-13 (0)(1)。R-027 補足も同 commit（AC-4・Files・T-05b・TC-10） |
+| R-032 | reflected（Human 待ち） | 45811756 | plan Human 境界の exec 開始条件、todo H-01e/依存、TC-13 (4)。TASK-1391 todo への追記は Human 判断待ち |
 
 ## 回避クラス台帳（追記専用）
 
