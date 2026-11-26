@@ -90,11 +90,11 @@
 | R-021 | reflected（縮小） | 66bb1a45 | plan AC-4・残存脅威モデル・H-1391-5、todo T-05b、TC-10 |
 | R-022 | reflected | 66bb1a45 | plan MC-4・受け渡し・Human 境界、todo T-05d/T-12/H-03c/H-05、TC-13 |
 | R-023 | reflected | 66bb1a45 | plan MC-2a・Files・WB4b、todo T-02/T-05c/H-03/H-03b、TC-12 |
-| R-024 | pending | - | Human 決定 D-4 |
-| R-025 | pending | - | |
-| R-026 | pending | - | |
-| R-027 | pending | - | |
-| R-028 | pending | - | |
+| R-024 | reflected | 5b92ff27 | Human 決定 D-4。plan D-4・引き継ぎ節・MC-2・MC-4・WB8・Human 境界、todo H-01d/H-05/依存、TC-13 (3)。TASK-1391 文書への記載はオーガナイザー（未実施） |
+| R-025 | reflected | 5b92ff27 | plan MC-2a（行範囲を実測記載・C-3 は文章仕様・C-4 は fixture 実物）・WB4b、todo T-00/T-02/T-05c/H-03/H-03b/依存、TC-12 |
+| R-026 | reflected | 5b92ff27 | plan H-1391-1/2 書き直し・受け渡し・MC-4、todo T-05d、TC-13 |
+| R-027 | reflected | 5b92ff27 | plan AC-4・MC-2b・残存脅威モデル・Files・WB4・Verification・RT-7、todo T-05b/T-11、TC-08/TC-10 |
+| R-028 | reflected | 5b92ff27 | plan AC-1 割当・残存脅威モデル・WB3、TC-01 |
 
 ## 回避クラス台帳（追記専用）
 
