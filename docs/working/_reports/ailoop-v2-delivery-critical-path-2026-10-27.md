@@ -5,7 +5,48 @@
 > issue の状態は 2026-10-27 に `gh issue view` で取得した値（#1391 / #1393 は 2026-10-30 に再確認し、いずれも OPEN・更新日時は変わらず）。
 > **更新（2026-11-22）**: `origin/main` = `9d55ae5dc22dcfb0865f3f3f97110a88814a686e` で再測定し、差分を下の「2026-11-22 更新」節にまとめた。§結論〜§7 の本文は 2026-10-30 時点の記述として残す。
 > **更新（2026-11-25）**: `origin/main` = `39219a612c9da8597e7f9c52c14be982f9a745e8` で再測定し、実行計画を下の「2026-11-25 更新」節にまとめた。2026-11-22 更新節はその時点の記述として残す。
+> **更新（2026-11-26）**: `origin/main` = `fd6b6843` で再測定し、実行計画を下の「2026-11-26 更新」節にまとめた。2026-11-25 更新節はその時点の記述として残す。
 > 本レポートは判断材料であって、承認・実行許可ではない。実装・plan 改訂・c3.json の発行はしていない。
+
+## 2026-11-26 更新（実行計画）
+
+測定: 2026-11-26、`origin/main` = `fd6b6843`（v8.25.0 リリース後）。
+
+### 判定
+
+**Delivery First Release は BLOCKED のまま。ただし #1391 の実装が初めて動いた。** owner 実装はまだ main に無い（`scripts/ai-loop-v2/` への main の commit は 2026-10-30 以降 0 件）が、#1391 スライス A の実装がブランチ `feat/1391-phase1b-exec` に push された。
+
+### 2026-11-25 からの進捗
+
+| 項目 | 状態 | 一次ソース |
+|---|---|---|
+| TASK-1391 plan Revision 2.5 | 着手前の実測で plan の矛盾を検出（R-066: plan-gate の `decision_made` が TASK-1393 I-1 / `decided_in_state` の値域と食い違う、R-067: `contract_bound_seq` の持ち場所）。Human 決定（2026-11-25）: D-16 plan-gate decision を廃止 / D-17 `contract_bound_seq` は `decision_made.decision` のみ。`99fbc95b` / `4b9b4394` | `git log ca4af956..origin/feat/1391-phase1b-exec` |
+| TASK-1391 再 C-3 | APPROVED（`approved_at` 2026-11-25T21:59:11Z、`plan_hash` = plan.md の sha256 `0fe14701…`。読み取りで照合） | c3.json（untracked）|
+| **TASK-1391 スライス A** | **完了・push 済み**（`6756a597`、PR なし）。RED `ad5bd1c3` → GREEN `9eed4608` / `05d1c046`。18 files +1220 / −188。`test_delivery_v2.py` は 79 件 OK・skip 1（EV-22 バイト上限、「#1623 待ち」） | `git diff --stat ca4af956 6756a597` |
+| H-10 | Human 決定（2026-11-26）: #1623 を先に merge し、バイト再検査は #1391 後半（スライス B）。出典は TASK-1623 plan 草案 `plan.md:34`（ブランチ `docs/TASK-1623-plan`、`d1c24e0b`。main には未収録） | — |
+| #1623 の進め方 | Human 決定（2026-11-26）: 案 B（fixture 契約で分割先行）。#1623-a = byte 系 3 定数 + 最悪ケース fixture（`6756a597` の構造を固定 SHA で写し、#1391 merge 時に実 validator と byte 同値を照合する drift テスト付き）を先に merge。#1623-b = I-11 の byte 検査（AC-2）は #1393 core に同梱または直後。#1623 は b 完了まで Open | TASK-1623 plan 草案 `plan.md:36-43` |
+| v8.25.0 | リリース済み（tag `v8.25.0` = `738986e2`、Release 2026-11-25T22:14:15Z）。plugin version 8.25.0 | `git ls-remote --tags origin` |
+
+### スライス A の canon 変更と I4（新しい前提）
+
+スライス A は canon 7 本の 1 本 `docs/ai/ai-loop-v2/artifact-responsibilities.md` を変えた（`evidence_status` の値域と定義に `terminal_unready` を追加）。承認済み plan の D-11（plan.md:32 / :160 / :234）の範囲内だが、I1 例外の失効後（`phase0-migration.md` §7）なので、**#1391 の PR には I4 の最低要件**（`reviewed_at_sha` / 作成者と別 context の独立レビュー / 固定 commit で再現できる機械証跡。non-normative の確定は Human が C-4 で名指し）が要る。スライス B の T6（敵対レビュー R1 / R2）でこの証跡も揃える。
+
+### 最適化した実行順
+
+1. **#1623-a**（並行ウェーブで plan 作成中。C-2 → C-3 → exec）: byte 系 3 定数 + 最悪ケース fixture + drift テスト。#1391 スライス A の構造（`6756a597`）を前提にする
+2. **#1391 スライス B**: #1623-a が main に入ったら、EV-22 の skip を外して GREEN → T4 mutation → T5 P1B-13 文書 → T6 敵対レビュー R1 / R2 + **I4 証跡** → PR → C-4
+3. **#1392 exec**: #1391 が consumable になってから（`state_conflict` 改名・payload・旧名廃止。TASK-1391 plan P1B-8）
+4. **#1393 core exec** + **#1623-b**（I-11 の byte 検査）を同梱または直後 → **#1395** owner-backed E2E → #1383 / #870
+
+**最適化の要点**: #1623-a と #1391 スライス B の間だけが直列。#1392 の plan 照合（P1B-8 の引き継ぎ項目と TASK-1392 plan の terminal reserve が #1623-a の定数を参照する点の確認）は #1623-a の exec と並行してよい（読み取りのみ）。
+
+### Human の操作（次に必要なもの）
+
+| いつ | 操作 |
+|---|---|
+| #1623 plan の C-2 完了後 | TASK-1623 の C-3（`bin/plangate approve TASK-1623`。TASK 指定のセッションが要る） |
+| #1391 スライス B の PR 時 | I4 の C-4（canon 変更が non-normative かの名指し確定を含む） |
+| 以後 TASK ごと | `PLANGATE_HOOK_TASK` を付けたセッションの起動（#1655 が入れば不要） |
 
 ## 2026-11-25 更新（実行計画）
 
