@@ -10,7 +10,7 @@
 
 ## 2026-11-26 更新（実行計画）
 
-測定: 2026-11-26、`origin/main` = `fd6b6843`（v8.25.0 リリース後）。
+測定: 2026-11-26、`origin/main` = `fd6b6843`（v8.25.0 リリース後）。本節のブランチ名・SHA（`feat/1391-phase1b-exec` = `6756a597`、`docs/TASK-1623-plan` = `ac0b11c8`）は測定時点の値で、ブランチの削除・squash 後は辿れなくなる。c3.json は untracked で repo には残らない。
 
 ### 判定
 
@@ -23,13 +23,13 @@
 | TASK-1391 plan Revision 2.5 | 着手前の実測で plan の矛盾を検出（R-066: plan-gate の `decision_made` が TASK-1393 I-1 / `decided_in_state` の値域と食い違う、R-067: `contract_bound_seq` の持ち場所）。Human 決定（2026-11-25）: D-16 plan-gate decision を廃止 / D-17 `contract_bound_seq` は `decision_made.decision` のみ。`99fbc95b` / `4b9b4394` | `git log ca4af956..origin/feat/1391-phase1b-exec` |
 | TASK-1391 再 C-3 | APPROVED（`approved_at` 2026-11-25T21:59:11Z、`plan_hash` = plan.md の sha256 `0fe14701…`。読み取りで照合） | c3.json（untracked）|
 | **TASK-1391 スライス A** | **完了・push 済み**（`6756a597`、PR なし）。RED `ad5bd1c3` → GREEN `9eed4608` / `05d1c046`。18 files +1220 / −188。`test_delivery_v2.py` は 79 件 OK・skip 1（EV-22 バイト上限、「#1623 待ち」） | `git diff --stat ca4af956 6756a597` |
-| H-10 | Human 決定（2026-11-26）: #1623 を先に merge し、バイト再検査は #1391 後半（スライス B）。出典は TASK-1623 plan 草案 `plan.md:34`（ブランチ `docs/TASK-1623-plan`、`d1c24e0b`。main には未収録） | — |
-| #1623 の進め方 | Human 決定（2026-11-26）: 案 B（fixture 契約で分割先行）。#1623-a = byte 系 3 定数 + 最悪ケース fixture（`6756a597` の構造を固定 SHA で写し、#1391 merge 時に実 validator と byte 同値を照合する drift テスト付き）を先に merge。#1623-b = I-11 の byte 検査（AC-2）は #1393 core に同梱または直後。#1623 は b 完了まで Open | TASK-1623 plan 草案 `plan.md:36-43` |
+| H-10 | TASK-1623 plan 草案が「H-10（2026-11-26）: #1623 を先に merge し、バイト再検査は #1391 後半（スライス B）」と記録している（草案 `plan.md:68`、測定時点の草案 head `ac0b11c8`）。**一次の確認は未了**（草案内の記述で、Human の原文は repo に無い） | — |
+| #1623 の進め方 | 同じ草案が「D-1（Human 決定 2026-11-26）: Q-1 は案 B」と記録している（草案 `plan.md:13-19`。原文は「委任プロンプト経由で受領」と注記）。案 B = #1623-a（byte 系 3 定数 + 最悪ケース fixture + #1391 の実 validator と byte 同値を照合する drift テスト TC-03）を先に、#1623-b（I-11 の byte 検査 = AC-2）は #1393 core に同梱または直後。#1623 は b 完了まで Open。**一次の確認は未了** | 草案 `plan.md:13-19` / `:64-77` |
 | v8.25.0 | リリース済み（tag `v8.25.0` = `738986e2`、Release 2026-11-25T22:14:15Z）。plugin version 8.25.0 | `git ls-remote --tags origin` |
 
 ### スライス A の canon 変更と I4（新しい前提）
 
-スライス A は canon 7 本の 1 本 `docs/ai/ai-loop-v2/artifact-responsibilities.md` を変えた（`evidence_status` の値域と定義に `terminal_unready` を追加）。承認済み plan の D-11（plan.md:32 / :160 / :234）の範囲内だが、I1 例外の失効後（`phase0-migration.md` §7）なので、**#1391 の PR には I4 の最低要件**（`reviewed_at_sha` / 作成者と別 context の独立レビュー / 固定 commit で再現できる機械証跡。non-normative の確定は Human が C-4 で名指し）が要る。スライス B の T6（敵対レビュー R1 / R2）でこの証跡も揃える。
+スライス A は canon 7 本の 1 本 `docs/ai/ai-loop-v2/artifact-responsibilities.md` を変えた（測定時点の head `6756a597`）。変更は 2 点: (1) `evidence_status` の値域と定義に `terminal_unready` を追加（承認済み plan の D-11、plan.md:32 / :160 / :234 が明記）、(2) `ready` の定義を「Outcome が `MERGE_READY` で ready 条件（P1B-6）を満たす場合」に狭めた（L63。D-11 の明記範囲を超える意味変更を含むので、C-4 で non-normative かを Human が名指しで確定する対象）。I1 例外の失効後（`phase0-migration.md` §7）なので、**#1391 の PR には I4 の最低要件**（`reviewed_at_sha` / 作成者と別 context の独立レビュー / 固定 commit で再現できる機械証跡。non-normative の確定は Human が C-4 で名指し）が要る。スライス B の T6（敵対レビュー R1 / R2）でこの証跡も揃える。
 
 ### 最適化した実行順
 
@@ -38,12 +38,15 @@
 3. **#1392 exec**: #1391 が consumable になってから（`state_conflict` 改名・payload・旧名廃止。TASK-1391 plan P1B-8）
 4. **#1393 core exec** + **#1623-b**（I-11 の byte 検査）を同梱または直後 → **#1395** owner-backed E2E → #1383 / #870
 
+**未解決の循環（H-13）**: TASK-1623 草案の MC-2（草案 `plan.md:40`）は「TC-03 が #1391 PR の CI で実際に実行されることを確かめるまで #1623-a を C-4 に渡さない」と定める。一方、上の順序では #1391 の PR は #1623-a の merge 後（スライス B の終盤）にしか立たないので、前提が循環する。解き方の候補: (a) スライス A の時点で #1391 を draft PR にし、その CI で TC-03 を走らせる（TC-03 をどちらのブランチに置くかの調整が要る）、(b) MC-2 を「#1391 PR の CI で実行」から緩める（TASK-1623 plan の改訂 = C-3 前なので Human 判断）。TASK-1623 の C-3 の前に Human が決める。
+
 **最適化の要点**: #1623-a と #1391 スライス B の間だけが直列。#1392 の plan 照合（P1B-8 の引き継ぎ項目と TASK-1392 plan の terminal reserve が #1623-a の定数を参照する点の確認）は #1623-a の exec と並行してよい（読み取りのみ）。
 
 ### Human の操作（次に必要なもの）
 
 | いつ | 操作 |
 |---|---|
+| #1623 plan の C-3 の前 | H-13（MC-2 の循環）の解き方を決める |
 | #1623 plan の C-2 完了後 | TASK-1623 の C-3（`bin/plangate approve TASK-1623`。TASK 指定のセッションが要る） |
 | #1391 スライス B の PR 時 | I4 の C-4（canon 変更が non-normative かの名指し確定を含む） |
 | 以後 TASK ごと | `PLANGATE_HOOK_TASK` を付けたセッションの起動（#1655 が入れば不要） |
