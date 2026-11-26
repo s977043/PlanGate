@@ -69,6 +69,12 @@
 | R-015 | reflected | 60540c4d | plan 受け渡し節・MC-4・WB8・Human 境界、todo T-12/H-05、TC-13 |
 | R-016 | reflected | 60540c4d | plan AC-4・MC-2b・Files・WB4/6・RT-7、todo T-05b/T-08/T-11、TC-08/TC-10 |
 | R-017 | reflected | 60540c4d | plan H-1391-2 |
+| R-018 | 対象消滅（D-3） | 66bb1a45 | plan D-3・MC-3・H-1391-4、TC-11 を移管表記 |
+| R-019 | 対象消滅（D-3） | 66bb1a45 | plan H-1391-4（3 値化を設計条件として引き継ぎ） |
+| R-020 | 対象消滅（D-3） | 66bb1a45 | plan AC-4・MC-2b・H-1391-6、todo T-05b、TC-08/TC-10 |
+| R-021 | reflected（縮小） | 66bb1a45 | plan AC-4・残存脅威モデル・H-1391-5、todo T-05b、TC-10 |
+| R-022 | reflected | 66bb1a45 | plan MC-4・受け渡し・Human 境界、todo T-05d/T-12/H-03c/H-05、TC-13 |
+| R-023 | reflected | 66bb1a45 | plan MC-2a・Files・WB4b、todo T-02/T-05c/H-03/H-03b、TC-12 |
 
 ## 回避クラス台帳（追記専用）
 
