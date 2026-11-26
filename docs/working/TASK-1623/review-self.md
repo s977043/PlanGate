@@ -79,3 +79,23 @@ C-2 で特に見てほしい点: MC-3 の「main で skip せず固定 SHA 写�
 | C1-TEST | PASS | mutation に「V2 tree で main 用分岐を強制」「印の部分一致」「skip 注入」を追加 |
 
 残 WARN: Q-2 未確定 / ta-118 改修の範囲（RT-6 の発火可能性）。C-2 R2 は §7-quater に従い R1 是正（番兵・ハッシュ照合・収集判定）の回避経路を疑う。
+
+## 簡易 C-1 再実行（Rev 4 / 2026-11-26、C-2 R2 反映後）
+
+> 対象: plan.md Rev 4（R-013〜R-017 を反映、commit `60540c4d`）/ todo.md / test-cases.md。作成者と同一の AI セルフレビュー。
+
+**判定: WARN**（FAIL 0 / WARN 3）
+
+| ID | 判定 | 所見 |
+|---|---|---|
+| R2 自己参照ハッシュ（R-013） | 解消（計画上） | CI 照合は偶発破損の検出に格下げ、写像の正しさは MC-2a の Human 突き合わせ（C-3・前半 C-4 の 2 回）。残存脅威モデルに「同時編集は CI で検出不能」を明記 |
+| R2 番兵の素通り（R-014） | 解消（計画上） | 振る舞い判定に変更、mutation に改名・移設を追加（TC-11 d/e）。実効性は exec と R3 で検証 |
+| C1-PLAN-01 受入基準網羅性 | PASS | AC-4（R-016 で改訂）・AC-5（R-014 で改訂）を TC-10 / TC-11 に、MC-4 を TC-13、MC-2a を TC-12 に写像 |
+| C1-PLAN-02 Unknowns | WARN（残） | Q-2 未確定。期限 5 営業日（RT-3）と定数値を書かない Stop Condition あり |
+| C1-PLAN-06 依存関係 | WARN（新） | MC-2a は Human 確認（H-03 / H-03b）に、MC-4 は前半マージ後の対外投稿（T-12、名指し承認要）に依存。前半 C-4 の前提に Human 作業が 1 件増えた |
+| C1-PLAN-09 Replan 機械値 | PASS | RT-7 を必須テスト名・分岐明示行に拡張、RT-9（突き合わせ不一致）を追加 |
+| C1-SCOPE | WARN（残） | ta-118 改修が `verbosity=2`・固定リスト照合まで拡大（HO 非該当）。`.github/workflows/` 不変は AI 推奨で、C-3 で Human が覆すと HO に当たり別承認（RT-6） |
+| C1-TODO-RB | PASS | 追加の T-05c / T-12 に rollback 記載 |
+| §7-quater 打ち切り | 未収束 | R2 で新クラス 4 件 → R3 を実施（plan レビューレーン計画） |
+
+残 WARN: Q-2 未確定 / Human 依存の追加（MC-2a・MC-4）/ ta-118 改修範囲と workflows 不変の判断。C-3 前に R3 を実施する。

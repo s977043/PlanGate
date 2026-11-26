@@ -46,11 +46,11 @@
 | R-010 | reflected | 1e133ce6 | plan RT-3、todo H-02 |
 | R-011 | reflected | 1e133ce6 | 採用 → AC-4（前半） |
 | R-012 | reflected | 1e133ce6 | 採用 → AC-5（前半は番兵、実照合 PASS は #1391 側） |
-| R-013 | open | - | |
-| R-014 | open | - | |
-| R-015 | open | - | |
-| R-016 | open | - | |
-| R-017 | open | - | |
+| R-013 | reflected | 60540c4d | plan MC-2a/MC-2a'・残存脅威モデル・WB4b・RT-9・Human 境界、todo T-05c/H-03/H-03b、TC-03/TC-12。`.github/workflows/` 不変は AI 推奨（C-3 で Human が覆せる） |
+| R-014 | reflected | 60540c4d | plan MC-3・AC-5・WB4/6、todo T-05/T-08、TC-11(d)(e) |
+| R-015 | reflected | 60540c4d | plan 受け渡し節・MC-4・WB8・Human 境界、todo T-12/H-05、TC-13 |
+| R-016 | reflected | 60540c4d | plan AC-4・MC-2b・Files・WB4/6・RT-7、todo T-05b/T-08/T-11、TC-08/TC-10 |
+| R-017 | reflected | 60540c4d | plan H-1391-2 |
 
 ## 回避クラス台帳（追記専用）
 
