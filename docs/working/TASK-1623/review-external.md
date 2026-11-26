@@ -128,9 +128,9 @@
 | R-030 | reflected | 45811756 | plan MC-2a（C-3 時点、例: tip `3a7373f0` で diff 空）、todo T-00/T-02、TC-12 |
 | R-031 | reflected | 45811756 | plan 引き継ぎ節（正本 `TASK-1391/c4-preconditions.md` @ `3a7373f0` を参照、改訂規則）・受け渡し・Human 境界、todo H-01d、TC-13 (0)(1)。R-027 補足も同 commit（AC-4・Files・T-05b・TC-10） |
 | R-032 | reflected（Human 待ち） | 45811756 | plan Human 境界の exec 開始条件、todo H-01e/依存、TC-13 (4)。TASK-1391 todo への追記は Human 判断待ち |
-| R-033 | pending | — | plan MC-2a（C-4 時点）、todo T-05c/H-03b、TC-12 |
-| R-034 | pending | — | todo T-05c depends_on |
-| R-035 | pending | — | plan 引き継ぎ節（文面ハッシュ・照合手順・参照切替条件・順序規則）・残存脅威モデル、TC-13 (0) |
+| R-033 | reflected | 792972bd | plan MC-2a（C-4 時点）・残存脅威モデル、todo T-05c/H-03b、TC-12 |
+| R-034 | reflected | 792972bd | todo T-05c depends_on・依存関係節 |
+| R-035 | reflected | 792972bd | plan 引き継ぎ節（文面ハッシュ・照合手順・参照切替条件・順序規則）・残存脅威モデル、TC-13 (0) |
 
 ## 回避クラス台帳（追記専用）
 

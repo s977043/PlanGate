@@ -167,3 +167,23 @@ C-2 で特に見てほしい点: MC-3 の「main で skip せず固定 SHA 写�
 | §7-quater | 推移記録 | R2:4, R3:3, R4:1, R5:1（正本循環）。R-029 / R-030 は R4 クラスの同型の是正漏れ。新クラスが 1 件ずつ出続けており完全性は主張しない |
 
 残 WARN: Q-2 未確定 / Human 依存（H-01e の TASK-1391 todo 追記・C-4 前の H-03b 集中）/ 前半〜#1391 後半の構造ズレ未検出期間と ta-118 で検出しない実質未検査。
+
+## 簡易 C-1 再実行（Rev 8 / 2026-11-26、C-2 R6 反映後）
+
+> 対象: plan.md Rev 8（R-033〜R-035 を反映、commit `792972bd`）/ todo.md / test-cases.md。作成者と同一の AI セルフレビュー。
+
+**判定: WARN**（FAIL 0 / WARN 4）
+
+| ID | 判定 | 所見 |
+|---|---|---|
+| R-033 mc2a-c4 の自己参照 | 解消（計画上） | head 一致をやめ、`git diff --name-only <記録 head> <現 head>` に fixture のパスと `scripts/ai-loop-v2/` 配下が無いことを照合。evidence は PR 内に commit し、`docs/working/TASK-1623/` 配下の追加だけを許容（plan MC-2a / T-05c / H-03b / TC-12） |
+| R-034 T-05c の依存 | 解消 | depends_on に T-04・T-07 を追加し、依存関係節も更新 |
+| R-035 正本の到達不能 | 解消（計画上） | plan に full SHA と「## C-4 前提」節本文の sha256（`ba4a1f16…704b`、2026-11-26 に `3a7373f0` から再計算）・照合手順・main への参照切替条件・「正本 commit → plan 更新」の順序規則を記載（TC-13 (0)） |
+| C1-PLAN-01 受入基準網羅性 | PASS | AC 割当は不変。TC-12 / TC-13 に R-033 / R-035 の期待を反映 |
+| C1-PLAN-02 Unknowns | WARN（残） | Q-2 未確定（RT-3・Stop Condition あり） |
+| C1-PLAN-06 依存関係 | WARN（残） | exec 開始は H-03 と H-01e に依存。C-4 直前に H-03b / H-03c が集中 |
+| C1-SCOPE | PASS | 変更は `docs/working/TASK-1623/` のみ。TASK-1391 は変更していない |
+| 残存脅威 | WARN（残・更新） | 構造ズレ未検出期間・実質未検査に加え、文面ハッシュ照合は手順で CI 強制なし、C-4 時点照合はパス判定（plan 残存脅威モデルに追記） |
+| §7-quater | 収束 | R2:4, R3:3, R4:1, R5:1, R6:0。R-033 / R-035 は既知クラスの是正漏れ。打ち切り規則（R-009）により C-2 収束。完全性は主張しない |
+
+残 WARN: Q-2 未確定 / Human 依存（H-01e・H-03b / H-03c）/ 残存脅威モデル記載の未検出領域。
