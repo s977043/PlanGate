@@ -1,6 +1,6 @@
 # TASK-1623 Implementation Plan
 
-> Rev 7（2026-11-26, AI 作成。C-2 R5 の R-029〜R-032 を反映）。Rev 6 は Human 決定 D-4 と C-2 R4 の R-024〜R-028 を反映。Rev 5 は D-3 と R-018〜R-023 を反映し前半スコープを縮小。Rev 4 は R-013〜R-017 を反映。Rev 3 は D-2 と R1 の R-001〜R-012 を反映。`review-external.md`）。C-3 前の計画案。承認・実装許可ではない。`approvals/c3.json` は未発行。
+> Rev 8（2026-11-26, AI 作成。C-2 R6 の R-033〜R-035 を反映。R6 で新しい回避クラス 0 件 → C-2 収束）。Rev 7 は C-2 R5 の R-029〜R-032 を反映。Rev 6 は Human 決定 D-4 と C-2 R4 の R-024〜R-028 を反映。Rev 5 は D-3 と R-018〜R-023 を反映し前半スコープを縮小。Rev 4 は R-013〜R-017 を反映。Rev 3 は D-2 と R1 の R-001〜R-012 を反映。`review-external.md`）。C-3 前の計画案。承認・実装許可ではない。`approvals/c3.json` は未発行。
 > 基準: `origin/main` = `fd6b6843`。#1391 スライス A = `origin/feat/1391-phase1b-exec` の `6756a597`（main 未マージ・PR なし）。
 > 既存の #1393 C-3 は本 TASK の実装許可として流用しない（issue #1623 2026-11-03 追記）。
 
@@ -59,7 +59,14 @@ whole `decision_made` event の最大 canonical byte 数を最悪ケース event
 
 > **H-1391-1〜6 の文面の正本は `docs/working/TASK-1391/c4-preconditions.md`（commit `3a7373f0`、`origin/feat/1391-phase1b-exec` 上。オーガナイザーが D-4 により記載）**（R-031）。本節は文面を持たず、ID と 1 行要約だけを置く。**下の要約は正本ではない**。判定・MC-4 本文案・#1623-b の C-3 では必ず正本（参照 commit の版）を読む。
 >
-> 改訂規則（R-031）: H-1391-1〜6 の文面を変えるときは正本ファイルを更新し、**同じ変更で**本節の参照 commit を更新する。片方だけの更新は行わない。初版の転記元は本 plan `ba206960`（Rev 6）。
+> 正本の束縛（R-035）: 参照 commit は rebase / squash で到達不能になりうるため、commit に加えて正本の文面ハッシュで束縛する。
+>
+> - 参照: `3a7373f02f2b7ae3b4e5843cb71ad627d55f6604`:`docs/working/TASK-1391/c4-preconditions.md`
+> - 文面ハッシュ（「## C-4 前提」見出し行の次の行から、次の `## ` 見出し行の直前までの byte 列の sha256）: `ba4a1f169180801c42539f7da78fa5859937eff804b1515ea2fbda54b6a6704b`
+> - 照合手順: `git show <参照>:docs/working/TASK-1391/c4-preconditions.md | awk '/^## /{if(f){exit} if($0=="## C-4 前提"){f=1; next}} f' | shasum -a 256` の結果が上の値と一致すること。判定・MC-4 本文案作成・#1623-b の C-3 の前に実施する。参照 commit が到達不能なら、到達可能な版（`origin/feat/1391-phase1b-exec` の tip、または main）で同じ手順を実行し、一致すればその commit を新しい参照として本節を更新する。不一致なら正本が改訂されているため下の改訂規則に従う
+> - 参照の切替条件: #1391 の PR が main にマージされ、main 上の `docs/working/TASK-1391/c4-preconditions.md` で上の照合が一致したら、参照を「main 上のパス＋その merge commit」に切り替える
+>
+> 改訂規則（R-031、R-035 で順序規則に変更）: 正本と本 plan は別ブランチにあり同一変更では更新できない。H-1391-1〜6 の文面を変えるときは **(1) 正本ファイルを変更して commit・push → (2) 本節の参照 commit と文面ハッシュを再計算値に更新** の順で行う。(2) が済むまで、本 plan の参照は旧版を指すため判定には使わず、正本の新 commit で照合をやり直す。初版の転記元は本 plan `ba206960`（Rev 6）。
 
 | ID | 1 行要約（正本ではない） |
 |---|---|
@@ -120,7 +127,7 @@ whole `decision_made` event の最大 canonical byte 数を最悪ケース event
       - `_validate_append_only`: 467-474
     - コマンド: `git show 6756a597:scripts/ai-loop-v2/run_event.py | sed -n '39,43p;52,74p;81,84p;136,171p;467,474p'`
     - C-3 時点（`mc2a-c3.txt`）: 上の行範囲の出力と、**fixture の前提構造を文章で書いた仕様**（decision の必須キー 9 個・任意キー `artifact_ref`・accepted event のキー 10 個・`canonical_bytes` の `json.dumps` 引数）を突き合わせる。fixture 実物は C-3 時点では存在しない（exec の T-03 で作る）ため対象にしない（R-025）。**同じファイルに `origin/feat/1391-phase1b-exec` の tip SHA と RT-2 の判定結果（`git diff 6756a597 <tip> -- scripts/ai-loop-v2/run_event.py` の出力）を同時に記録する**（R-030。例: 2026-11-26 時点の tip `3a7373f0` で同 diff は空）
-    - C-4 時点（`mc2a-c4.txt`）: 同じ行範囲の出力と **fixture 実物**の前提構造を突き合わせる（1 回）。前半 C-4 前の**最後に**作る（fixture を変えうる T-04 / T-07 / T-09 / T-11 の後, R-029）。ファイルに fixture の blob SHA（`git rev-parse <PR head>:<fixture path>`）と前半 PR の head SHA を記録し、Human 確認時（H-03b）にその head SHA が PR の現在の head と一致することを確かめる。不一致なら作り直す
+    - C-4 時点（`mc2a-c4.txt`）: 同じ行範囲の出力と **fixture 実物**の前提構造を突き合わせる（1 回）。前半 C-4 前の**最後に**作る（fixture を変えうる T-04 / T-07 / T-09 / T-11 の後, R-029）。ファイルに fixture の blob SHA（`git rev-parse <PR head>:<fixture path>`）と作成時点の前半 PR の head SHA（記録 head）を記録する。evidence は PR 内に commit する。commit で head が動くため head の一致は求めず（R-033）、Human 確認時（H-03b）に `git diff --name-only <記録 head> <現 head>` を確認し、出るパスが `docs/working/TASK-1623/` 配下の evidence 自身の追加・更新だけで、fixture のパスと MC-2a 対象（`scripts/ai-loop-v2/` 配下）が含まれないことを確かめる。含まれれば作り直す
     - 保存先: `docs/working/TASK-1623/evidence/mc2a-<時点>.txt`（`<時点>` = `c3` / `c4`。各ファイル先頭に基準 SHA `6756a597`・実施日時・行範囲を記す）
     - 確認記録: Human の確認（一致 / 不一致・日時）を `status.md` に記録し、handoff.md から参照する。実施者は Human、または AI が提示し Human が確認
   - MC-2a'（CI 上の定義行ハッシュ照合）: **D-3 で #1391 後半へ移管**（前半に写像を埋め込まない）
@@ -138,8 +145,10 @@ whole `decision_made` event の最大 canonical byte 数を最悪ケース event
   - ta-118 の判定は、テスト内の早期 return・トートロジー assert（常に真の比較）による実質未検査を検出しない（R-027。C-4 レビューと WB6 の mutation が主体）。`expectedFailure`（出力は `expected failures=`）と `Ran 0 tests` は rc=0 になるため ta-118 で FAIL とする
   - 前半の AC-1 は数値の自己再現であり、fixture の構造が `6756a597` と一致することは CI で保証しない（R-028。MC-2a と H-1391-1 / H-1391-6 が主体）
   - 前半マージ後も byte 上限は I-11 で強制されていない（MC-1、後半が主体）
+  - 正本 `c4-preconditions.md` の文面ハッシュ照合は手順であり CI で強制しない。照合を実施しなかった場合の改訂の見落としは検出されない（R-035。判定時の照合実施と #1391 の C-4 が主体）
+  - MC-2a の C-4 時点の照合は `git diff --name-only` のパス判定であり、`docs/working/TASK-1623/` 配下に置いた非 evidence の変更は区別しない（R-033。C-4 レビューが主体）
 - 本検査は多層防御の 1 層。`.github/workflows/` は変更しない（HO。AI 推奨。C-3 で Human が覆せる）
-- §7-quater 打ち切り: R2 で 4、R3 で 3 の新クラス → D-3 で設計モデルを変更した。R4 で 1（gate の判定材料が gate の後に作られる、R-025）→ 是正済み。R5 で 1（正本循環、R-031）→ 是正済み。完全性は主張しない
+- §7-quater 打ち切り: R2 で 4、R3 で 3 の新クラス → D-3 で設計モデルを変更した。R4 で 1（gate の判定材料が gate の後に作られる、R-025）→ 是正済み。R5 で 1（正本循環、R-031）→ 是正済み。R6 で 0（R-033 / R-035 は既知クラスの是正漏れ）→ C-2 収束。完全性は主張しない
 
 ## Context
 
@@ -246,6 +255,7 @@ I-11 は「valid な DecisionInput から作る Decision の event」を守る�
 - R3 結果（2026-11-26）: 新しい回避クラス 3 件（印の判定条件が基準 tree でも成立 / fail-closed の期待値が片方の tree に固定 / マージ後の作業に gate が無い）。§7-quater「設計モデルを疑う」に該当し、D-3 で設計モデルを変更（前半からズレ検出を外す）。縮小後の前半は exec 後の敵対レビュー 2 ラウンド（WB6）で扱う。ズレ検出の敵対レビューは #1391 後半の責務
 - R4 結果（2026-11-26、対象 Rev 5）: 新しい回避クラス 1 件（gate の判定材料がその gate の後に作られる, R-025）。推移 R2:4, R3:3, R4:1。R-024 は D-4、R-025〜R-028 は Rev 6 で是正
 - R5 結果（2026-11-26、対象 Rev 6）: 新しい回避クラス 1 件（正本循環, R-031）。R-029 / R-030 は R4 クラスの是正漏れ（同型）。推移 R2:4, R3:3, R4:1, R5:1。Rev 7 で是正。完全性は主張しない
+- R6 結果（2026-11-26、対象 Rev 7）: 新しい回避クラス 0 件。R-033 / R-035 は既知クラスの是正漏れ、R-034 は整合。推移 R2:4, R3:3, R4:1, R5:1, R6:0 → 打ち切り規則（R-009）により C-2 収束。Rev 8 で是正。残存脅威は「残存脅威モデル」節
 
 ## Mode判定
 
