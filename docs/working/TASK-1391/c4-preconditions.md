@@ -2,7 +2,7 @@
 
 > 2026-11-26 Human 決定 D-4（TASK-1623 plan `ba206960` の Decisions）により記載する。
 > TASK-1391 の plan.md と approvals/c3.json は変更しない。本ファイルはスライス B（バイト再検査 P1B-7 の skip を外す PR）を C-4 に渡す前提を定める。
-> 出典の正本: `docs/working/TASK-1623/plan.md`「#1391 への引き継ぎ事項」（branch `docs/TASK-1623-plan`, commit `ba206960`）。文面はそこからの転記で、食い違えば TASK-1623 側を正とする。
+> **H-1391-1〜6 の文面の正本は本ファイル**（TASK-1623 C-2 R5 / R-031）。TASK-1623 側は本ファイルの commit を参照するだけで文面を持たない。文面を変えるときは本ファイルを更新し、同じ変更で TASK-1623 側の参照 commit を更新する。初版の転記元は TASK-1623 plan `ba206960`。
 
 ## C-4 前提
 
