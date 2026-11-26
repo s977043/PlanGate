@@ -44,7 +44,7 @@
 ### TC-10: skip による未実行の検出（AC-4、D-3 で縮小）
 
 - 入力: ta-118 の実行。mutation で (a) 新規テストに skip を注入、(b) 新規テストに `expectedFailure` を付与（出力は `expected failures=`）、(c) テストが 0 件収集される状態（`Ran 0 tests`）にする（R-027）
-- 期待: 通常は PASS（`skipped=` / `expected failures=` なし・`Ran 0 tests` でない・rc=0）。(a)(b)(c) のいずれでも ta-118 が FAIL
+- 期待: 通常は PASS（`skipped=` / `expected failures=` なし・`Ran 0 tests` でない・rc=0）。(a)(b)(c) のいずれでも ta-118 が FAIL。判定は行頭固定の正規表現で unittest の要約行だけを対象にし、(d) テスト名や docstring などの本文に `skipped=` / `Ran 0 tests` の文字列が出ても要約行でなければ FAIL にしない（R-027 補足）
 - 検出しないもの（R-027）: テスト内の早期 return・トートロジー assert。C-4 レビューと WB6 の mutation（定数 −1 等が FAIL すること）で扱う
 - 移管: Rev 4 の (b) 必須テストの未収集・(c) 分岐明示行の欠落は D-3 で #1391 後半へ（plan.md H-1391-5）。前半では未収集・改名による未実行は検出しない（残存脅威モデル）
 - 種別: unit / mutation
@@ -59,11 +59,13 @@
 
 - 入力: `git show 6756a597:scripts/ai-loop-v2/run_event.py | sed -n '39,43p;52,74p;81,84p;136,171p;467,474p'`（行範囲は plan.md MC-2a に計画段階で記載, R-025）と、C-3 時点は fixture の前提構造の文章仕様（キー集合・`json.dumps` 引数）、C-4 時点は fixture 実物
 - 期待: `evidence/mc2a-c3.txt`（C-3 前、T-00）・`evidence/mc2a-c4.txt`（前半 C-4 前、T-05c）に基準 SHA・日時・行範囲・diff があり、全行一致、Human の確認が status.md に記録済み。不一致なら RT-9
+- 期待（R-030）: `mc2a-c3.txt` に `origin/feat/1391-phase1b-exec` の tip SHA と `git diff 6756a597 <tip> -- scripts/ai-loop-v2/run_event.py` の結果が同時に記録されている。T-02 は記録 tip からの変化だけを再確認する
+- 期待（R-029）: `mc2a-c4.txt` に fixture の blob SHA と前半 PR の head SHA があり、H-03b 時点の PR head と一致する。T-04 / T-07 / T-09 / T-11 より後に作られている
 - 種別: 手動確認（evidence 保存）
 
 ### TC-13: #1391 への受け渡し（MC-4 / R-015 / R-022）
 
-- 期待: (1) 前半 C-4 前に `evidence/mc4-draft.md`（H-1391-1〜6 の本文案は plan.md の書き直し後の文面（R-026）・投稿先）を Human が確認済み、(2) 前半マージ後に #1391 Issue へコメントがあり URL が handoff に記録されている（(2) は #1623-b の C-3 前提）、(3) TASK-1391 文書に H-1391-1〜6 の evidence がスライス B の C-4 前提として記載され、記載先と commit が status.md にある（D-4 / R-024。記載はオーガナイザー）
+- 期待: (0) H-1391-1〜6 の文面は正本 `docs/working/TASK-1391/c4-preconditions.md` の参照 commit（初版 `3a7373f0`）にのみあり、plan.md は ID・1 行要約（正本でない旨の明記）・commit 参照だけを持つ（R-031）、(1) 前半 C-4 前に `evidence/mc4-draft.md`（H-1391-1〜6 の本文案は正本の参照 commit の文面（R-026 / R-031）・投稿先）を Human が確認済み、(2) 前半マージ後に #1391 Issue へコメントがあり URL が handoff に記録されている（(2) は #1623-b の C-3 前提）、(3) TASK-1391 文書に H-1391-1〜6 の evidence がスライス B の C-4 前提として記載され、記載先と commit が status.md にある（D-4 / R-024。記載はオーガナイザー）、(4) exec 開始前に TASK-1391 の todo の C-4 行から `c4-preconditions.md` が参照されている（R-032、H-01e）
 - 種別: 手動確認
 
 ### TC-09: #1623 Open 維持（MC-1）
