@@ -78,6 +78,20 @@
 - 新しい回避クラス: R2 = 4 件、R3 = 3 件、R4 = 1 件、R5 = 1 件（正本循環, R-031）
 - R-029 / R-030 は既存クラス「gate の判定材料がその gate の後に作られる」の同型の再検出（是正漏れ）。R-032 は R-031 の受け手側の確認
 
+## Round 6（2026-11-26、対象 `a02089f1` の plan Rev 7。§7-quater: R5 是正そのものを疑う）
+
+| R-NNN | severity | 出典 | 指摘 | 反映方針 |
+|---|---|---|---|---|
+| R-033 | major | R6 | 既知クラス「gate の判定材料が gate の後に作られる」の是正漏れ（R-029 の自己参照）: `mc2a-c4.txt` を PR に commit するとその commit で head SHA が動き、記録 head と現 head が一致しない | 照合対象を「記録 head から現 head までの diff に fixture のパスと MC-2a 対象の変化が無いこと」に変更。evidence は PR 内に commit し、diff に evidence 自身（`docs/working/TASK-1623/`）の追加だけが出ることを許容 |
+| R-034 | minor | R6 | T-05c の depends_on に T-04 / T-07 が無く本文（T-04 / T-07 / T-09 / T-11 の後）と不整合 | depends_on に T-04 / T-07 を追加 |
+| R-035 | major | R6 | 既知クラス「正本循環」の是正漏れ: 参照先 `3a7373f0` は `origin/feat/1391-phase1b-exec` にしか無く rebase / squash で到達不能になる。正本と plan は別ブランチで「同じ変更で両方更新」は守れない | plan に正本「## C-4 前提」節本文の sha256 を記録し再計算手順を書く。#1391 マージ後は main 上のパス＋commit に参照を切り替える条件を定める。改訂規則を「正本 commit → plan の参照・ハッシュ更新」の順序規則に書き直す |
+
+### §7-quater 推移（R6）と収束判定
+
+- 新しい回避クラス: R2 = 4、R3 = 3、R4 = 1、R5 = 1、**R6 = 0 → 収束**（回避クラス台帳への追加なし）
+- R-033 は「gate の判定材料が gate の後に作られる」、R-035 は「正本循環」の同型の再検出（是正漏れ）。R-034 は整合の指摘
+- 打ち切りは完全性を主張しない。残存脅威モデルは plan.md「残存脅威モデル」節（Rev 8 で更新）を参照
+
 ## 監査表
 
 | R-NNN | status | reflected_in(commit) | notes |
@@ -114,6 +128,9 @@
 | R-030 | reflected | 45811756 | plan MC-2a（C-3 時点、例: tip `3a7373f0` で diff 空）、todo T-00/T-02、TC-12 |
 | R-031 | reflected | 45811756 | plan 引き継ぎ節（正本 `TASK-1391/c4-preconditions.md` @ `3a7373f0` を参照、改訂規則）・受け渡し・Human 境界、todo H-01d、TC-13 (0)(1)。R-027 補足も同 commit（AC-4・Files・T-05b・TC-10） |
 | R-032 | reflected（Human 待ち） | 45811756 | plan Human 境界の exec 開始条件、todo H-01e/依存、TC-13 (4)。TASK-1391 todo への追記は Human 判断待ち |
+| R-033 | pending | — | plan MC-2a（C-4 時点）、todo T-05c/H-03b、TC-12 |
+| R-034 | pending | — | todo T-05c depends_on |
+| R-035 | pending | — | plan 引き継ぎ節（文面ハッシュ・照合手順・参照切替条件・順序規則）・残存脅威モデル、TC-13 (0) |
 
 ## 回避クラス台帳（追記専用）
 
