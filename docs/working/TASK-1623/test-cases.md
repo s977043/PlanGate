@@ -8,7 +8,7 @@
 | AC-2 I-11 が上限超過を `DecisionInputError` にする | TC-04, TC-05, TC-E04 | 後半 |
 | 派生 AC-3 #1392 reserve が同じ定数を参照 | TC-06 | 前半（契約 fixture） |
 | 回帰（`test_no_byte_constants` の置換）| TC-07 | 前半 |
-| AC-4 新規テストの実行確認（ta-118 で `skipped=` 0 件・rc=0。D-3 で縮小） | TC-10 | 前半 |
+| AC-4 新規テストの実行確認（ta-118 で `skipped=` 0 件・`expected failures=` 0 件・`Ran 0 tests` でない・rc=0。D-3 で縮小、R-027 で拡張） | TC-10 | 前半 |
 | AC-5 V2 構造着地時は写像だけの検査が FAIL し実照合へ（R-012 / R-014） | TC-11 | **D-3 で #1391 後半へ移管**（plan.md H-1391-4 / H-1391-6） |
 | 前半マージ条件 MC-1 / MC-2a / MC-2b / MC-4（plan.md） | TC-08, TC-09, TC-12, TC-13 | 前半 |
 
@@ -18,7 +18,7 @@
 
 - 前提: 構造の出典は `6756a597` の `run_event` に固定（MC-2a の Human 突き合わせ evidence で束縛。D-3 で定義行ハッシュ・写像の埋め込みは外した）
 - 入力: MERGE_READY / BLOCKED / HUMAN_ESCALATED / null の各合法最悪 event
-- 期待: `canonical_bytes` 相当（`json.dumps(..., ensure_ascii=False)` 等、`6756a597` の引数）で fixture の byte 数が再現され、最大 ≤ `MAX_DECISION_EVENT_BYTES`
+- 期待: `canonical_bytes` 相当（`6756a597:run_event.py:81-84` の `json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")`）で fixture の byte 数が再現され、最大 ≤ `MAX_DECISION_EVENT_BYTES`。前半での合格は数値の自己再現であり構造の正しさを保証しない（R-028）
 - 前半の合格条件外: 最大値の event が実 `validate_event` を通ることは #1391 後半（plan.md H-1391-6、R-005 / D-3）
 - 種別: unit（自動）
 
@@ -38,13 +38,14 @@
 ### TC-08: 前半 PR の CI で skip 0 件（MC-2b / D-2 / D-3）
 
 - 入力: 前半 PR の CI run ログ（ta-118）
-- 期待: ta-118 が rc=0 で PASS、`skipped=` 0 件（欠落なら FAIL）。Rev 4 の必須テスト名・分岐明示行・定義行ハッシュは D-3 で移管
+- 期待: ta-118 が rc=0 で PASS、`skipped=` 0 件・`expected failures=` 0 件・`Ran 0 tests` でない（いずれかに該当すれば FAIL, R-027）。Rev 4 の必須テスト名・分岐明示行・定義行ハッシュは D-3 で移管
 - 種別: 手動確認（ログ evidence 保存）
 
 ### TC-10: skip による未実行の検出（AC-4、D-3 で縮小）
 
-- 入力: ta-118 の実行。mutation で (a) 新規テストに skip を注入
-- 期待: 通常は PASS（`skipped=` なし・rc=0）。(a) で ta-118 が FAIL
+- 入力: ta-118 の実行。mutation で (a) 新規テストに skip を注入、(b) 新規テストに `expectedFailure` を付与（出力は `expected failures=`）、(c) テストが 0 件収集される状態（`Ran 0 tests`）にする（R-027）
+- 期待: 通常は PASS（`skipped=` / `expected failures=` なし・`Ran 0 tests` でない・rc=0）。(a)(b)(c) のいずれでも ta-118 が FAIL
+- 検出しないもの（R-027）: テスト内の早期 return・トートロジー assert。C-4 レビューと WB6 の mutation（定数 −1 等が FAIL すること）で扱う
 - 移管: Rev 4 の (b) 必須テストの未収集・(c) 分岐明示行の欠落は D-3 で #1391 後半へ（plan.md H-1391-5）。前半では未収集・改名による未実行は検出しない（残存脅威モデル）
 - 種別: unit / mutation
 
@@ -56,13 +57,13 @@
 
 ### TC-12: 構造の出典の Human 突き合わせ（MC-2a / R-013 / R-023）
 
-- 入力: `git show 6756a597:scripts/ai-loop-v2/run_event.py | sed -n '<行範囲>p'`（監視対象 = plan.md RT-2、行範囲は T-02 の記録）と fixture の前提構造
-- 期待: `evidence/mc2a-c3.txt`・`evidence/mc2a-c4.txt` に基準 SHA・日時・行範囲・diff があり、全行一致、Human の確認が status.md に記録済み。不一致なら RT-9
+- 入力: `git show 6756a597:scripts/ai-loop-v2/run_event.py | sed -n '39,43p;52,74p;81,84p;136,171p;467,474p'`（行範囲は plan.md MC-2a に計画段階で記載, R-025）と、C-3 時点は fixture の前提構造の文章仕様（キー集合・`json.dumps` 引数）、C-4 時点は fixture 実物
+- 期待: `evidence/mc2a-c3.txt`（C-3 前、T-00）・`evidence/mc2a-c4.txt`（前半 C-4 前、T-05c）に基準 SHA・日時・行範囲・diff があり、全行一致、Human の確認が status.md に記録済み。不一致なら RT-9
 - 種別: 手動確認（evidence 保存）
 
 ### TC-13: #1391 への受け渡し（MC-4 / R-015 / R-022）
 
-- 期待: (1) 前半 C-4 前に `evidence/mc4-draft.md`（H-1391-1〜6 の本文案・投稿先）を Human が確認済み、(2) 前半マージ後に #1391 Issue へコメントがあり URL が handoff に記録されている（(2) は #1623-b の C-3 前提）
+- 期待: (1) 前半 C-4 前に `evidence/mc4-draft.md`（H-1391-1〜6 の本文案は plan.md の書き直し後の文面（R-026）・投稿先）を Human が確認済み、(2) 前半マージ後に #1391 Issue へコメントがあり URL が handoff に記録されている（(2) は #1623-b の C-3 前提）、(3) TASK-1391 文書に H-1391-1〜6 の evidence がスライス B の C-4 前提として記載され、記載先と commit が status.md にある（D-4 / R-024。記載はオーガナイザー）
 - 種別: 手動確認
 
 ### TC-09: #1623 Open 維持（MC-1）

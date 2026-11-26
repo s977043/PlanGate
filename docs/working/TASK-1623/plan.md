@@ -1,6 +1,6 @@
 # TASK-1623 Implementation Plan
 
-> Rev 5（2026-11-26, AI 作成。Human 決定 D-3 と C-2 R3 の R-018〜R-023 を反映し、前半スコープを縮小。Rev 4 は R-013〜R-017 を反映。Rev 3 は D-2 と R1 の R-001〜R-012 を反映。`review-external.md`）。C-3 前の計画案。承認・実装許可ではない。`approvals/c3.json` は未発行。
+> Rev 6（2026-11-26, AI 作成。Human 決定 D-4 と C-2 R4 の R-024〜R-028 を反映。Rev 5 は D-3 と R-018〜R-023 を反映し前半スコープを縮小。Rev 4 は R-013〜R-017 を反映。Rev 3 は D-2 と R1 の R-001〜R-012 を反映。`review-external.md`）。C-3 前の計画案。承認・実装許可ではない。`approvals/c3.json` は未発行。
 > 基準: `origin/main` = `fd6b6843`。#1391 スライス A = `origin/feat/1391-phase1b-exec` の `6756a597`（main 未マージ・PR なし）。
 > 既存の #1393 C-3 は本 TASK の実装許可として流用しない（issue #1623 2026-11-03 追記）。
 
@@ -43,23 +43,35 @@ whole `decision_made` event の最大 canonical byte 数を最悪ケース event
 - ズレ検出テスト・番兵・V2 tree での実照合・MC-3・AC-5 の前半実装分・分岐明示行・必須テスト名照合は前半から外し、#1391 後半への引き継ぎ（H-1391-4〜6）とする
 - 外した項目は削除せず「D-3 で移管」と明記して残す（監査連続性）
 
-## #1391 への引き継ぎ事項（D-2 / D-3。#1391 側の文書は本 TASK で変更しない）
+### D-4（Human 決定 2026-11-26）: R-024 は #1391 側の文書に前提を書いて閉じる
 
-> D-3 により H-1391-1〜3 の「前半のズレ検出テスト」は前半に存在しない。#1391 後半（バイト再検査の skip を外す PR）で新設する検査として読み替える。
+原文:
 
-- H-1391-1: #1391 の C-4 の前提に「前半のズレ検出テストの V2 tree 用分岐が #1391 PR の CI で実行され、実 `run_event` validator（`validate_event` 通過・`canonical_bytes` 同値・キー集合一致）で PASS したこと」を加える。バイト再検査（P1B-7）の skip を外すのと同じ PR で行う
-- H-1391-2: V2 tree 上で main 用分岐（写像のみの検査）に入った場合は FAIL する番兵（R-001 / R-014）が #1391 PR の CI で FAIL しないこと＝V2 用分岐に切り替わっていること（ta-118 の明示行「V2 用分岐を通った」）を確認する。**V2 の印（振る舞い）の導入と V2 分岐の PASS は同一 PR で行い、部分着地 PR は作らない**。番兵が FAIL した場合は当該 PR を revert するか、同一 PR 内で是正する（R-017）
-- H-1391-3: RT-2 の監視対象定義行（R-004）が `6756a597` から変わった場合、前半の最悪ケース fixture と定数を測り直してから #1391 をマージする（D-3 で「埋め込み写像とハッシュ」は前半に無い）
+> R-024 は #1391 側の文書に前提を書いて閉じる。D-2 の『#1391 側の文書は変えない』を一部解除し、TASK-1391 の文書にスライス B の C-4 前提として『H-1391-1〜6 の evidence』を足す。TASK-1391 の plan.md と c3.json は変えない。
+
+帰結:
+
+- D-4 により TASK-1391 側に C-4 前提を記載する（記載先と commit は exec 前に status.md へ記録）。記載作業は本 TASK の worker ではなくオーガナイザーが行う。TASK-1391 の plan.md と `approvals/c3.json` は変えない
+- H-1391-1〜6 は「#1391 スライス B の C-4 で確認される前提」と位置づけ直す。gate の主体は #1391 の C-4 前提であり、MC-4（#1391 Issue へのコメント）は周知と追跡のために残す
+- #1623-b の C-3 条件は H-1391-1〜6 すべての evidence とする（R-024）
+
+## #1391 への引き継ぎ事項（D-2 / D-3 / D-4。#1391 スライス B の C-4 前提）
+
+> D-4 により、以下は TASK-1391 の文書にスライス B の C-4 前提として記載される（記載はオーガナイザー。記載先と commit は exec 前に status.md へ記録）。文面は D-3 後の前提（前半にズレ検出テスト・番兵・分岐は無い）で書く（R-026）。MC-4 のチェックリスト本文にもこの文面をそのまま入れる。
+
+- H-1391-1: #1391 後半（バイト再検査 P1B-7 の skip を外す PR）で、前半の最悪ケース fixture の構造（キー集合・`canonical_bytes` の `json.dumps` 引数）を実 `run_event` validator と照合する検査を新設し、同じ PR に含める
+- H-1391-2: H-1391-1 の検査が #1391 PR の CI で実行され（skip 0 件・未実行でない）、PASS したことをその CI run のログで確認し evidence に残す。番兵を設けるかは H-1391-4 の検討結果に従い、設ける場合は印の導入と PASS を同一 PR で行い部分着地 PR は作らない（R-017）
+- H-1391-3: RT-2 の監視対象定義行（R-004）が `6756a597` から変わった場合、前半の最悪ケース fixture と定数を測り直してから #1391 をマージする
 - H-1391-4（D-3 / R-018 / R-019）: 番兵を #1391 後半で設計する場合、印の各判定条件が main（基準 tree）で偽になることを実物で測る（main `run_event.py:50` に `decision_made` key がある）。判定は 3 値（印あり / 印なし / 判定不能 = FAIL）とし、例外を「印なし」に倒さない。そもそも V2 構造が実在する tree では番兵は不要で、実 validator 照合だけでよい可能性を先に検討する
 - H-1391-5（D-3 / R-016 / R-021）: 実照合テストの未実行検出。必須テスト名の固定リストはテストと同時改名で素通りするため、採用するなら固定リストを別ファイル・別 owner に置くか件数下限と併用する
 - H-1391-6（D-3 / R-005 / R-020）: 前半の最悪ケース event が実 `validate_event` を通り、`canonical_bytes` が前半 fixture の byte 数と同値であること（AC-1 の validator 通過）を #1391 後半で確かめる。検査は V2 tree 上でだけ走らせ、tree 依存の期待値を持たない
-- 受け渡し（R-015 / R-022）: 前半 C-4 の前に、#1391 Issue への H-1391-1〜6 チェックリストコメントの本文案と投稿先を `evidence/mc4-draft.md` に置き Human が確認する。投稿はマージ後（対外書込のため名指し承認）。投稿 URL を handoff に残すことを #1623-b の C-3 前提とする（MC-4）。#1623-b の C-3 条件には H-1391-1 / H-1391-6 の evidence も含める
+- 受け渡し（R-015 / R-022 / R-024）: gate の主体は TASK-1391 文書に記載される #1391 スライス B の C-4 前提（D-4）。加えて前半 C-4 の前に、#1391 Issue への H-1391-1〜6 チェックリストコメントの本文案（上の書き直し後の文面）と投稿先を `evidence/mc4-draft.md` に置き Human が確認する。投稿はマージ後（対外書込のため名指し承認）。投稿 URL を handoff に残すことと、H-1391-1〜6 すべての evidence を #1623-b の C-3 前提とする（MC-4 / R-024）
 
 ## AC 候補の採否（C-2 R1 由来）
 
 | 候補 | 採否 | AC 文面 | スライス |
 |---|---|---|---|
-| R-011 / R-016 / R-021 | **採用（AC-4、D-3 で縮小）** | AC-4: 前半の新規テストは ta-118 で実行され、`skipped=` が 0 件かつ rc=0 であることを ta-118 が判定し、skip が 1 件でもあれば FAIL とする。（Rev 4 の必須テスト名固定リスト照合・分岐明示行は D-3 で #1391 後半へ移管: H-1391-5） | 前半 |
+| R-011 / R-016 / R-021 | **採用（AC-4、D-3 で縮小、R-027 で拡張）** | AC-4: 前半の新規テストは ta-118 で実行され、`skipped=` が 0 件・`expected failures=` が 0 件・`Ran 0 tests` でない・rc=0 であることを ta-118 が判定し、いずれかに該当すれば FAIL とする。（Rev 4 の必須テスト名固定リスト照合・分岐明示行は D-3 で #1391 後半へ移管: H-1391-5） | 前半 |
 | R-012 / R-014 | **採用（AC-5）→ D-3 で #1391 後半へ移管** | AC-5: V2 `decision_made` 構造が tree に存在するとき、写像だけの検査は FAIL し実 validator 照合へ切り替わる | 前半では実装しない（前半に写像検査が無いため番兵の対象が無い）。#1391 後半（H-1391-4 / H-1391-6） |
 
 採用理由: どちらも R-001 / R-003 の是正が効いていることを合否で確かめる条件で、AC 化しないと「緑だが未実行」を受入で拒否できない。pbi-input.md の AC-1〜AC-3 の文面は変えず、本 plan で追加 AC として扱う。
@@ -68,7 +80,7 @@ whole `decision_made` event の最大 canonical byte 数を最悪ケース event
 
 | AC（文面は pbi-input.md のまま） | 満たすスライス | 前半での扱い |
 |---|---|---|
-| AC-1 最悪ケース event の組み立てと byte 計算が fixture テストで再現できる | **前半** | byte 計算の再現まで満たす（構造の出典は `6756a597` に固定し、MC-2a の Human 突き合わせ evidence で束縛。D-3 で定義行ハッシュ照合は外した）。`validate_event` 通過は #1391 後半（R-005 / H-1391-6） |
+| AC-1 最悪ケース event の組み立てと byte 計算が fixture テストで再現できる | **前半** | byte 計算の**数値の自己再現**まで満たす（R-028。fixture が自分の組んだ event の byte 数を再現できることであり、構造の正しさの保証ではない。構造の出典は `6756a597` に固定し、MC-2a の Human 突き合わせ evidence で束縛。D-3 で定義行ハッシュ照合は外した）。`validate_event` 通過は #1391 後半（R-005 / H-1391-6） |
 | AC-1a 3 定数の導出根拠が残る（派生） | 前半 | 完全 |
 | AC-1b escape・最大桁・任意 field を含む（派生） | 前半 | 完全（Q-2 の値確定が前提） |
 | AC-2 I-11 が上限超過の入力を `DecisionInputError` にする | **後半** | 未達。前半では AC-2 を合格と記載しない |
@@ -93,15 +105,24 @@ whole `decision_made` event の最大 canonical byte 数を最悪ケース event
 
 - MC-1: issue #1623 を Close しない。PR 本文は `Refs #1623` のみ（closing keyword を書かない）。handoff に「AC-2 未達・後半待ち」と「**後半マージまで byte 上限は I-11 で強制されていない**」を明記（R-006）
 - MC-2（D-2 で改訂、R-013 / R-016 で再改訂、D-3 / R-023 で縮小・具体化）:
-  - MC-2a（構造の出典の Human 突き合わせ。**CI の保証ではない**, R-013 / R-023）: C-3 時点と前半 PR の C-4 時点の 2 回実施する。
-    - コマンド: `git show 6756a597:scripts/ai-loop-v2/run_event.py | sed -n '<行範囲>p'`（行範囲は監視対象 = RT-2 の各定義行。exec の T-02 で `6756a597` 上の行番号を測って evidence に記す）の出力と、fixture が前提とする構造（キー集合・`json.dumps` 引数）を並べた diff
+  - MC-2a（構造の出典の Human 突き合わせ。**CI の保証ではない**, R-013 / R-023 / R-025）: C-3 時点と前半 PR の C-4 時点の 2 回実施する。
+    - 行範囲（R-025 で計画段階に前倒し。2026-11-26 に `git show 6756a597:scripts/ai-loop-v2/run_event.py` を読んで実測）:
+      - `DECISION_REQUIRED_KEYS`: 39-42 / `DECISION_OPTIONAL_KEYS`: 43
+      - `EVENT_PAYLOAD_KEYS["decision_made"]`: 68（dict 全体は 52-70）
+      - `COMMON_ACCEPTED_KEYS`: 71-74
+      - `canonical_bytes`: 81-84（`json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")`）
+      - `_validate_decision`: 136-171
+      - `_validate_append_only`: 467-474
+    - コマンド: `git show 6756a597:scripts/ai-loop-v2/run_event.py | sed -n '39,43p;52,74p;81,84p;136,171p;467,474p'`
+    - C-3 時点（`mc2a-c3.txt`）: 上の行範囲の出力と、**fixture の前提構造を文章で書いた仕様**（decision の必須キー 9 個・任意キー `artifact_ref`・accepted event のキー 10 個・`canonical_bytes` の `json.dumps` 引数）を突き合わせる。fixture 実物は C-3 時点では存在しない（exec の T-03 で作る）ため対象にしない（R-025）
+    - C-4 時点（`mc2a-c4.txt`）: 同じ行範囲の出力と **fixture 実物**の前提構造を突き合わせる（1 回）
     - 保存先: `docs/working/TASK-1623/evidence/mc2a-<時点>.txt`（`<時点>` = `c3` / `c4`。各ファイル先頭に基準 SHA `6756a597`・実施日時・行範囲を記す）
     - 確認記録: Human の確認（一致 / 不一致・日時）を `status.md` に記録し、handoff.md から参照する。実施者は Human、または AI が提示し Human が確認
   - MC-2a'（CI 上の定義行ハッシュ照合）: **D-3 で #1391 後半へ移管**（前半に写像を埋め込まない）
-  - MC-2b（D-3 で縮小）: 新規テストが ta-118 で実行され `skipped=` 0 件・rc=0 であること（AC-4）を前半 PR の CI ログで確認し evidence に残す。必須テスト名固定リストと分岐明示行は D-3 で移管（H-1391-5）
-  - #1391 PR の CI での実 validator 照合は #1391 後半の条件（H-1391-1 / H-1391-6）であり前半の条件ではない
+  - MC-2b（D-3 で縮小、R-027 で拡張）: 新規テストが ta-118 で実行され `skipped=` 0 件・`expected failures=` 0 件・`Ran 0 tests` でない・rc=0 であること（AC-4）を前半 PR の CI ログで確認し evidence に残す。必須テスト名固定リストと分岐明示行は D-3 で移管（H-1391-5）
+  - #1391 PR の CI での実 validator 照合は #1391 スライス B の C-4 前提（H-1391-1〜6、D-4）であり前半の条件ではない
 - MC-3（番兵）: **D-3 で #1391 後半へ移管**（H-1391-4）。前半には写像検査も分岐も無い
-- MC-4（R-015、R-022 で gate を追加）: 前半 C-4 の前に、#1391 Issue へのコメント本文案（H-1391-1〜6 のチェックリスト）と投稿先（#1391 Issue の URL）を `docs/working/TASK-1623/evidence/mc4-draft.md` に置き、Human が確認する（未確認なら C-4 に渡さない）。投稿は前半マージ後で、対外書込のため対象を名指しして承認を取る。投稿 URL を handoff に記録することを **#1623-b の C-3 前提**とする
+- MC-4（R-015、R-022 で gate を追加、D-4 で位置づけ変更）: 前半 C-4 の前に、#1391 Issue へのコメント本文案（H-1391-1〜6 のチェックリスト。R-026 で書き直した文面）と投稿先（#1391 Issue の URL）を `docs/working/TASK-1623/evidence/mc4-draft.md` に置き、Human が確認する（未確認なら C-4 に渡さない）。投稿は前半マージ後で、対外書込のため対象を名指しして承認を取る。投稿 URL を handoff に記録することを **#1623-b の C-3 前提**とする。**H-1391-1〜6 の gate の主体は TASK-1391 文書に記載される #1391 スライス B の C-4 前提（D-4）**であり、MC-4 は周知と追跡の手段
 
 ### 残存脅威モデル（R-013 / §7-quater 打ち切り時の明記、D-3 で更新）
 
@@ -109,9 +130,11 @@ whole `decision_made` event の最大 canonical byte 数を最悪ケース event
 - 守らないもの:
   - **前半マージ〜#1391 後半の間、`6756a597` と前半 fixture の構造ズレは CI で検出されない**。保証の主体は MC-2a の Human 突き合わせ（C-3・前半 C-4 の 2 回）と、#1391 後半の実照合（H-1391-1 / H-1391-6）
   - ta-118 の `skipped=` 判定は、テストの未収集・削除・改名による未実行を検出しない（R-016 / R-021。C-4 レビューと #1391 後半 H-1391-5 が主体）
+  - ta-118 の判定は、テスト内の早期 return・トートロジー assert（常に真の比較）による実質未検査を検出しない（R-027。C-4 レビューと WB6 の mutation が主体）。`expectedFailure`（出力は `expected failures=`）と `Ran 0 tests` は rc=0 になるため ta-118 で FAIL とする
+  - 前半の AC-1 は数値の自己再現であり、fixture の構造が `6756a597` と一致することは CI で保証しない（R-028。MC-2a と H-1391-1 / H-1391-6 が主体）
   - 前半マージ後も byte 上限は I-11 で強制されていない（MC-1、後半が主体）
 - 本検査は多層防御の 1 層。`.github/workflows/` は変更しない（HO。AI 推奨。C-3 で Human が覆せる）
-- §7-quater 打ち切り: R2 で 4、R3 で 3 の新クラス → D-3 で設計モデルを変更した。完全性は主張しない
+- §7-quater 打ち切り: R2 で 4、R3 で 3 の新クラス → D-3 で設計モデルを変更した。R4 で 1（gate の判定材料が gate の後に作られる、R-025）→ 是正済み。完全性は主張しない
 
 ## Context
 
@@ -182,7 +205,7 @@ I-11 は「valid な DecisionInput から作る Decision の event」を守る�
 - `scripts/ai-loop-v2/test_limits.py`（`test_no_byte_constants` を最大 event・区分テストへ置換）
 - 新規 fixture（例 `scripts/ai-loop-v2/fixtures/decision_event_worst_case.*`、名称は exec で確定）。outcome 別の最悪ケース event と期待 byte 数、構造の出典 SHA `6756a597` を含む。（Rev 4 の定義行 sha256・写像の埋め込みは D-3 で移管）
 - fixture テストは `test_limits.py` に同居させる（ta-118 が実行する唯一のファイル）（R-003 / AC-4）。（Rev 4 の「新規ズレ検出テスト」は D-3 で #1391 後半へ移管）
-- `tests/extras/ta-118-ai-loop-v2-limits.sh`（出力に `skipped=` があれば FAIL とする判定を追加。`tests/extras/` は HO 非該当。Rev 4 の `verbosity=2`・必須テスト名固定リスト・分岐明示行は D-3 で移管）
+- `tests/extras/ta-118-ai-loop-v2-limits.sh`（出力に `skipped=` / `expected failures=` / `Ran 0 tests` があれば FAIL とする判定を追加（R-027）。`tests/extras/` は HO 非該当。Rev 4 の `verbosity=2`・必須テスト名固定リスト・分岐明示行は D-3 で移管）
 - `docs/working/TASK-1623/evidence/mc2a-c3.txt` / `mc2a-c4.txt`（MC-2a, R-023）/ `evidence/mc4-draft.md`（MC-4, R-022）
 - `limits.py` の `ENVELOPE_OVERHEAD` docstring 方針: 「event 内 envelope。store 側の追加は 0（TASK-1392 plan.md:293）」（R-008）
 - HO 対象パスは含まない（`scripts/hooks/` / `bin/plangate` / `schemas/` / `.github/workflows/` 非接触）。R-003 により収集は `tests/extras/` で足り `.github/workflows/` 変更は不要の見込み。不要でないと判明した場合は HO に当たるため RT-6 で停止
@@ -193,13 +216,13 @@ I-11 は「valid な DecisionInput から作る Decision の event」を守る�
 
 1. **契約確定（owner）** Output: Q-2 表の各値の確定記録。🚩 確定前は値を書かない
 2. **RED** Output: 最悪ケース fixture（outcome 別・escape・最大桁・任意 field）と区分テストが失敗する状態。`test_no_byte_constants` の置換テスト
-3. **GREEN（定数）** Output: 3 定数と導出根拠（実測 byte → 切り上げ規則）。区分（input 由来 / fixed / envelope）でキー・区切りを二重計上しない
-4. **ズレ検出テスト** — **D-3 で #1391 後半へ移管**（H-1391-4〜6）。前半では ta-118 の `skipped=` 判定（AC-4）だけを行う
-4b. **構造の出典の Human 突き合わせ（MC-2a, R-013 / R-023）** Output: `evidence/mc2a-c3.txt`・`evidence/mc2a-c4.txt`（`git show 6756a597:scripts/ai-loop-v2/run_event.py | sed -n '<行範囲>p'` と fixture 前提構造の diff）と status.md の Human 確認記録
+3. **GREEN（定数）** Output: 3 定数と導出根拠（実測 byte → 切り上げ規則）。区分（input 由来 / fixed / envelope）でキー・区切りを二重計上しない。切り上げ幅は「構造が出典 `6756a597` から外れたときに起き得る最大の byte 増」（例: 任意キーの追加 1 個分、キー名の延長）に対する余裕として根拠を書き、根拠の無い丸めをしない（R-028）
+4. **ズレ検出テスト** — **D-3 で #1391 後半へ移管**（H-1391-4〜6）。前半では ta-118 の未実行判定（AC-4: `skipped=` / `expected failures=` / `Ran 0 tests` / rc）だけを行う
+4b. **構造の出典の Human 突き合わせ（MC-2a, R-013 / R-023 / R-025）** Output: `evidence/mc2a-c3.txt`（C-3 前。MC-2a の行範囲の出力と前提構造の文章仕様の突き合わせ）・`evidence/mc2a-c4.txt`（前半 C-4 前。同じ行範囲と fixture 実物の突き合わせ）と status.md の Human 確認記録
 5. **#1392 reserve 契約 fixture** Output: `test_limits` 系に置き、`TERMINAL_RESERVE`（fixture 内の契約値）`>= 1 event and >= MAX_DECISION_EVENT_BYTES` を同じ定数 import で表現（R-007）
 6. **mutation / レビュー** Output: 定数 −1、escape 無視、区分二重計上、outcome 1 種欠落、**テストを skip させる**の注入が検出されること。（Rev 4 の構造キー増減・番兵系・未収集系の mutation は D-3 で移管）。敵対レビュー 2 ラウンド
 7. **前半マージ条件の確認** Output: MC-1・MC-2a（2 回目）・MC-2b・MC-4 本文案の Human 確認の evidence。🚩 未確認なら C-4 に渡さない
-8. **前半マージ後の受け渡し（MC-4, R-015 / R-022）** Output: #1391 Issue への H-1391-1〜6 チェックリストコメントの URL を handoff に記録（投稿は対外書込のため実施時に名指し承認を取る）。#1623-b の C-3 前提
+8. **前半マージ後の受け渡し（MC-4, R-015 / R-022 / D-4）** Output: #1391 Issue への H-1391-1〜6 チェックリストコメントの URL を handoff に記録（投稿は対外書込のため実施時に名指し承認を取る）。#1623-b の C-3 前提。TASK-1391 文書への C-4 前提の記載（D-4）はオーガナイザーが行い、記載先と commit を exec 前に status.md へ記録する
 
 後半（別スライス・別 C-3）: I-11 接続（超過で `DecisionInputError`、ちょうどで受理）。#1393 core と同時かその直後。
 
@@ -207,7 +230,7 @@ I-11 は「valid な DecisionInput から作る Decision の event」を守る�
 
 - `python3 scripts/ai-loop-v2/test_limits.py`、TA-118、新規 fixture テスト
 - mutation（上記 7）を独立コピーに注入して全て FAIL→復元で PASS
-- 前半 PR の CI ログで ta-118 の `skipped=` 0 件・rc=0 を確認（MC-2b / D-3）。構造の出典は MC-2a の Human 突き合わせ evidence（R-013 / R-023）。#1391 後半での実 validator 照合は H-1391-1 / H-1391-6
+- 前半 PR の CI ログで ta-118 の `skipped=` 0 件・`expected failures=` 0 件・`Ran 0 tests` でない・rc=0 を確認（MC-2b / D-3 / R-027）。構造の出典は MC-2a の Human 突き合わせ evidence（R-013 / R-023）。#1391 後半での実 validator 照合は H-1391-1 / H-1391-6
 
 ### レビューレーン計画（#786）
 
@@ -215,7 +238,8 @@ I-11 は「valid な DecisionInput から作る Decision の event」を守る�
 - review-principles §7-quater: high-risk のため **2 ラウンド以上**。R2 は R1 是正（例: escape 対策、番兵、収集経路）が別経路（キー側 escape、数値桁、任意 field、V2 の印の部分一致）で漏れていないかを疑う。回避クラス台帳を review-external.md に置く
 - 打ち切り（R-009）: R2 で新しい回避クラス 0 件なら終了、1 件以上なら R3（以降同じ規則）
 - R2 結果（2026-11-26）: 新しい回避クラス 4 件（自己参照ハッシュ / 改名・移設による番兵の素通り / 文書だけの引き継ぎ / skip 以外の未実行）→ R3 を実施する。R3 は R-013〜R-017 の是正（Human 突き合わせ・振る舞い判定・MC-4・必須テスト名照合）の回避経路を疑う
-- R3 結果（2026-11-26）: 新しい回避クラス 3 件（印の判定条件が基準 tree でも成立 / fail-closed の期待値が片方の tree に固定 / マージ後の作業に gate が無い）。§7-quater「設計モデルを疑う」に該当し、D-3 で設計モデルを変更（前半からズレ検出を外す）。R4 は実施せず、縮小後の前半は exec 後の敵対レビュー 2 ラウンド（WB6）で扱う。ズレ検出の敵対レビューは #1391 後半の責務
+- R3 結果（2026-11-26）: 新しい回避クラス 3 件（印の判定条件が基準 tree でも成立 / fail-closed の期待値が片方の tree に固定 / マージ後の作業に gate が無い）。§7-quater「設計モデルを疑う」に該当し、D-3 で設計モデルを変更（前半からズレ検出を外す）。縮小後の前半は exec 後の敵対レビュー 2 ラウンド（WB6）で扱う。ズレ検出の敵対レビューは #1391 後半の責務
+- R4 結果（2026-11-26、対象 Rev 5）: 新しい回避クラス 1 件（gate の判定材料がその gate の後に作られる, R-025）。推移 R2:4, R3:3, R4:1。R-024 は D-4、R-025〜R-028 は Rev 6 で是正
 
 ## Mode判定
 
@@ -236,7 +260,7 @@ I-11 は「valid な DecisionInput から作る Decision の event」を守る�
 - RT-4: 実測最大値が #1392 の `MAX_SNAPSHOT_BYTES`（暫定 8 MiB）の 1% を超える（reserve 設計の前提見直し）
 - RT-5: mutation 注入 1 件でも検出されない
 - RT-6: MC-2 / AC-4 を満たすのに `.github/workflows/` 等の HO 対象パス変更が必要と判明する（ta-118 経由の収集経路に載らない）
-- RT-7: 前半 PR の CI ログで `skipped=` が 1 件以上、または ta-118 rc≠0（D-3 で判定を縮小。必須テスト名・分岐明示行は移管）
+- RT-7: 前半 PR の CI ログで `skipped=` / `expected failures=` が 1 件以上、`Ran 0 tests`、または ta-118 rc≠0（D-3 で判定を縮小、R-027 で拡張。必須テスト名・分岐明示行は移管）
 - RT-9（R-013 / R-023）: MC-2a の Human 突き合わせで fixture の前提構造と `6756a597` の定義行が 1 行でも不一致 → fixture と定数を測り直し C-3 / C-4 を取り直す
 - RT-10（D-3）: 前半の範囲で構造ズレを CI 検出する必要が再び生じる（例: #1391 後半の着地が見込めない）→ D-3 の前提が崩れたとして Human に再判断を求める
 
@@ -255,7 +279,8 @@ I-11 は「valid な DecisionInput から作る Decision の event」を守る�
 - MC-2a の構造突き合わせの確認（C-3 時点・前半 C-4 時点）: Human（R-013 / R-023）
 - MC-4 本文案と投稿先の確認: 前半 C-4 の前に Human（R-022）
 - MC-4 の #1391 Issue へのコメント投稿: 前半マージ後に対象を名指しして承認を取る（R-015）
-- #1623-b の C-3: MC-4 投稿 URL が handoff にあること、H-1391-1 / H-1391-6 の evidence を条件に含める（R-015 / R-022）
+- #1623-b の C-3: MC-4 投稿 URL が handoff にあること、H-1391-1〜6 すべての evidence を条件に含める（R-015 / R-022 / R-024）
+- TASK-1391 文書への C-4 前提の記載（D-4）: オーガナイザーが行う。記載先と commit を exec 前に status.md へ記録。TASK-1391 の plan.md と c3.json は変えない
 
 ## C-1 Self Review Checklist
 
