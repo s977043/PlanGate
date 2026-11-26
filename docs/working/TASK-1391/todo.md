@@ -72,7 +72,7 @@
 - [ ] 🤖 mutation 11〜18 — rollback: 不要
 - [ ] 🤖 敵対レビュー R1 / R2 + 回避クラス台帳 — rollback: 不要
 - [ ] 🤖 R-014 / R-015 裁定記録 — rollback: 不要
-- [ ] 👤 C-4
+- [ ] 👤 C-4（スライス B の PR は [`c4-preconditions.md`](c4-preconditions.md) の H-1391-1〜6 の evidence が揃うまで渡さない。TASK-1623 D-4）
 
 ## Revision 2.1（C-2 R1 / R-020〜R-041）
 
@@ -144,5 +144,5 @@ ID は plan の `P1B-n` に読み替える（上節の B-n は旧ラベル。pla
 - [x] 🤖 GREEN（`05d1c046`）: `ratchet.py` の `evidence_status` 受理検査、`evolution-input-non-success.json`、`artifact-responsibilities.md` L57 / L63
 - [x] 🤖 P1B-7 件数上限（`MAX_INPUT_REFS`）の append-only 再検査と EV-34
 - [ ] 🤖 P1B-7 バイト上限（`MAX_DECISION_EVENT_BYTES`）: RED は skip（「#1623 待ち（H-10 = c）」）。#1623 の定数が main に入った後にだけ skip を外す — rollback: skip を戻す
-- [ ] 👤 バイト再検査の置き場所（#1391 後半 / #1623 の PR）の決定
+- [x] H-10 の Human 決定（2026-11-26）: #1623 を先にマージし、バイト再検査は #1391 後半で実装する。
 - [ ] 🤖 mutation 32 — rollback: 不要

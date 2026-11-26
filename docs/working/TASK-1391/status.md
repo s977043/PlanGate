@@ -1,7 +1,7 @@
 # TASK-1391 作業ステータス
 
 > 最終更新: 2026-11-26 07:40
-> 現在フェーズ: exec
+> 現在フェーズ: exec（スライス B は #1623 のマージ待ち）
 > モード: high-risk（plan.md「Mode判定」）
 > 発行時点 SHA (issued_at_commit): 該当なし（完了資産ではない。照合基準は `origin/main` `742f63f6`）
 
@@ -95,8 +95,8 @@ scripts/ai-loop/test_run_evidence.py
 - [x] Human C-3（`approvals/c3.json` の発行、2026-10-29 19:09）
 - [x] exec 前提: #1329 preflight 記録 / reviewed_at_sha 記録（2026-11-24「T1 記録」。`limits.py` は PR #1622 / `46685615` で main に入り充足）
 - [x] スライス A: T2 RED → T3 GREEN（P1B-1〜P1B-11、P1B-7 は件数上限まで）
-- [ ] 👤 バイト上限の再検査の置き場所（#1391 後半 / #1623 の PR）を Human が決める（BLOCKED。`blocker`: H-10 = c の確認 / `owner`: Human / `unblock_condition`: 置き場所の決定）
-- [ ] スライス B: EV-22 バイト上限の skip を外して GREEN（#1623 の定数が main に入った後のみ）→ T4 mutation → T5 P1B-13 文書 → T6 敵対レビュー R1 / R2
+- [x] H-10 の Human 決定（2026-11-26）: バイト上限の再検査は #1391 の後半に入れ、#1623 を先にマージする。スライス B は #1623 の定数が main に入るまで待機。先行作業は TASK-1623 の計画（PR #1668）。
+- [ ] スライス B: EV-22 バイト上限の skip を外して GREEN（#1623 の定数が main に入った後のみ）→ T4 mutation → T5 P1B-13 文書 → T6 敵対レビュー R1 / R2。C-4 に渡す前提は [`c4-preconditions.md`](c4-preconditions.md)（H-1391-1〜6、TASK-1623 D-4）
 
 ## 計画からの変更点
 
