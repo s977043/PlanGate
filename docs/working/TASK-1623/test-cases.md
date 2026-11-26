@@ -8,9 +8,9 @@
 | AC-2 I-11 が上限超過を `DecisionInputError` にする | TC-04, TC-05, TC-E04 | 後半 |
 | 派生 AC-3 #1392 reserve が同じ定数を参照 | TC-06 | 前半（契約 fixture） |
 | 回帰（`test_no_byte_constants` の置換）| TC-07 | 前半 |
-| AC-4 CI 上 skip 0 件・ta-118 が `skipped=` を FAIL（R-011） | TC-10 | 前半 |
-| AC-5 V2 構造着地時は写像だけの検査が FAIL し実照合へ（R-012） | TC-11 | 前半（番兵）。V2 tree での実照合 PASS は #1391 側（plan.md H-1391-1） |
-| 前半マージ条件 MC-1〜MC-3（plan.md） | TC-08, TC-09 | 前半 |
+| AC-4 新規テストの実行確認（必須テスト名・分岐明示行・`skipped=` 無し）（R-011 / R-016） | TC-10 | 前半 |
+| AC-5 V2 構造（振る舞い判定）着地時は写像だけの検査が FAIL し実照合へ（R-012 / R-014） | TC-11 | 前半（番兵）。V2 tree での実照合 PASS は #1391 側（plan.md H-1391-1） |
+| 前半マージ条件 MC-1〜MC-4（plan.md） | TC-08, TC-09, TC-12, TC-13 | 前半 |
 
 ## テストケース一覧
 
@@ -31,26 +31,38 @@
 ### TC-03: drift 照合
 
 - 入力: 埋め込み写像・fixture 記録の定義行 sha256（`6756a597` の監視対象: plan.md RT-2）
-- 期待: 写像から再計算した定義行ハッシュが記録値と一致（MC-2a）。構造キーが増減したら FAIL。実行時に `git show` しない（shallow checkout 前提 / R-001）
+- 期待: 写像から再計算した定義行ハッシュが記録値と一致（MC-2a'）。構造キーが増減したら FAIL。実行時に `git show` しない（shallow checkout 前提 / R-001）
+- 位置づけ: 偶発的な破損の検出のみ。写像と記録値の同時編集は検出できない（自己参照、R-013）。写像の正しさは TC-12
 - 種別: unit
 
 ### TC-08: 前半 PR の CI で定義行ハッシュ一致と skip 0 件（MC-2 / D-2）
 
 - 入力: 前半 PR の CI run ログ（ta-118）
-- 期待: TC-03 / TC-11 のテスト名の実行行があり PASS、`skipped=` 0 件（skipped / 未収集なら FAIL）
+- 期待: 必須テスト名固定リストの全テストの実行行（`verbosity=2`）があり PASS、分岐明示行「main 用分岐を通った」がある、`skipped=` 0 件（いずれか欠落なら FAIL）
 - 種別: 手動確認（ログ evidence 保存）
 
-### TC-10: skip / 未収集の検出（AC-4）
+### TC-10: 未実行の検出（AC-4 / R-016）
 
-- 入力: ta-118 の実行。mutation で新規テストに skip を注入した版
-- 期待: 通常は PASS かつ `skipped=` なし。skip 注入版で ta-118 が FAIL
+- 入力: ta-118 の実行。mutation で (a) 新規テストに skip を注入、(b) 必須テストを未収集にする（テスト名変更・削除）、(c) 分岐明示行を出さない（早期 return）版
+- 期待: 通常は PASS（必須テスト名全件・分岐明示行あり・`skipped=` なし）。(a)〜(c) いずれも ta-118 が FAIL
 - 種別: unit / mutation
 
-### TC-11: 一方向の番兵（AC-5）
+### TC-11: 一方向の番兵（AC-5 / R-014）
 
-- 入力: (a) V2 の印が全て無い tree、(b) 印の一部だけある tree、(c) V2 tree で main 用分岐を強制した版
-- 期待: (a) 写像検査で PASS、(b) FAIL、(c) FAIL
+- 入力: (a) V2 の印が全て無い tree、(b) 印の一部だけある tree、(c) V2 tree で main 用分岐を強制した版、(d) V2 tree で印（`_validate_decision` 等）を改名した版、(e) V2 tree で印を別モジュールへ移設した版
+- 期待: (a) 写像検査で PASS、(b)〜(e) FAIL（振る舞いで判定するため名前の有無に依存しない）
 - 種別: unit / mutation
+
+### TC-12: 写像の Human 突き合わせ（MC-2a / R-013）
+
+- 入力: `git show 6756a597:scripts/ai-loop-v2/run_event.py` の監視対象定義行（plan.md RT-2）と fixture の埋め込み写像
+- 期待: C-3 時点と前半 C-4 時点の 2 回、全行一致の evidence があり Human が確認済み。不一致なら RT-9
+- 種別: 手動確認（evidence 保存）
+
+### TC-13: #1391 への受け渡し（MC-4 / R-015）
+
+- 期待: 前半マージ時に #1391 の Issue へ H-1391-1〜3 のチェックリストコメントがあり、URL が handoff の evidence に記録されている
+- 種別: 手動確認
 
 ### TC-09: #1623 Open 維持（MC-1）
 
@@ -87,7 +99,7 @@
 
 ## 自動化可否
 
-TC-01〜07 / 10 / 11 は自動化可、TC-08 / 09 は手動確認。TC-04 / 05 / E04 は後半（#1623-b、#1393 core で `DecisionInputError` 導入後）で実行し、前半では実行しない。
+TC-01〜07 / 10 / 11 は自動化可、TC-08 / 09 / 12 / 13 は手動確認。TC-04 / 05 / E04 は後半（#1623-b、#1393 core で `DecisionInputError` 導入後）で実行し、前半では実行しない。
 
 ## 検証結果（V-1 で記入）
 
