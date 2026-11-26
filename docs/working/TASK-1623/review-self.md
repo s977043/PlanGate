@@ -60,3 +60,22 @@
 | C1-SCOPE | PASS | Files は前半に限定、後半は参考扱い |
 
 C-2 で特に見てほしい点: MC-3 の「main で skip せず固定 SHA 写像を検査」が、写像と実 validator を突き合わせない main 上では自己参照の検査にならないか（同型の素通り）。
+
+## 簡易 C-1 再実行（Rev 3 / 2026-11-26、C-2 R1 反映後）
+
+> 対象: plan.md Rev 3（D-2 と R-001〜R-012 を反映、commit `1e133ce6`）/ todo.md / test-cases.md。作成者と同一の AI セルフレビュー。
+
+**判定: WARN**（FAIL 0 / WARN 2）
+
+| ID | 判定 | 所見 |
+|---|---|---|
+| 前回 C-2 確認点（自己参照） | 解消（計画上） | 定義行 sha256 照合（MC-2a）と一方向の番兵（MC-3 / AC-5）に置換。TC-03 / TC-11 と mutation に写像。実効性は exec と R2 で検証 |
+| C1-PLAN-01 受入基準網羅性 | PASS | AC-4 / AC-5 を追加し TC-10 / TC-11 に写像。AC-1 の validator 通過は #1391 側条件（H-1391-1）と明記 |
+| C1-PLAN-02 Unknowns | WARN（残） | Q-2 未確定。期限 5 営業日（RT-3）と定数値を書かない Stop Condition あり |
+| C1-PLAN-06 依存関係 | 解消 | D-2 で前半 C-4 は #1391 PR の CI に依存しない。循環は解消 |
+| C1-PLAN-09 Replan 機械値 | PASS | RT-2（定義行ハッシュ）/ RT-3（5 営業日）/ RT-7（実行行 0・`skipped=`）/ RT-8（後半予約）。打ち切りも機械値（R-009） |
+| C1-SCOPE | WARN（新） | Files に `tests/extras/ta-118-ai-loop-v2-limits.sh` が加わった（HO 非該当）。`.github/workflows/` 不要は ta-118 実測（`:40-48`）に基づく見込みで、exec で外れたら RT-6 で停止 |
+| C1-TODO-RB | PASS | 追加の T-05b に rollback あり |
+| C1-TEST | PASS | mutation に「V2 tree で main 用分岐を強制」「印の部分一致」「skip 注入」を追加 |
+
+残 WARN: Q-2 未確定 / ta-118 改修の範囲（RT-6 の発火可能性）。C-2 R2 は §7-quater に従い R1 是正（番兵・ハッシュ照合・収集判定）の回避経路を疑う。

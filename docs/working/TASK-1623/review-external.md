@@ -24,18 +24,18 @@
 
 | R-NNN | status | reflected_in(commit) | notes |
 |---|---|---|---|
-| R-001 | open | | |
-| R-002 | open | | Human 決定 D-2 |
-| R-003 | open | | |
-| R-004 | open | | |
-| R-005 | open | | |
-| R-006 | open | | |
-| R-007 | open | | |
-| R-008 | open | | |
-| R-009 | open | | |
-| R-010 | open | | |
-| R-011 | open | | |
-| R-012 | open | | |
+| R-001 | reflected | 1e133ce6 | plan MC-3・Files・WB4/6、todo T-05/T-08、TC-03/TC-11 |
+| R-002 | reflected | 1e133ce6 | Human 決定 D-2。plan D-2・MC-2・H-1391-1〜3・RT-7、todo T-11、TC-08 |
+| R-003 | reflected | 1e133ce6 | plan Files・WB4、todo T-05b、TC-10 |
+| R-004 | reflected | 1e133ce6 | plan Files・RT-2・H-1391-3、TC-03 |
+| R-005 | reflected | 1e133ce6 | plan AC-1 割当、TC-01 |
+| R-006 | reflected | 1e133ce6 | plan MC-1・RT-8、todo T-10 |
+| R-007 | reflected | 1e133ce6 | plan AC-3 割当・WB5、todo T-07、TC-06 |
+| R-008 | reflected | 1e133ce6 | plan Files |
+| R-009 | reflected | 1e133ce6 | plan レビューレーン計画、todo T-09 |
+| R-010 | reflected | 1e133ce6 | plan RT-3、todo H-02 |
+| R-011 | reflected | 1e133ce6 | 採用 → AC-4（前半） |
+| R-012 | reflected | 1e133ce6 | 採用 → AC-5（前半は番兵、実照合 PASS は #1391 側） |
 
 ## 回避クラス台帳（追記専用）
 
