@@ -27,7 +27,7 @@ high-risk（plan.md「Mode判定」）。全実装タスクに rollback を記�
 ### 3. 検証
 
 - [x] T-08 mutation 注入（定数 −1 / escape 無視 / 区分二重計上 / outcome 1 種欠落 / テストを skip させる）が全て検出される。Rev 4 の構造キー増減・番兵系・未収集系の mutation は **D-3 で移管**（Owner: agent, depends_on: T-05b, T-07）rollback: 不要
-- [ ] T-09 敵対レビュー R1 → 是正 → R2（§7-quater、回避クラス台帳）。R2 で新しい回避クラス 0 件なら終了、1 件以上で R3（R-009）（Owner: agent, depends_on: T-08）🚩 rollback: 不要
+- [x] T-09 敵対レビュー R1 → 是正 → R2（§7-quater、回避クラス台帳）。R2 で新しい回避クラス 0 件なら終了、1 件以上で R3（R-009）（Owner: agent, depends_on: T-08）🚩 rollback: 不要
 - [ ] T-11 MC-2b（D-3 で縮小、R-027 で拡張）: 前半 PR の CI ログで ta-118 の `skipped=` 0 件・`expected failures=` 0 件・`Ran 0 tests` でない・rc=0 を確認し evidence に保存。欠落ありなら RT-7 で停止。MC-2a'（ハッシュ照合）は D-3 で移管（Owner: agent, depends_on: T-05b）🚩 rollback: 不要
 
 ### 4. 完了

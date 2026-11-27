@@ -49,7 +49,7 @@ Human がチャットで「この値で確定」と回答（2026-11-27）。T-01
 
 | ブランチ | 状態 |
 |---|---|
-| `docs/TASK-1623-plan` | [計画 PR #1668](https://github.com/s977043/PlanGate/pull/1668) OPEN。リモートは `8bbdc792`、ローカルには C-3・Q-2 の記録コミット `f1d8d1e6` まであり |
+| `docs/TASK-1623-plan` | [計画 PR #1668](https://github.com/s977043/PlanGate/pull/1668) main `2d5bd4fb` にマージ済み |
 | `feat/1391-phase1b-exec` | [Draft #1667](https://github.com/s977043/PlanGate/pull/1667)。照合時のリモートは `924e45c0` |
 
 ## 残タスク
@@ -110,3 +110,6 @@ BLOCKED 相当:
 - 是正後のローカル TA-118 は 7 件 PASS。T-09 R2 と修正 head の CI 証跡は確認待ち。
 
 - T-09 R2（`f2d414a2`）: 算定レーンは新規回避クラス 0 件。検証レーンは正常要約と 0 件要約が混在した場合に TA-118 が通る新規クラス 1 件を検出。0 件要約を失敗扱いにし、通常ログ、本文中の類似文字列、0 件・正常の混在、単独 0 件、skip、expected failure を実際の awk 判定で確認。ローカル TA-118 も 7 件 PASS。R3 で修正を再確認する。
+
+- T-09 R3（`996a965b`）: 新規回避クラス 0。実際の awk を 12 入力で検証し、正常出力を受理、0 件要約の単独・混在、skip、expected failure、重複・欠落要約を拒否。R2→R3 は 1→0 で収束。
+- #1668 のマージ後に main `2d5bd4fb` を #1669 に取り込み、status / todo の add/add 競合を解消。計画本文と実装・fixture の内容を保持。T-11 は競合解消後の head の PR CI で確認する。
