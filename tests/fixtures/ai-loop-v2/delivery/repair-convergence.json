@@ -71,21 +71,6 @@
     },
     {
       "seq": 3,
-      "type": "decision_made",
-      "state": "EXECUTING",
-      "revision": 1,
-      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
-      "decision": {
-        "action": "continue",
-        "inputs": [
-          "pv1"
-        ],
-        "outcome": null,
-        "stop_reasons": []
-      }
-    },
-    {
-      "seq": 4,
       "type": "worker_completed",
       "state": "VERIFYING",
       "revision": 2,
@@ -94,7 +79,7 @@
       "evidence_ref": "worker:attempt-1"
     },
     {
-      "seq": 5,
+      "seq": 4,
       "type": "verification_recorded",
       "state": "VERIFYING",
       "revision": 2,
@@ -111,7 +96,7 @@
       }
     },
     {
-      "seq": 6,
+      "seq": 5,
       "type": "verification_recorded",
       "state": "VERIFYING",
       "revision": 2,
@@ -128,7 +113,7 @@
       }
     },
     {
-      "seq": 7,
+      "seq": 6,
       "type": "failure_recorded",
       "state": "DIAGNOSING",
       "revision": 3,
@@ -140,13 +125,14 @@
         "evidence_refs": [
           "v1"
         ],
+        "verification_ref": "v1",
         "cause_hypothesis": "implementation defect in changed artifact",
         "repairability": "repairable",
         "result": "open"
       }
     },
     {
-      "seq": 8,
+      "seq": 7,
       "type": "decision_made",
       "state": "REPAIRING",
       "revision": 4,
@@ -163,7 +149,7 @@
       }
     },
     {
-      "seq": 9,
+      "seq": 8,
       "type": "artifact_changed",
       "state": "REPAIRING",
       "revision": 5,
@@ -176,7 +162,7 @@
       "evidence_ref": "artifact:delta-1"
     },
     {
-      "seq": 10,
+      "seq": 9,
       "type": "verification_recorded",
       "state": "VERIFYING",
       "revision": 6,
@@ -193,7 +179,7 @@
       }
     },
     {
-      "seq": 11,
+      "seq": 10,
       "type": "pr_convergence_recorded",
       "state": "PR_CONVERGING",
       "revision": 7,
@@ -205,12 +191,13 @@
         "conflict": false,
         "scope": "pass"
       },
+      "observed_artifact_ref": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "evidence_refs": [
         "pr:convergence-1"
       ]
     },
     {
-      "seq": 12,
+      "seq": 11,
       "type": "decision_made",
       "revision": 8,
       "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
@@ -221,7 +208,8 @@
           "pr:convergence-1"
         ],
         "outcome": "MERGE_READY",
-        "stop_reasons": []
+        "stop_reasons": [],
+        "artifact_ref": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       }
     }
   ]

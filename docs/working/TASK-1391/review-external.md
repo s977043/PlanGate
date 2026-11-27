@@ -325,3 +325,19 @@ D-6 の exec BLOCKED 条件のうち「PF-5 合意」と「module 位置」は�
 | R-064 | open | — | Human 決定 2026-10-28（AskUserQuestion）: ref / identifier / fingerprint の文字列は sha256 形の ASCII に限り、文字種の正本は #1391 が決める。TASK-1393 は Revision 2.8（TASK-1393 review-external R-089）で前提として参照済み。**TASK-1391 plan への反映は未** |
 | R-064 | reflected | 本 PR（docs/1393-plan-rev28-ref-charset） | plan §Decisions D-15: 形は `^sha256:[0-9a-f]{64}$`（ASCII、長さ 71）、形式外は拒否。Human 決定 2026-10-28（AskUserQuestion） |
 | R-065 | reflected | 本 PR（docs/1393-plan-rev28-ref-charset） | #1619 独立レビュー（head `e715347d`）の major と参考指摘。Human 決定 2026-10-29 D1: D-15 に verifier_id は sha256 形の対象外（ASCII ≤ 71、#1393 R-092）と注記。§required_verifiers の「PF-5 で合意待ち」を合意済み・`MAX_REQUIRED_VERIFIERS = 16` に訂正。plan_hash が変わるため再 C-3 |
+
+## exec スライス A 着手前の実測（追記専用 / 2026-11-25）
+
+測定: worktree `exec-1391`、HEAD `ca4af956`、`origin/main` `071198ba`。
+
+| R-NNN | severity | 指摘 | disposition |
+|---|---|---|---|
+| R-066 | major | P1B-7 は `decided_in_state ∈ {VERIFYING, DIAGNOSING, PR_CONVERGING}`（plan L178）としつつ、`delivery_runtime.py` L159-170 の plan-gate `continue` decision を残す前提（plan L176）で、EV-28l は `no-progress-stop.json` L76（この decision）を受理し続けることを求める。この decision は `PLAN_VERIFYING` で決まるため値域外となり、値域どおりに検査すると両 delivery fixture / `test_delivery_v2` / ta-87 / ta-93 が赤になる。TASK-1393 plan L299 は「`PLAN_VERIFYING` の decision は受理しない。`PLAN_VERIFYING -> EXECUTING` は `decision_made` を出さない機械遷移」とする | Human 決定 2026-11-25（案 1）: TASK-1393 L299 に合わせ、producer の plan-gate decision を廃止して遷移のみ残す。EV-28l の根拠を L135 / L217 に絞る。plan 改訂 + 再 C-3 |
+| R-067 | minor | plan L113「各イベントは `contract_bound_seq` を持ち」が、P1B-7 / EV-13 / EV-21（`decision_made` のキーとしてのみ扱う）と食い違う | Human 決定 2026-11-25: `decision_made` のみが持つ（envelope `COMMON_ACCEPTED_KEYS` は変えない）。plan L113 の文言を改める |
+
+| R-NNN | status | reflected_in | notes |
+|---|---|---|---|
+| R-066 | open | — | 改訂差分案を Human に提示済み。plan.md への反映は Human |
+| R-067 | open | — | 同上 |
+| R-066 | reflected | 本 commit（Refs: R-066） | Human 指示 2026-11-25「a」で AI が反映: plan D-16 / P1B-7 / Files / Replan triggers、test-cases Revision 2.5（EV-28l・EV-28o 改訂、EV-32b、mutation 32）、todo Revision 2.5 |
+| R-067 | reflected | 本 commit（Refs: R-067） | plan D-17 / P1B-1 L113、test-cases EV-21a |

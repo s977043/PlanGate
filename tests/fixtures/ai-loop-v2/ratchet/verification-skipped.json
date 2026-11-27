@@ -33,21 +33,21 @@
     "hypothesis": "requiring completion verification evidence will stop verification-skipped completion",
     "source": {
       "run_evidence_refs": [
-        "sha256:6851f598a8e176e1be1285029a243592b78ae4cc13ce4a40ffd2493e6544fb68"
+        "sha256:5844881c20b09afe9c7788d51fbdd8be9e14e9d81b42ca97f31a6743522994ae"
       ],
       "failure_instance_refs": [
         {
           "run_id": "run:verification-skipped:source-1",
-          "event_ref": "sha256:d8b4b2e729af6af3a2a6c7e08183a1e6808ebf718a8d4a181ecb837c5d834c4b",
-          "failure_record_ref": "sha256:98f79f2951db220899cd1f11621825881000725dcab8c1c7f01bc4932da6cf7c",
-          "run_evidence_ref": "sha256:6851f598a8e176e1be1285029a243592b78ae4cc13ce4a40ffd2493e6544fb68"
+          "event_ref": "sha256:bfb51791ded944a48450344b672319e4fdc442b0399cd049594d0956d943b0ca",
+          "failure_record_ref": "sha256:66c35357ae18e69c8ed700cdfc04c4b4c8b2a28f98c31305cdfc615c94ad1747",
+          "run_evidence_ref": "sha256:5844881c20b09afe9c7788d51fbdd8be9e14e9d81b42ca97f31a6743522994ae"
         }
       ],
       "pattern_snapshot": {
         "pattern_id": "pattern:verification-skipped",
         "pattern_version": 1,
         "classifier_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-        "source_set_digest": "sha256:581d6bbca56f2bcb282be5f56bd6cb6a936884452e676d5957fc19a9818a9ca7",
+        "source_set_digest": "sha256:04c3b50d2213d218980f2f83d4b03914451a48f3015de2e35dee64887ad4e3ce",
         "fingerprint": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
         "occurrence_count": 1,
         "scope": "project"
@@ -75,7 +75,7 @@
   "sources": [
     {
       "run_id": "run:verification-skipped:source-1",
-      "event_ref": "sha256:d8b4b2e729af6af3a2a6c7e08183a1e6808ebf718a8d4a181ecb837c5d834c4b",
+      "event_ref": "sha256:bfb51791ded944a48450344b672319e4fdc442b0399cd049594d0956d943b0ca",
       "event": {
         "schema_version": "1",
         "run_id": "run:verification-skipped:source-1",
@@ -94,12 +94,13 @@
               "verification:missing",
               "completion:attempted"
             ],
+            "verification_ref": "verification:missing",
             "cause_hypothesis": "completion gate did not require verification evidence",
             "repairability": "repairable",
             "result": "observed"
           }
         },
-        "event_ref": "sha256:d8b4b2e729af6af3a2a6c7e08183a1e6808ebf718a8d4a181ecb837c5d834c4b"
+        "event_ref": "sha256:bfb51791ded944a48450344b672319e4fdc442b0399cd049594d0956d943b0ca"
       },
       "failure_record": {
         "id": "failure:verification-skipped:1",
@@ -109,6 +110,7 @@
           "verification:missing",
           "completion:attempted"
         ],
+        "verification_ref": "verification:missing",
         "cause_hypothesis": "completion gate did not require verification evidence",
         "repairability": "repairable",
         "result": "observed"
@@ -124,13 +126,13 @@
           "verification:missing"
         ],
         "failure_record_refs": [
-          "sha256:98f79f2951db220899cd1f11621825881000725dcab8c1c7f01bc4932da6cf7c"
+          "sha256:66c35357ae18e69c8ed700cdfc04c4b4c8b2a28f98c31305cdfc615c94ad1747"
         ],
         "evidence_refs": [
           "completion:attempted",
           "verification:missing"
         ],
-        "evidence_status": "ready"
+        "evidence_status": "terminal_unready"
       }
     }
   ],

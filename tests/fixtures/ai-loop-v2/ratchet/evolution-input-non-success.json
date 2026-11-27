@@ -8,7 +8,7 @@
       "stop_reasons": [
         "HUMAN_REJECTED"
       ],
-      "evidence_status": "ready"
+      "evidence_status": "terminal_unready"
     },
     {
       "case_id": "blocked",
@@ -16,7 +16,7 @@
       "stop_reasons": [
         "VERIFIER_UNAVAILABLE"
       ],
-      "evidence_status": "ready"
+      "evidence_status": "terminal_unready"
     },
     {
       "case_id": "crash-partial",
@@ -30,7 +30,7 @@
       "stop_reasons": [
         "NO_PROGRESS"
       ],
-      "evidence_status": "ready"
+      "evidence_status": "terminal_unready"
     }
   ]
 }

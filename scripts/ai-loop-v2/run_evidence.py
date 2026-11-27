@@ -13,6 +13,10 @@ from __future__ import annotations
 from run_event import EventContractError, validate_stream
 
 
+class UnusableStreamError(ValueError):
+    pass
+
+
 def _invalid(manifest_ref, reason):
     return {
         "harness_manifest_ref": manifest_ref,
@@ -27,7 +31,19 @@ def _invalid(manifest_ref, reason):
     }
 
 
+def _evidence_status(outcome):
+    if outcome is None:
+        return "partial"
+    return "ready" if outcome == "MERGE_READY" else "terminal_unready"
+
+
 def project_run_evidence(events, manifest_ref):
+    if (
+        not isinstance(events, list)
+        or not events
+        or not all(isinstance(event, dict) for event in events)
+    ):
+        raise UnusableStreamError("unusable event stream")
     try:
         clean = validate_stream(events)
     except EventContractError as exc:
@@ -40,6 +56,7 @@ def project_run_evidence(events, manifest_ref):
     evidence_refs = []
     outcome = None
     stop_reasons = []
+    policy_verdicts = []
 
     def add_ref(ref):
         if isinstance(ref, str) and ref and ref not in evidence_refs:
@@ -61,6 +78,12 @@ def project_run_evidence(events, manifest_ref):
             failure_refs.append(payload["failure"]["id"])
             for ref in payload["failure"]["evidence_refs"]:
                 add_ref(ref)
+        elif event_type == "policy_verdict_recorded":
+            policy_verdicts.append({
+                "event_ref": event["event_ref"],
+                "verdict": payload["verdict"],
+                "observed_artifact_ref": payload["observed_artifact_ref"],
+            })
         elif event_type == "decision_made":
             decision = payload["decision"]
             if decision["outcome"] is not None:
@@ -71,10 +94,10 @@ def project_run_evidence(events, manifest_ref):
         "harness_manifest_ref": manifest_ref,
         "outcome": outcome,
         "stop_reasons": stop_reasons,
-        "policy_verdicts": [],
+        "policy_verdicts": policy_verdicts,
         "verification_result_refs": verification_refs,
         "failure_record_refs": failure_refs,
         "evidence_refs": evidence_refs,
-        "evidence_status": "ready" if outcome is not None else "partial",
+        "evidence_status": _evidence_status(outcome),
         "invalid_reasons": [],
     }

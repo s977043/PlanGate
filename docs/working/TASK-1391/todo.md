@@ -72,7 +72,7 @@
 - [ ] 🤖 mutation 11〜18 — rollback: 不要
 - [ ] 🤖 敵対レビュー R1 / R2 + 回避クラス台帳 — rollback: 不要
 - [ ] 🤖 R-014 / R-015 裁定記録 — rollback: 不要
-- [ ] 👤 C-4
+- [ ] 👤 C-4（スライス B の PR は [`c4-preconditions.md`](c4-preconditions.md) の H-1391-1〜6 の evidence が揃うまで渡さない。TASK-1623 D-4）
 
 ## Revision 2.1（C-2 R1 / R-020〜R-041）
 
@@ -127,3 +127,22 @@ ID は plan の `P1B-n` に読み替える（上節の B-n は旧ラベル。pla
 - [ ] 🤖 L133 変更後に `verification-skipped.json` の digest（L36 / L43 / L50 / L73）を `ratchet.py` の関数で再計算して更新（R-063）— rollback: L133 変更と同じ commit で revert（digest だけ戻すと不一致）
 - [ ] 🤖 RED → GREEN: `EVENT_PAYLOAD_KEYS["pr_convergence_recorded"]` に `observed_artifact_ref`、EV-18b（R-062）— rollback: `run_event.py` の当該 commit を revert
 - [ ] 🤖 mutation 28（改訂）〜31。各変異の前に対象コードの存在を確認（R-057）— rollback: 不要
+
+## Revision 2.5（exec 着手前実測 / R-066〜R-067）
+
+- [x] 指摘集約（review-external R-066 / R-067）と確定反映
+- [x] 👤 再 C-3（Human、`bin/plangate approve TASK-1391 --force`）
+- [x] 🤖 RED: EV-32b / EV-21a / EV-28l（改訂）/ EV-28o（改訂）— rollback: test 追加の revert
+- [x] 🤖 GREEN: plan-gate decision の廃止（`delivery_runtime.py` L159-170・2 fixture の decision 削除と seq 詰め・ta-87 L277-289）— rollback: producer / fixture / ta-87 の commit を同時に revert
+
+## スライス A（2026-11-26、実行計画 2026-11-25 更新）
+
+上の各節の RED / GREEN 項目のうち、スライス A で完了したものをここに集約する（mutation / 文書 / レビューはスライス B）。
+
+- [x] 🤖 RED（`ad5bd1c3`）: P1B-1〜P1B-11 の EV / PJ 各ケース（A+L）と PJ-23a。R-009 は実行再現（`ready`）
+- [x] 🤖 GREEN（`9eed4608`）: `run_event.py` / `run_evidence.py` / `delivery_runtime.py`、delivery fixture 2 本、ta-87 の複製 oracle、`verification-skipped.json`（L133 と digest 再計算）
+- [x] 🤖 GREEN（`05d1c046`）: `ratchet.py` の `evidence_status` 受理検査、`evolution-input-non-success.json`、`artifact-responsibilities.md` L57 / L63
+- [x] 🤖 P1B-7 件数上限（`MAX_INPUT_REFS`）の append-only 再検査と EV-34
+- [ ] 🤖 P1B-7 バイト上限（`MAX_DECISION_EVENT_BYTES`）: RED は skip（「#1623 待ち（H-10 = c）」）。#1623 の定数が main に入った後にだけ skip を外す — rollback: skip を戻す
+- [x] H-10 の Human 決定（2026-11-26）: #1623 を先にマージし、バイト再検査は #1391 後半で実装する。
+- [ ] 🤖 mutation 32 — rollback: 不要
