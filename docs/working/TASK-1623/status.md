@@ -2,7 +2,7 @@
 
 - Issue: s977043/PlanGate#1623
 - Mode: high-risk
-- 現在フェーズ: C-3 待ち
+- 現在フェーズ: exec
 - スライス: 前半（#1623-a）のみ本計画の exec 対象。後半（#1623-b、I-11 / AC-2）は #1393 core と同時かその直後・別 C-3。#1623 は前半マージ後も Open
 
 ## フェーズ履歴
@@ -19,6 +19,31 @@
 | 2026-11-26 18:41 | C-1 | 簡易 C-1（Rev 8）: WARN（FAIL 0、review-self.md 追記分） |
 | 2026-11-26 18:41 | C-3 待ち | 前半のみの C-3 待ち。T-00（`evidence/mc2a-c3.txt`）・H-01e・Q-2 が未了。c3.json 未発行 |
 | 2026-11-27 08:49 | C-3 待ち | MC-2a（C-3 時点）: AI が照合して提示、Human が一致を確認（2026-11-26 19:03 JST）。evidence/mc2a-c3.txt |
+| 2026-11-27 18:50 | exec | C-3 APPROVED（前半のみ）。`approvals/c3.json` approved_at 2026-11-27T04:52:05Z、plan_hash は plan.md 実測と一致 |
+| 2026-11-27 18:50 | exec | H-01e（R-032）充足: `origin/feat/1391-phase1b-exec`（`924e45c0`）の TASK-1391 todo.md:75（C-4 行）と status.md:99 が `c4-preconditions.md` を参照。exec-1391 worktree の tracked な未 commit 変更 0 件（オーガナイザー実測 2026-11-27） |
+| 2026-11-27 18:50 | exec | Q-2 確定: Human がチャットで「この値で確定」と回答（2026-11-27）。値は「## Q-2 確定値」節 |
+
+## C-3 Gate: APPROVED
+
+- 対象: 前半（#1623-a）のみ
+- `docs/working/TASK-1623/approvals/c3.json`: `c3_status` APPROVED、`approved_at` 2026-11-27T04:52:05Z
+- `plan_hash`: `sha256:0ec670f7002502aed8e509464d748b588ff52b9748d8e2541ba2091b152b0ed0`
+- `shasum -a 256 docs/working/TASK-1623/plan.md` の実測値と一致（2026-11-27 18:50）
+- C-1 Rev 8 の WARN 4 件を Human が確認のうえ承認
+- exec 開始条件 H-01e（R-032）は充足（フェーズ履歴参照）
+
+## Q-2 確定値
+
+Human がチャットで「この値で確定」と回答（2026-11-27）。T-01 は本節から転記する。
+
+| 対象 | 上限 |
+|---|---|
+| `run_id` | ≤68 文字 |
+| `event_seq` / `revision` / `input_last_event_seq` / `contract_bound_seq` | ≤2048 |
+| `inputs` + `failure_fingerprints` 合計 | ≤256 |
+| `verdicts` | ≤16 件・キー ASCII ≤71 |
+| `stop_reasons` | ≤9 件（`ALLOWED_STOP_REASONS` 9 種、重複も件数に数える） |
+| `artifact_ref` / `source_sha` | 既に確定済み |
 
 ## 全体構成（PR 一覧）
 
@@ -29,9 +54,10 @@
 ## 残タスク
 
 - [x] Human: Q-1 順序決定 → 案 B（2026-11-26、plan.md D-1）
-- [ ] Human / owner: Q-2 の上限確認
+- [x] Human / owner: Q-2 の上限確認（H-02、2026-11-27 確定。「## Q-2 確定値」）
 - [x] C-2（R1〜R6、R6 で収束）
-- [ ] Human: C-3（前半のみ）
+- [x] Human: C-3（前半のみ）→ APPROVED（2026-11-27）
+- [x] Human: H-01e exec 開始条件（R-032）→ 充足（2026-11-27）
 - [ ] 前半マージ条件 MC-1〜MC-3（plan.md）。MC-2 は #1391 PR の CI で確認
 
 BLOCKED 相当:

@@ -45,9 +45,9 @@ high-risk（plan.md「Mode判定」）。全実装タスクに rollback を記�
 - [x] H-01b MC-2 の移管 → D-2（2026-11-26）
 - [x] H-01c 前半からズレ検出を外す → D-3（2026-11-26）
 - [x] H-01d R-024 は TASK-1391 文書に C-4 前提を書いて閉じる → D-4（2026-11-26）。記載はオーガナイザー、記載先と commit を exec 前に status.md へ記録（記載はオーガナイザーが commit `3a7373f0` の `docs/working/TASK-1391/c4-preconditions.md` で実施済み。H-1391-1〜6 の文面の正本は同ファイル, R-031）
-- [ ] H-01e exec 開始条件（R-032）: TASK-1391 の todo の C-4 行から `c4-preconditions.md` が参照されていることを確認する。TASK-1391 の status / todo には別セッションの未 commit 変更があり未追記のため、その変更の扱いと追記を Human が決める（本 TASK の worker は TASK-1391 を変更しない）
-- [ ] H-02 Q-2 の owner 確認（#1392 / #1393 / #1395）。期限: 初回確認から 5 営業日（RT-3 / R-010）
-- [ ] H-03 C-3（c3.json 発行）。MC-2a の C-3 時点分（`evidence/mc2a-c3.txt`、行範囲と前提構造の文章仕様の突き合わせ）を確認（R-013 / R-023 / R-025）
+- [x] H-01e exec 開始条件（R-032）: TASK-1391 の todo の C-4 行から `c4-preconditions.md` が参照されていることを確認する。TASK-1391 の status / todo には別セッションの未 commit 変更があり未追記のため、その変更の扱いと追記を Human が決める（本 TASK の worker は TASK-1391 を変更しない）
+- [x] H-02 Q-2 の owner 確認（#1392 / #1393 / #1395）。期限: 初回確認から 5 営業日（RT-3 / R-010）
+- [x] H-03 C-3（c3.json 発行）。MC-2a の C-3 時点分（`evidence/mc2a-c3.txt`、行範囲と前提構造の文章仕様の突き合わせ）を確認（R-013 / R-023 / R-025）
 - [ ] H-03b 前半 C-4 時点の MC-2a（`evidence/mc2a-c4.txt`、fixture 実物との突き合わせ）を確認（R-013 / R-023 / R-025）。`git diff --name-only <記録 head> <現 head>` に出るパスが `docs/working/TASK-1623/` 配下の evidence 自身だけで、fixture のパスと `scripts/ai-loop-v2/` 配下が含まれないことを確かめ、含まれれば T-05c の作り直しを求める（R-029 / R-033）
 - [ ] H-03c 前半 C-4 前に MC-4 本文案と投稿先（`evidence/mc4-draft.md`）を確認（R-022）
 - [ ] H-05 #1623-b の C-3 で MC-4 投稿 URL と H-1391-1〜6 すべての evidence を条件に含める（R-015 / R-022 / R-024、本 todo の exec 対象外）
