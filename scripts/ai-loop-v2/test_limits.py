@@ -67,8 +67,13 @@ class LimitsFixtureTest(unittest.TestCase):
         self.assertEqual(limits.MAX_REF_CHARS, len("sha256:" + "0" * 64))
 
     def test_decision_event_bytes(self) -> None:
-        self.assertEqual({outcome for outcome, _ in EXPECTED_BYTES},
-                         {None, "MERGE_READY", "BLOCKED", "HUMAN_ESCALATED"})
+        cases = {
+            (outcome, artifact)
+            for outcome in (None, "MERGE_READY", "BLOCKED", "HUMAN_ESCALATED")
+            for artifact in (False, True)
+            if outcome != "MERGE_READY" or artifact
+        }
+        self.assertEqual(EXPECTED_BYTES.keys(), cases)
         for (outcome, artifact), expected in EXPECTED_BYTES.items():
             with self.subTest(outcome=outcome, artifact=artifact):
                 for input_count in (0, 128, 256):

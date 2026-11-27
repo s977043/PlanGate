@@ -25,7 +25,7 @@ def worst_case_event(outcome, *, artifact, input_count):
         "outcome": outcome,
         "stop_reasons": [],
         "input_last_event_seq": 2047,
-        "contract_bound_seq": 2047,
+        "contract_bound_seq": 2046,
         "decided_in_state": "PR_CONVERGING",
         "failure_fingerprints": refs[input_count:],
         "verdicts": {chr(index) * 71: "unavailable" for index in range(16, 32)},
@@ -57,7 +57,7 @@ def byte_parts(event):
     without_fixed = {key: value for key, value in decision.items() if key not in fixed}
     envelope = {**event, "payload": {"decision": {}}}
 
-    # Both objects are nonempty, so their join replaces one brace with a comma.
+    # Only the members and their joining comma go inside the envelope braces.
     fixed_size = len(canonical_bytes(fixed)) - 1
     input_size = len(canonical_bytes(without_fixed)) - 2
     return input_size, fixed_size, len(canonical_bytes(envelope))

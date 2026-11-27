@@ -102,3 +102,9 @@ BLOCKED 相当:
 - 投稿本文案を [evidence/mc4-draft.md](evidence/mc4-draft.md) に保存。正本 commit `3a7373f0` の C-4 前提 6 項目を抽出し、節の SHA-256 が承認済み plan の値と一致した。H-03c の Human 確認待ち。
 - 各 outcome・artifact 有無の 7 組 × inputs と fingerprints の全配分 257 通り、計 1,799 event をローカルで測定。全件で区分合計と event サイズが一致し、固定部分と envelope は各定数以下。全体の最大は HUMAN_ESCALATED・artifact ありの 27,042 bytes。
 - 実装 PR のレビュー順は T-09 → 実装 PR の CI で T-11 → T-05c。本分岐の計画 PR #1668 のチェックは実装 PR の証拠に流用しない。#1392 の terminal reserve は #1623-a を取り込んだ #1391 の C-4 の後に実装・検証する。
+
+### T-09 独立レビュー R1
+
+- PR #1669 の `c1dd5e81` を算定契約と検証経路の 2 観点で独立レビュー。I-10 の厳密不等式に合わせて fixture の `contract_bound_seq` を 2046 に修正し、4 桁と 27,042 bytes は維持。
+- 任意 artifact の片側だけが欠落した場合も検出するため、期待値表と合法な 7 組を照合。TA-118 は要約を 1 回で判定し、違反検出コマンドのエラーを「違反なし」と扱う経路を解消。
+- 是正後のローカル TA-118 は 7 件 PASS。T-09 R2 と修正 head の CI 証跡は確認待ち。
