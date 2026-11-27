@@ -42,6 +42,7 @@ _T118_OUT=$(python3 "$_T118_ROOT/scripts/ai-loop-v2/test_limits.py" 2>&1) || _T1
 if [ "$_T118_RC" -eq 0 ] &&
   printf '%s\n' "$_T118_OUT" | awk '
     /^Ran [1-9][0-9]* tests? in / { ran++ }
+    /^Ran 0 tests? in / { rejected = 1 }
     /^OK$/ { ok++ }
     /^OK \(.*(skipped|expected failures)=[1-9][0-9]*([,)])/ { rejected = 1 }
     END { exit !(ran == 1 && ok == 1 && !rejected) }
