@@ -1,0 +1,29 @@
+MC-2a（C-3 時点）構造の出典の突き合わせ — 下書き（AI 提示、Human 確認待ち）
+基準 SHA: 6756a597（scripts/ai-loop-v2/run_event.py の blob be71ded64610736e045a12bf6cea6d5caf8318a2）
+実施: 2026-11-26（AI が提示。Human の確認日時は status.md に記録する）
+行範囲: 39-43 / 52-74 / 81-84 / 136-171 / 467-474
+コマンド: git show 6756a597:scripts/ai-loop-v2/run_event.py | sed -n '39,43p;52,74p;81,84p;136,171p;467,474p'
+
+行アンカーの確認（git show 6756a597:scripts/ai-loop-v2/run_event.py | grep -n）:
+  39 DECISION_REQUIRED_KEYS / 43 DECISION_OPTIONAL_KEYS / 68 "decision_made": {"decision"} /
+  71 COMMON_ACCEPTED_KEYS / 81 def canonical_bytes / 136 def _validate_decision / 467 def _validate_append_only
+  → plan.md の MC-2a 行範囲（TASK-1623 plan.md:121-127）と一致
+
+前提構造の文章仕様（TASK-1623 plan.md:129）との突き合わせ:
+| 仕様 | 6756a597 の定義 | 判定 |
+|---|---|---|
+| decision の必須キー 9 個 | DECISION_REQUIRED_KEYS = action, inputs, outcome, stop_reasons, input_last_event_seq, contract_bound_seq, decided_in_state, failure_fingerprints, verdicts（9 個） | 一致 |
+| 任意キー artifact_ref | DECISION_OPTIONAL_KEYS = {"artifact_ref"} | 一致 |
+| decision_made の payload | EVENT_PAYLOAD_KEYS["decision_made"] = {"decision"} | 一致 |
+| accepted event のキー 10 個 | COMMON_ACCEPTED_KEYS = schema_version, run_id, event_seq, revision, event_type, harness_manifest_ref, plan_hash, source_sha, payload, event_ref（10 個） | 一致 |
+| canonical_bytes の json.dumps 引数 | ensure_ascii=False, sort_keys=True, separators=(",", ":")、.encode("utf-8") | 一致 |
+
+RT-2（TASK-1623 plan.md:273）の判定:
+  <head> = origin/feat/1391-phase1b-exec tip = 924e45c0d1e387a3a1ed1d00dc48d58c968d788e（2026-11-26 19:08 測定）
+  git diff 6756a597 924e45c0 -- scripts/ai-loop-v2/run_event.py → 出力なし（差分なし）。RT-2 に該当しない
+  陽性コントロール: git diff --stat ca4af956 6756a597 -- scripts/ai-loop-v2/run_event.py → 1 file changed, 198 insertions(+), 37 deletions(-)
+  補足: 924e45c0 の run_event.py の blob は be71ded64610736e045a12bf6cea6d5caf8318a2（6756a597 と同一）
+
+結論（AI の照合）: 5 項目すべて一致。RT-9（1 行でも不一致なら測り直し）には当たらない。
+Human 確認: [x] 一致を確認した（日時: 2026-11-26 19:03 JST。チャットでの Human の回答「一致を確認した」）
+Human 再確認（RT-2 の 2 行追記後）: [x] 確認した（日時: 2026-11-26 22:36 JST。チャットでの Human の回答「再確認した」。同時刻に origin/feat/1391-phase1b-exec tip が 924e45c0 のままであることを再測定）
