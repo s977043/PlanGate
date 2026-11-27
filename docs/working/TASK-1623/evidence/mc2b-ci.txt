@@ -1,0 +1,15 @@
+MC-2b — TA-118 の PR CI 証跡
+PR #1669 head: 8df59d5782a4e74302a74a1eb556b3be8aa76325
+Test run 45992772085 / job 140484534229: success
+https://github.com/s977043/PlanGate/actions/runs/45992772085/job/140484534229
+plangate CLI tests	Run CLI tests	2026-11-27T11:43:51.0236343Z [extras] >>> ta-118-ai-loop-v2-limits.sh (start t+29s)
+plangate CLI tests	Run CLI tests	2026-11-27T11:43:51.0259182Z TA-118: ai-loop V2 input limits
+plangate CLI tests	Run CLI tests	2026-11-27T11:43:51.0979311Z .......
+plangate CLI tests	Run CLI tests	2026-11-27T11:43:51.0979980Z ----------------------------------------------------------------------
+plangate CLI tests	Run CLI tests	2026-11-27T11:43:51.0980380Z Ran 7 tests in 0.011s
+plangate CLI tests	Run CLI tests	2026-11-27T11:43:51.0980530Z
+plangate CLI tests	Run CLI tests	2026-11-27T11:43:51.0980619Z OK
+plangate CLI tests	Run CLI tests	2026-11-27T11:43:51.0980867Z   [PASS] ai-loop V2 limits tests
+plangate CLI tests	Run CLI tests	2026-11-27T11:43:51.1016372Z [extras] <<< ta-118-ai-loop-v2-limits.sh done in 0s (new failures: 0)
+plangate CLI tests	Run CLI tests	2026-11-27T11:43:51.1077038Z
+判定: 7 tests、skip 0、expected failures 0、TA-118 PASS、harness new failures 0。

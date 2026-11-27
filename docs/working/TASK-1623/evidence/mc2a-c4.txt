@@ -1,0 +1,150 @@
+MC-2a — C-4 時点の構造照合（Human 確認待ち）
+PR #1669 記録 head: 8df59d5782a4e74302a74a1eb556b3be8aa76325
+fixture: scripts/ai-loop-v2/fixtures/decision_event_worst_case.py
+fixture blob SHA: 0131d95f3549d9ae8bd8963caadbb1593f43379a
+構造の出典: 6756a597a6f42a8c2a51f879e761e73717d44da9
+照合対象: accepted event 10 キー、payload.decision、decision 必須 9 キーと任意 artifact_ref、canonical JSON の設定。
+結果: 7 ケースでキー集合と設定が一致。正式 I-11 と実 validator の実行は後続の受入。
+
+固定版の定義行（39–43, 52–74, 81–84, 136–171, 467–474）:
+DECISION_REQUIRED_KEYS = {
+    "action", "inputs", "outcome", "stop_reasons", "input_last_event_seq",
+    "contract_bound_seq", "decided_in_state", "failure_fingerprints", "verdicts",
+}
+DECISION_OPTIONAL_KEYS = {"artifact_ref"}
+EVENT_PAYLOAD_KEYS = {
+    "plan_contract_bound": {"loop_contract_ref", "required_verifiers", "evidence_ref"},
+    "worker_completed": {"artifact_ref", "evidence_ref"},
+    "verification_recorded": {"verification"},
+    "failure_recorded": {"failure"},
+    "artifact_changed": {
+        "before_artifact_ref", "after_artifact_ref", "changed_paths", "evidence_ref",
+    },
+    "repair_attempted": {
+        "before_artifact_ref", "after_artifact_ref", "changed_paths",
+        "evidence_delta", "resolved_blockers", "introduced_blockers", "evidence_ref",
+    },
+    "progress_assessed": {"progress", "id"},
+    "pr_convergence_recorded": {"convergence", "observed_artifact_ref", "evidence_refs"},
+    "policy_verdict_recorded": {"verdict", "observed_artifact_ref", "evidence_refs"},
+    "blockers_observed": {"observed_artifact_ref", "blockers", "evidence_refs"},
+    "decision_made": {"decision"},
+    "state_conflict_recorded": {"expected_revision", "actual_revision", "evidence_ref"},
+}
+COMMON_ACCEPTED_KEYS = {
+    "schema_version", "run_id", "event_seq", "revision", "event_type",
+    "harness_manifest_ref", "plan_hash", "source_sha", "payload", "event_ref",
+}
+def canonical_bytes(value: Any) -> bytes:
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+def _validate_decision(value) -> None:
+    if not isinstance(value, dict) or not (
+        DECISION_REQUIRED_KEYS <= set(value) <= DECISION_REQUIRED_KEYS | DECISION_OPTIONAL_KEYS
+    ):
+        raise EventContractError("decision keys")
+    if value["action"] not in ALLOWED_ACTIONS:
+        raise EventContractError("decision")
+    _validate_unique_strings(value["inputs"], "decision inputs", non_empty=False)
+    if value["outcome"] is not None and value["outcome"] not in ALLOWED_OUTCOMES:
+        raise EventContractError("outcome")
+    if (
+        not isinstance(value["stop_reasons"], list)
+        or any(reason not in ALLOWED_STOP_REASONS for reason in value["stop_reasons"])
+    ):
+        raise EventContractError("stop_reasons")
+    if value["outcome"] == "MERGE_READY" and value["stop_reasons"]:
+        raise EventContractError("MERGE_READY reasons")
+    if value["outcome"] in {"HUMAN_ESCALATED", "BLOCKED"} and not value["stop_reasons"]:
+        raise EventContractError("terminal reasons")
+    if type(value["input_last_event_seq"]) is not int or value["input_last_event_seq"] < 0:
+        raise EventContractError("input_last_event_seq")
+    if type(value["contract_bound_seq"]) is not int or value["contract_bound_seq"] < 1:
+        raise EventContractError("contract_bound_seq")
+    if value["decided_in_state"] not in ALLOWED_DECIDED_IN_STATES:
+        raise EventContractError("decided_in_state")
+    _validate_unique_strings(
+        value["failure_fingerprints"], "failure_fingerprints", non_empty=False
+    )
+    verdicts = value["verdicts"]
+    if not isinstance(verdicts, dict) or any(
+        not isinstance(key, str) or not key or verdict not in ALLOWED_DECISION_VERDICTS
+        for key, verdict in verdicts.items()
+    ):
+        raise EventContractError("verdicts")
+    if value["outcome"] == "MERGE_READY" or "artifact_ref" in value:
+        _validate_sha256(value.get("artifact_ref"), "decision artifact_ref")
+def _validate_append_only(candidate: dict) -> None:
+    event = validate_event(candidate)
+    if event["event_type"] == "decision_made":
+        decision = event["payload"]["decision"]
+        if len(decision["inputs"]) > MAX_INPUT_REFS:
+            raise EventContractError("decision inputs exceed MAX_INPUT_REFS")
+        if decision["input_last_event_seq"] != event["event_seq"] - 1:
+            raise EventContractError("input_last_event_seq must be event_seq - 1")
+
+記録 head の fixture:
+"""TASK-1623 byte fixtures for the accepted event structure at 6756a597."""
+
+import hashlib
+import json
+
+SOURCE_SHA = "6756a597a6f42a8c2a51f879e761e73717d44da9"
+STOP_REASONS = [
+    "NO_PROGRESS", "REPEATED_FAILURE", "OSCILLATION", "BUDGET_EXHAUSTED",
+    "POLICY_DENIED", "VERIFIER_UNAVAILABLE", "REQUIREMENT_CONFLICT",
+    "STATE_CONFLICT", "HUMAN_REJECTED",
+]
+
+
+def canonical_bytes(value):
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+
+
+def worst_case_event(outcome, *, artifact, input_count):
+    refs = [f"sha256:{index:064x}" for index in range(256)]
+    decision = {
+        "action": "continue" if outcome is None else "stop",
+        "inputs": refs[:input_count],
+        "outcome": outcome,
+        "stop_reasons": [],
+        "input_last_event_seq": 2047,
+        "contract_bound_seq": 2046,
+        "decided_in_state": "PR_CONVERGING",
+        "failure_fingerprints": refs[input_count:],
+        "verdicts": {chr(index) * 71: "unavailable" for index in range(16, 32)},
+    }
+    if outcome in ("BLOCKED", "HUMAN_ESCALATED"):
+        # Q-2 counts duplicates toward the nine-entry limit.
+        longest_reason = max(STOP_REASONS, key=lambda reason: len(canonical_bytes(reason)))
+        decision["stop_reasons"] = [longest_reason] * 9
+    if artifact:
+        decision["artifact_ref"] = refs[0]
+    event = {
+        "schema_version": "1",
+        "run_id": "RUN-" + "A" * 64,
+        "event_seq": 2048,
+        "revision": 2047,
+        "event_type": "decision_made",
+        "harness_manifest_ref": refs[1],
+        "plan_hash": refs[2],
+        "source_sha": "a" * 40,
+        "payload": {"decision": decision},
+    }
+    event["event_ref"] = "sha256:" + hashlib.sha256(canonical_bytes(event)).hexdigest()
+    return event
+
+
+def byte_parts(event):
+    decision = event["payload"]["decision"]
+    fixed = {key: decision[key] for key in ("action", "outcome", "stop_reasons")}
+    without_fixed = {key: value for key, value in decision.items() if key not in fixed}
+    envelope = {**event, "payload": {"decision": {}}}
+
+    # Only the members and their joining comma go inside the envelope braces.
+    fixed_size = len(canonical_bytes(fixed)) - 1
+    input_size = len(canonical_bytes(without_fixed)) - 2
+    return input_size, fixed_size, len(canonical_bytes(envelope))

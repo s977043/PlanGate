@@ -37,14 +37,22 @@ fi
 
 printf 'TA-118: ai-loop V2 input limits\n'
 
-if _T118_OUT=$(python3 "$_T118_ROOT/scripts/ai-loop-v2/test_limits.py" 2>&1); then
+_T118_RC=0
+_T118_OUT=$(python3 "$_T118_ROOT/scripts/ai-loop-v2/test_limits.py" 2>&1) || _T118_RC=$?
+if [ "$_T118_RC" -eq 0 ] &&
+  printf '%s\n' "$_T118_OUT" | awk '
+    /^Ran [1-9][0-9]* tests? in / { ran++ }
+    /^Ran 0 tests? in / { rejected = 1 }
+    /^OK$/ { ok++ }
+    /^OK \(.*(skipped|expected failures)=[1-9][0-9]*([,)])/ { rejected = 1 }
+    END { exit !(ran == 1 && ok == 1 && !rejected) }
+  '; then
   printf '%s\n' "$_T118_OUT"
   printf '  [PASS] ai-loop V2 limits tests\n'
   pass=$((pass + 1))
 else
-  _T118_RC=$?
   printf '%s\n' "$_T118_OUT" >&2
-  printf '  [FAIL] limits tests failed (rc=%s)\n' "$_T118_RC" >&2
+  printf '  [FAIL] limits tests failed or did not run completely (rc=%s)\n' "$_T118_RC" >&2
   fail=$((fail + 1))
 fi
 

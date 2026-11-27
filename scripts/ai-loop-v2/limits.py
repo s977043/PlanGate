@@ -11,10 +11,16 @@ exit 2
 # Size limits for the ai-loop V2 DecisionInput (#1393 I-11, R-086 / R-087 / R-090 / R-091).
 #
 # Leaf module: imports no other ai-loop-v2 module. Values are provisional and fixed
-# by test_limits.py. The byte constants of the decision_made event are defined by a
-# follow-up task once the V2 decision_made structure is fixed (R-091).
+# by test_limits.py.
 from __future__ import annotations
 
 MAX_INPUT_REFS = 256
 MAX_REQUIRED_VERIFIERS = 16
 MAX_REF_CHARS = 71  # len("sha256:" + 64 lowercase hex), #1391 R-064
+
+# TASK-1623-a: exact sum of measured section maxima for the fixed event contract.
+# Input-derived 26259 + fixed 268 + event envelope 515. Store overhead is separate
+# and #1392 adds zero to the event bound. Contract drift requires remeasurement.
+DECISION_FIXED_OVERHEAD = 268
+ENVELOPE_OVERHEAD = 515
+MAX_DECISION_EVENT_BYTES = 27042
