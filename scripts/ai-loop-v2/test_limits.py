@@ -19,10 +19,21 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import limits  # noqa: E402
+from fixtures.decision_event_worst_case import (  # noqa: E402
+    byte_parts, canonical_bytes, worst_case_event,
+)
 
 LIMITS_PATH = HERE / "limits.py"
 SIBLING_MODULES = {p.stem for p in HERE.glob("*.py")} - {"limits"}
-BYTE_CONSTANTS = {"MAX_DECISION_EVENT_BYTES", "DECISION_FIXED_OVERHEAD", "ENVELOPE_OVERHEAD"}
+EXPECTED_BYTES = {
+    (None, False): 26738,
+    (None, True): 26827,
+    ("MERGE_READY", True): 26832,
+    ("BLOCKED", False): 26945,
+    ("BLOCKED", True): 27034,
+    ("HUMAN_ESCALATED", False): 26953,
+    ("HUMAN_ESCALATED", True): 27042,
+}
 
 
 def _forbidden_imports(source: str, siblings: set[str]) -> set[str]:
@@ -55,9 +66,33 @@ class LimitsFixtureTest(unittest.TestCase):
     def test_ref_chars_matches_sha256_form(self) -> None:
         self.assertEqual(limits.MAX_REF_CHARS, len("sha256:" + "0" * 64))
 
-    def test_no_byte_constants(self) -> None:
-        for name in BYTE_CONSTANTS:
-            self.assertFalse(hasattr(limits, name), name)
+    def test_decision_event_bytes(self) -> None:
+        self.assertEqual({outcome for outcome, _ in EXPECTED_BYTES},
+                         {None, "MERGE_READY", "BLOCKED", "HUMAN_ESCALATED"})
+        for (outcome, artifact), expected in EXPECTED_BYTES.items():
+            with self.subTest(outcome=outcome, artifact=artifact):
+                for input_count in (0, 128, 256):
+                    event = worst_case_event(outcome, artifact=artifact, input_count=input_count)
+                    size = len(canonical_bytes(event))
+                    self.assertEqual(size, expected - int(0 < input_count < 256))
+                    self.assertEqual(sum(byte_parts(event)), size)
+                    self.assertLessEqual(size, limits.MAX_DECISION_EVENT_BYTES)
+
+    def test_byte_part_bounds(self) -> None:
+        parts = [
+            byte_parts(worst_case_event(outcome, artifact=artifact, input_count=256))
+            for outcome, artifact in EXPECTED_BYTES
+        ]
+        input_max, fixed_max, envelope_max = map(max, zip(*parts))
+        self.assertEqual(fixed_max, limits.DECISION_FIXED_OVERHEAD)
+        self.assertEqual(envelope_max, limits.ENVELOPE_OVERHEAD)
+        self.assertEqual(input_max + fixed_max + envelope_max, limits.MAX_DECISION_EVENT_BYTES)
+
+    def test_terminal_reserve_contract(self) -> None:
+        terminal_reserve = (1, limits.MAX_DECISION_EVENT_BYTES)
+        event = worst_case_event("HUMAN_ESCALATED", artifact=True, input_count=256)
+        self.assertGreaterEqual(terminal_reserve[0], 1)
+        self.assertGreaterEqual(terminal_reserve[1], len(canonical_bytes(event)))
 
     def test_imports_no_ai_loop_v2_module(self) -> None:
         self.assertTrue(SIBLING_MODULES, "sibling module discovery is empty")

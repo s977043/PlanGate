@@ -49,7 +49,8 @@ Human がチャットで「この値で確定」と回答（2026-11-27）。T-01
 
 | ブランチ | 状態 |
 |---|---|
-| `docs/TASK-1623-plan` | push 済み・PR なし |
+| `docs/TASK-1623-plan` | [計画 PR #1668](https://github.com/s977043/PlanGate/pull/1668) OPEN。リモートは `8bbdc792`、ローカルには C-3・Q-2 の記録コミット `f1d8d1e6` まであり |
+| `feat/1391-phase1b-exec` | [Draft #1667](https://github.com/s977043/PlanGate/pull/1667)。照合時のリモートは `924e45c0` |
 
 ## 残タスク
 
@@ -77,3 +78,27 @@ BLOCKED 相当:
 ## 次の作業（Claude Code プロンプト）
 
 `docs/working/TASK-1623/plan.md` Rev 2（前半スコープ）に対し C-2 を 2 レーン・2 ラウンドで実施し、review-external.md に R-NNN で集約する。c3.json は作らない。
+
+## #1623-a 着手前照合（2026-11-27）
+
+- T-00 / T-01: MC-2a の Human 確認と Q-2 確定値の転記を確認。C-3 の `plan_hash` と現行 plan の SHA-256 が一致。
+- T-02: GitHub main は `f67c7956`。計画の基準 `fd6b6843` からは実行計画の文書変更のみ。#1391 のリモート先端は MC-2a 記録時の `924e45c0` と一致し、`6756a597..924e45c0` の `run_event.py` 差分は空。RT-2 非発火。
+- 次工程は T-03 → T-04 → T-05b / T-07 → T-08 → T-09。前半 PR で T-11 の CI ログを採取し、fixture を確定したあと T-05c の Human 照合へ進む。実 validator の照合は #1391 後半、正式 I-11 は #1623-b。
+
+## #1623-a ローカル実装と検証
+
+- T-03 RED: 定数の追加前に、新 fixture テストが欠落した byte 定数の参照で FAIL。
+- T-04: 算定は input 由来 26,259 + fixed 223 + event envelope 515 = 26,997 bytes。固定した契約内の区分最大を合計し、余裕分は加えていない。契約変更時は再計測する。
+- T-05b / T-07: TA-118 standalone 7 テスト PASS、skip 0。reserve は契約 fixture。Model B の store は #1392 の受入で確認する。
+- T-08 確認済みの mutation: 上限 −1、escape の過少計上、二重計上、skip、expected failure、0 件収集で FAIL。通常本文の同名表現では PASS。outcome 欠落の実行確認、レビュー、PR CI、C-4 時点照合は次工程。
+
+### T-08 の完了と T-09 自己レビューでの是正
+
+- Q-2 は停止理由の重複を 9 件の枠に数える。各理由を 1 回ずつ使った初版は、最長の理由を 9 回使う場合を過少算定していた。旧値 26,997 を新 fixture が拒否することを確認し、固定部分を 223 → 268 bytes、全体上限を **27,042 bytes** に是正した。入力由来 26,259 bytes と event envelope 515 bytes は同じ。
+- 一時コピーで outcome 1 種欠落、理由の重複を数えない旧算定、上限 −1 の全件を検出。最終ローカル TA-118 は 7 件 PASS。T-09 の独立レビュー、実装 PR の CI、C-4 の Human 照合は未了。
+
+### T-05d と追加の算定検証
+
+- 投稿本文案を [evidence/mc4-draft.md](evidence/mc4-draft.md) に保存。正本 commit `3a7373f0` の C-4 前提 6 項目を抽出し、節の SHA-256 が承認済み plan の値と一致した。H-03c の Human 確認待ち。
+- 各 outcome・artifact 有無の 7 組 × inputs と fingerprints の全配分 257 通り、計 1,799 event をローカルで測定。全件で区分合計と event サイズが一致し、固定部分と envelope は各定数以下。全体の最大は HUMAN_ESCALATED・artifact ありの 27,042 bytes。
+- 実装 PR のレビュー順は T-09 → 実装 PR の CI で T-11 → T-05c。本分岐の計画 PR #1668 のチェックは実装 PR の証拠に流用しない。#1392 の terminal reserve は #1623-a を取り込んだ #1391 の C-4 の後に実装・検証する。
